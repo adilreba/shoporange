@@ -1,0 +1,261 @@
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, Chrome, Facebook, User, Phone, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
+import { Header } from '@/components/common/Header';
+import { Footer } from '@/components/common/Footer';
+import { useAuthStore } from '@/stores/authStore';
+import { toast } from 'sonner';
+
+export function Register() {
+  const navigate = useNavigate();
+  const { register, socialLogin, isLoading } = useAuthStore();
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    passwordConfirm: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (formData.password !== formData.passwordConfirm) {
+      toast.error('Şifreler eşleşmiyor');
+      return;
+    }
+    
+    if (formData.password.length < 6) {
+      toast.error('Şifre en az 6 karakter olmalıdır');
+      return;
+    }
+    
+    if (!agreeTerms) {
+      toast.error('Kullanım koşullarını kabul etmelisiniz');
+      return;
+    }
+    
+    const success = await register({
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password
+    });
+    
+    if (success) {
+      toast.success('Kayıt başarılı! Hoş geldiniz.');
+      navigate('/');
+    } else {
+      toast.error('Kayıt başarısız. Lütfen tekrar deneyin.');
+    }
+  };
+
+  const handleSocialLogin = async (provider: 'google' | 'facebook') => {
+    const success = await socialLogin(provider);
+    if (success) {
+      toast.success(`${provider === 'google' ? 'Google' : 'Facebook'} ile kayıt başarılı!`);
+      navigate('/');
+    } else {
+      toast.error('Sosyal medya kaydı başarısız');
+    }
+  };
+
+  const updateField = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      
+      <main className="container-custom py-12">
+        <div className="max-w-md mx-auto">
+          <div className="bg-white rounded-2xl shadow-soft p-8">
+            {/* Logo */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold mb-2">
+                <span className="text-gradient">Shop</span>
+                <span className="text-orange-600">Orange</span>
+              </h1>
+              <p className="text-gray-500">Yeni hesap oluşturun</p>
+            </div>
+
+            {/* Social Login */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => handleSocialLogin('google')}
+                disabled={isLoading}
+              >
+                <Chrome className="h-5 w-5 mr-2 text-red-500" />
+                Google
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => handleSocialLogin('facebook')}
+                disabled={isLoading}
+              >
+                <Facebook className="h-5 w-5 mr-2 text-blue-600" />
+                Facebook
+              </Button>
+            </div>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <Separator />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">veya e-posta ile kaydol</span>
+              </div>
+            </div>
+
+            {/* Register Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="name">Ad Soyad *</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Ahmet Yılmaz"
+                    value={formData.name}
+                    onChange={(e) => updateField('name', e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="email">E-posta *</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="ornek@email.com"
+                    value={formData.email}
+                    onChange={(e) => updateField('email', e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="phone">Telefon (İsteğe bağlı)</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="05XX XXX XX XX"
+                    value={formData.phone}
+                    onChange={(e) => updateField('phone', e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="password">Şifre *</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={(e) => updateField('password', e.target.value)}
+                    className="pl-10 pr-10"
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">En az 6 karakter</p>
+              </div>
+
+              <div>
+                <Label htmlFor="passwordConfirm">Şifre Tekrar *</Label>
+                <Input
+                  id="passwordConfirm"
+                  type="password"
+                  placeholder="••••••••"
+                  value={formData.passwordConfirm}
+                  onChange={(e) => updateField('passwordConfirm', e.target.value)}
+                  required
+                />
+              </div>
+
+              <label className="flex items-start gap-2 cursor-pointer">
+                <Checkbox 
+                  checked={agreeTerms}
+                  onCheckedChange={(checked) => setAgreeTerms(checked as boolean)}
+                  className="mt-1"
+                />
+                <span className="text-sm text-gray-600">
+                  <Link to="/terms" className="text-orange-600 hover:underline">Kullanım Koşulları</Link>'nı ve{' '}
+                  <Link to="/privacy" className="text-orange-600 hover:underline">Gizlilik Politikası</Link>'nı okudum ve kabul ediyorum.
+                </span>
+              </label>
+
+              <Button 
+                type="submit" 
+                className="w-full gradient-orange h-11"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Kayıt yapılıyor...' : 'Kayıt Ol'}
+              </Button>
+            </form>
+
+            {/* Benefits */}
+            <div className="mt-6 p-4 bg-orange-50 rounded-lg">
+              <p className="text-sm font-medium text-orange-800 mb-2">Üye Olmanın Avantajları:</p>
+              <ul className="text-sm text-orange-700 space-y-1">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" />
+                  Hızlı ve kolay ödeme
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" />
+                  Sipariş takibi
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" />
+                  Özel indirimler ve kampanyalar
+                </li>
+              </ul>
+            </div>
+
+            <p className="text-center text-sm text-gray-600 mt-6">
+              Zaten hesabınız var mı?{' '}
+              <Link to="/login" className="text-orange-600 font-medium hover:underline">
+                Giriş yapın
+              </Link>
+            </p>
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}

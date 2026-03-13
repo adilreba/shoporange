@@ -1,0 +1,176 @@
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, Chrome, Facebook } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
+import { Header } from '@/components/common/Header';
+import { Footer } from '@/components/common/Footer';
+import { useAuthStore } from '@/stores/authStore';
+import { toast } from 'sonner';
+
+export function Login() {
+  const navigate = useNavigate();
+  const { login, socialLogin, isLoading } = useAuthStore();
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const success = await login({ email, password });
+    if (success) {
+      toast.success('Giriş başarılı!');
+      navigate('/');
+    } else {
+      toast.error('Giriş başarısız. Bilgilerinizi kontrol edin.');
+    }
+  };
+
+  const handleSocialLogin = async (provider: 'google' | 'facebook') => {
+    const success = await socialLogin(provider);
+    if (success) {
+      toast.success(`${provider === 'google' ? 'Google' : 'Facebook'} ile giriş başarılı!`);
+      navigate('/');
+    } else {
+      toast.error('Sosyal medya girişi başarısız');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      
+      <main className="container-custom py-12">
+        <div className="max-w-md mx-auto">
+          <div className="bg-white rounded-2xl shadow-soft p-8">
+            {/* Logo */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold mb-2">
+                <span className="text-gradient">Shop</span>
+                <span className="text-orange-600">Orange</span>
+              </h1>
+              <p className="text-gray-500">Hesabınıza giriş yapın</p>
+            </div>
+
+            {/* Social Login */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => handleSocialLogin('google')}
+                disabled={isLoading}
+              >
+                <Chrome className="h-5 w-5 mr-2 text-red-500" />
+                Google
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => handleSocialLogin('facebook')}
+                disabled={isLoading}
+              >
+                <Facebook className="h-5 w-5 mr-2 text-blue-600" />
+                Facebook
+              </Button>
+            </div>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <Separator />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">veya e-posta ile</span>
+              </div>
+            </div>
+
+            {/* Login Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="email">E-posta</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="ornek@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="password">Şifre</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox 
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  />
+                  <span className="text-sm text-gray-600">Beni hatırla</span>
+                </label>
+                <Link to="/forgot-password" className="text-sm text-orange-600 hover:underline">
+                  Şifremi unuttum
+                </Link>
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full gradient-orange h-11"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+              </Button>
+            </form>
+
+            {/* Demo Credentials */}
+            <div className="mt-6 p-4 bg-orange-50 rounded-lg">
+              <p className="text-sm font-medium text-orange-800 mb-2">Demo Giriş Bilgileri:</p>
+              <div className="text-sm text-orange-700 space-y-1">
+                <p><strong>Admin:</strong> admin@shoporange.com / admin123</p>
+                <p><strong>User:</strong> Herhangi bir email / 6+ karakter şifre</p>
+              </div>
+            </div>
+
+            <p className="text-center text-sm text-gray-600 mt-6">
+              Hesabınız yok mu?{' '}
+              <Link to="/register" className="text-orange-600 font-medium hover:underline">
+                Kayıt olun
+              </Link>
+            </p>
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}

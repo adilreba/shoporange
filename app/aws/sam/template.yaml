@@ -1,0 +1,817 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: ShopOrange E-Commerce Backend - Complete Serverless Infrastructure
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs18.x
+    MemorySize: 512
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref ProductsTable
+        ORDERS_TABLE: !Ref OrdersTable
+        USERS_TABLE: !Ref UsersTable
+        REVIEWS_TABLE: !Ref ReviewsTable
+        CATEGORIES_TABLE: !Ref CategoriesTable
+        JWT_SECRET: !Ref JwtSecret
+
+Parameters:
+  JwtSecret:
+    Type: String
+    Description: JWT Secret for token generation
+    Default: 'change-this-secret-in-production-use-aws-secrets-manager'
+    NoEcho: true
+
+Resources:
+  # ============================================
+  # DYNAMODB TABLES
+  # ============================================
+  
+  ProductsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ShopOrange-Products
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: CategoryIndex
+          KeySchema:
+            - AttributeName: category
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Project
+          Value: ShopOrange
+        - Key: Environment
+          Value: Production
+
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ShopOrange-Orders
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: ShopOrange
+        - Key: Environment
+          Value: Production
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ShopOrange-Users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EmailIndex
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: ShopOrange
+        - Key: Environment
+          Value: Production
+
+  ReviewsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ShopOrange-Reviews
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: productId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ProductIndex
+          KeySchema:
+            - AttributeName: productId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: UserIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: ShopOrange
+        - Key: Environment
+          Value: Production
+
+  CategoriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ShopOrange-Categories
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: slug
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: SlugIndex
+          KeySchema:
+            - AttributeName: slug
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: ShopOrange
+        - Key: Environment
+          Value: Production
+
+  # ============================================
+  # API GATEWAY
+  # ============================================
+  
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+        MaxAge: "'600'"
+      MethodSettings:
+        - ResourcePath: /*
+          HttpMethod: *
+          LoggingLevel: INFO
+          MetricsEnabled: true
+          DataTraceEnabled: true
+
+  # ============================================
+  # LAMBDA FUNCTIONS - PRODUCTS
+  # ============================================
+  
+  GetProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: products.getProducts
+      Description: Get all products with optional filtering
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        GetProducts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /products
+            Method: GET
+
+  GetProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: products.getProduct
+      Description: Get a single product by ID
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        GetProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /products/{id}
+            Method: GET
+
+  CreateProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: products.createProduct
+      Description: Create a new product (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        CreateProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /products
+            Method: POST
+
+  UpdateProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: products.updateProduct
+      Description: Update an existing product (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        UpdateProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /products/{id}
+            Method: PUT
+
+  DeleteProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: products.deleteProduct
+      Description: Delete a product (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        DeleteProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /products/{id}
+            Method: DELETE
+
+  # ============================================
+  # LAMBDA FUNCTIONS - ORDERS
+  # ============================================
+  
+  CreateOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: orders.createOrder
+      Description: Create a new order
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        CreateOrder:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /orders
+            Method: POST
+
+  GetOrdersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: orders.getOrders
+      Description: Get all orders or filter by user
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        GetOrders:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /orders
+            Method: GET
+
+  GetOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: orders.getOrder
+      Description: Get a single order by ID
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        GetOrder:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /orders/{id}
+            Method: GET
+
+  UpdateOrderStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: orders.updateOrderStatus
+      Description: Update order status (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        UpdateOrderStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /orders/{id}/status
+            Method: PUT
+
+  # ============================================
+  # LAMBDA FUNCTIONS - USERS
+  # ============================================
+  
+  GetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: users.getUser
+      Description: Get user by ID
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GetUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /users/{id}
+            Method: GET
+
+  GetUserByEmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: users.getUserByEmail
+      Description: Get user by email
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GetUserByEmail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /users/email/{email}
+            Method: GET
+
+  CreateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: users.createUser
+      Description: Create a new user
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        CreateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /users
+            Method: POST
+
+  UpdateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: users.updateUser
+      Description: Update user profile
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        UpdateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /users/{id}
+            Method: PUT
+
+  GetUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: users.getUsers
+      Description: Get all users (Admin only)
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GetUsers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /users
+            Method: GET
+
+  # ============================================
+  # LAMBDA FUNCTIONS - AUTH
+  # ============================================
+  
+  LoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.login
+      Description: User login with email/password
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        Login:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/login
+            Method: POST
+
+  RegisterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.register
+      Description: User registration
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        Register:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/register
+            Method: POST
+
+  GoogleLoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.googleLogin
+      Description: Google OAuth login
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GoogleLogin:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/google
+            Method: POST
+
+  FacebookLoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.facebookLogin
+      Description: Facebook OAuth login
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        FacebookLogin:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/facebook
+            Method: POST
+
+  VerifyTokenFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.verifyToken
+      Description: Verify JWT token
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        VerifyToken:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/verify
+            Method: POST
+
+  ForgotPasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.forgotPassword
+      Description: Request password reset
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - SESSendBouncePolicy: {}
+      Events:
+        ForgotPassword:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/forgot-password
+            Method: POST
+
+  ResetPasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.resetPassword
+      Description: Reset password with token
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        ResetPassword:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/reset-password
+            Method: POST
+
+  # ============================================
+  # LAMBDA FUNCTIONS - REVIEWS
+  # ============================================
+  
+  GetReviewsByProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: reviews.getReviewsByProduct
+      Description: Get reviews for a product
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ReviewsTable
+      Events:
+        GetReviewsByProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /reviews
+            Method: GET
+
+  GetReviewsByUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: reviews.getReviewsByUser
+      Description: Get reviews by a user
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ReviewsTable
+      Events:
+        GetReviewsByUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /reviews/user
+            Method: GET
+
+  CreateReviewFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: reviews.createReview
+      Description: Create a new review
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ReviewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        CreateReview:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /reviews
+            Method: POST
+
+  MarkReviewHelpfulFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: reviews.markHelpful
+      Description: Mark a review as helpful
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ReviewsTable
+      Events:
+        MarkReviewHelpful:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /reviews/{id}/helpful
+            Method: POST
+
+  DeleteReviewFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: reviews.deleteReview
+      Description: Delete a review
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ReviewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        DeleteReview:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /reviews/{id}
+            Method: DELETE
+
+  # ============================================
+  # LAMBDA FUNCTIONS - CATEGORIES
+  # ============================================
+  
+  GetCategoriesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: categories.getCategories
+      Description: Get all categories
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        GetCategories:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /categories
+            Method: GET
+
+  GetCategoryBySlugFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: categories.getCategoryBySlug
+      Description: Get category by slug
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        GetCategoryBySlug:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /categories/{slug}
+            Method: GET
+
+  CreateCategoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: categories.createCategory
+      Description: Create a new category (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        CreateCategory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /categories
+            Method: POST
+
+  UpdateCategoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: categories.updateCategory
+      Description: Update a category (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        UpdateCategory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /categories/{id}
+            Method: PUT
+
+  DeleteCategoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: categories.deleteCategory
+      Description: Delete a category (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        DeleteCategory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /categories/{id}
+            Method: DELETE
+
+  # ============================================
+  # LAMBDA FUNCTIONS - SEED DATA
+  # ============================================
+  
+  SeedDataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: seed.seedData
+      Description: Seed initial data into DynamoDB tables
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Timeout: 300
+
+  # ============================================
+  # CLOUDWATCH LOGS
+  # ============================================
+  
+  ApiGatewayAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${ApiGateway}/access'
+      RetentionInDays: 30
+
+# ============================================
+# OUTPUTS
+# ============================================
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+  
+  ProductsTable:
+    Description: Products DynamoDB Table ARN
+    Value: !GetAtt ProductsTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ProductsTable'
+  
+  OrdersTable:
+    Description: Orders DynamoDB Table ARN
+    Value: !GetAtt OrdersTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-OrdersTable'
+  
+  UsersTable:
+    Description: Users DynamoDB Table ARN
+    Value: !GetAtt UsersTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-UsersTable'
+  
+  ReviewsTable:
+    Description: Reviews DynamoDB Table ARN
+    Value: !GetAtt ReviewsTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ReviewsTable'
+  
+  CategoriesTable:
+    Description: Categories DynamoDB Table ARN
+    Value: !GetAtt CategoriesTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-CategoriesTable'
