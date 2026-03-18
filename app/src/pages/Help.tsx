@@ -78,9 +78,10 @@ export function Help() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Header />
       
+      <main className="pt-[42px]">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-blue-500 to-blue-600 text-white py-16">
         <div className="container-custom text-center">
@@ -93,39 +94,36 @@ export function Help() {
           {/* Search */}
           <form onSubmit={handleSearch} className="max-w-xl mx-auto">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input 
                 type="text"
                 placeholder="Soru veya konu ara..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-xl text-gray-900"
+                className="w-full pl-12 pr-4 py-4 rounded-xl text-foreground"
               />
-              <Button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 gradient-orange">
-                Ara
-              </Button>
             </div>
           </form>
         </div>
       </section>
 
       {/* Quick Links */}
-      <section className="py-8 bg-white border-b">
+      <section className="py-8 bg-card border-b">
         <div className="container-custom">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link to="/track-order" className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-blue-50 transition-colors">
+            <Link to="/track-order" className="flex items-center gap-3 p-4 bg-muted rounded-xl hover:bg-blue-50 transition-colors">
               <Truck className="w-6 h-6 text-blue-500" />
               <span className="font-medium">Sipariş Takip</span>
             </Link>
-            <Link to="/returns" className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-blue-50 transition-colors">
+            <Link to="/returns" className="flex items-center gap-3 p-4 bg-muted rounded-xl hover:bg-blue-50 transition-colors">
               <RotateCcw className="w-6 h-6 text-blue-500" />
               <span className="font-medium">İade İşlemleri</span>
             </Link>
-            <Link to="/contact" className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-blue-50 transition-colors">
+            <Link to="/contact" className="flex items-center gap-3 p-4 bg-muted rounded-xl hover:bg-blue-50 transition-colors">
               <MessageCircle className="w-6 h-6 text-blue-500" />
               <span className="font-medium">Canlı Destek</span>
             </Link>
-            <Link to="/faq" className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-blue-50 transition-colors">
+            <Link to="/faq" className="flex items-center gap-3 p-4 bg-muted rounded-xl hover:bg-blue-50 transition-colors">
               <HelpCircle className="w-6 h-6 text-blue-500" />
               <span className="font-medium">SSS</span>
             </Link>
@@ -143,7 +141,7 @@ export function Help() {
                 <CardContent className="p-6">
                   <category.icon className="w-10 h-10 text-blue-500 mb-4" />
                   <h3 className="text-xl font-bold mb-2">{category.title}</h3>
-                  <p className="text-gray-500 mb-4">{category.description}</p>
+                  <p className="text-muted-foreground mb-4">{category.description}</p>
                   <ul className="space-y-2">
                     {category.articles.map((article, idx) => (
                       <li key={idx}>
@@ -165,7 +163,7 @@ export function Help() {
       </section>
 
       {/* Popular Questions */}
-      <section className="py-12 bg-white">
+      <section className="py-12 bg-card">
         <div className="container-custom">
           <h2 className="text-2xl font-bold text-center mb-8">Sık Sorulan Sorular</h2>
           <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
@@ -176,7 +174,7 @@ export function Help() {
                     <HelpCircle className="w-5 h-5 text-blue-500" />
                     {item.q}
                   </h3>
-                  <p className="text-gray-600">{item.a}</p>
+                  <p className="text-muted-foreground">{item.a}</p>
                 </CardContent>
               </Card>
             ))}
@@ -200,13 +198,13 @@ export function Help() {
             Uzman müşteri hizmetleri ekibimiz size yardımcı olmaktan mutluluk duyar.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild className="bg-white text-blue-600 hover:bg-gray-100">
+            <Button asChild className="bg-card text-blue-600 hover:bg-muted">
               <Link to="/contact">
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Bize Ulaşın
               </Link>
             </Button>
-            <Button asChild variant="outline" className="border-white text-white hover:bg-white/10">
+            <Button asChild variant="outline" className="border-white text-white hover:bg-card/10">
               <a href="tel:08501234567">
                 <Phone className="w-4 h-4 mr-2" />
                 0850 123 45 67
@@ -216,6 +214,7 @@ export function Help() {
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

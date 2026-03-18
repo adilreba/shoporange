@@ -1,9 +1,9 @@
 const AWS = require('aws-sdk');
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 
-const PRODUCTS_TABLE = process.env.TABLE_NAME || 'ShopOrange-Products';
-const CATEGORIES_TABLE = process.env.CATEGORIES_TABLE || 'ShopOrange-Categories';
-const USERS_TABLE = process.env.USERS_TABLE || 'ShopOrange-Users';
+const PRODUCTS_TABLE = process.env.TABLE_NAME || 'AtusHome-Products';
+const CATEGORIES_TABLE = process.env.CATEGORIES_TABLE || 'AtusHome-Categories';
+const USERS_TABLE = process.env.USERS_TABLE || 'AtusHome-Users';
 
 const headers = {
   'Content-Type': 'application/json',
@@ -366,7 +366,7 @@ const productsData = [
 // Admin user
 const adminUser = {
   id: 'user_admin',
-  email: 'admin@shoporange.com',
+  email: 'admin@atushome.com',
   password: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', // 'password' hashed
   name: 'Admin User',
   phone: '+90 555 123 4567',

@@ -50,9 +50,9 @@ export function Contact() {
     {
       icon: Mail,
       title: 'E-posta',
-      value: 'destek@shoporange.com',
+      value: 'destek@atushome.com',
       subtext: '24 saat içinde yanıt',
-      action: 'mailto:destek@shoporange.com'
+      action: 'mailto:destek@atushome.com'
     },
     {
       icon: MapPin,
@@ -71,9 +71,10 @@ export function Contact() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Header />
       
+      <main className="pt-[42px]">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-orange-500 to-red-500 text-white py-16">
         <div className="container-custom text-center">
@@ -86,12 +87,12 @@ export function Contact() {
       </section>
 
       {/* Breadcrumb */}
-      <div className="bg-white border-b">
+      <div className="bg-card border-b">
         <div className="container-custom py-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link to="/" className="hover:text-orange-600">Anasayfa</Link>
             <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-900">İletişim</span>
+            <span className="text-foreground">İletişim</span>
           </div>
         </div>
       </div>
@@ -106,18 +107,18 @@ export function Contact() {
                   <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <item.icon className="w-7 h-7 text-orange-600" />
                   </div>
-                  <h3 className="font-semibold text-gray-500 mb-1">{item.title}</h3>
+                  <h3 className="font-semibold text-muted-foreground mb-1">{item.title}</h3>
                   {item.action ? (
                     <a 
                       href={item.action}
-                      className="text-lg font-bold text-gray-900 hover:text-orange-600 transition-colors"
+                      className="text-lg font-bold text-foreground hover:text-orange-600 transition-colors"
                     >
                       {item.value}
                     </a>
                   ) : (
-                    <p className="text-lg font-bold text-gray-900">{item.value}</p>
+                    <p className="text-lg font-bold text-foreground">{item.value}</p>
                   )}
-                  <p className="text-sm text-gray-500 mt-1">{item.subtext}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{item.subtext}</p>
                 </CardContent>
               </Card>
             ))}
@@ -129,7 +130,7 @@ export function Contact() {
             <Card>
               <CardContent className="p-8">
                 <h2 className="text-2xl font-bold mb-2">Bize Mesaj Gönderin</h2>
-                <p className="text-gray-500 mb-6">
+                <p className="text-muted-foreground mb-6">
                   Formu doldurun, en kısa sürede size dönüş yapacağız.
                 </p>
                 
@@ -186,18 +187,18 @@ export function Contact() {
             <div className="space-y-6">
               <Card>
                 <CardContent className="p-0">
-                  <div className="aspect-video bg-gray-100 rounded-t-lg flex items-center justify-center">
+                  <div className="aspect-video bg-muted rounded-t-lg flex items-center justify-center">
                     <div className="text-center">
                       <MapPin className="w-12 h-12 text-orange-500 mx-auto mb-2" />
-                      <p className="text-gray-600">Harita entegrasyonu yakında!</p>
+                      <p className="text-muted-foreground">Harita entegrasyonu yakında!</p>
                     </div>
                   </div>
                   <div className="p-6">
                     <h3 className="font-bold mb-2">Mağazamız</h3>
-                    <p className="text-gray-600">
+                    <p className="text-muted-foreground">
                       Atatürk Cad. No:123, Kadıköy/İstanbul
                     </p>
-                    <p className="text-gray-500 text-sm mt-1">
+                    <p className="text-muted-foreground text-sm mt-1">
                       Hafta içi: 09:00 - 21:00 | Cumartesi: 10:00 - 20:00
                     </p>
                   </div>
@@ -241,23 +242,23 @@ export function Contact() {
       </section>
 
       {/* Quick Links */}
-      <section className="py-12 bg-white border-t">
+      <section className="py-12 bg-card border-t">
         <div className="container-custom">
           <h2 className="text-2xl font-bold text-center mb-8">Hızlı Bağlantılar</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Link to="/help" className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-orange-50 transition-colors">
+            <Link to="/help" className="flex items-center gap-3 p-4 bg-muted rounded-xl hover:bg-orange-50 transition-colors">
               <MessageCircle className="w-6 h-6 text-orange-500" />
               <span className="font-medium">Yardım Merkezi</span>
             </Link>
-            <Link to="/faq" className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-orange-50 transition-colors">
+            <Link to="/faq" className="flex items-center gap-3 p-4 bg-muted rounded-xl hover:bg-orange-50 transition-colors">
               <MessageCircle className="w-6 h-6 text-orange-500" />
               <span className="font-medium">SSS</span>
             </Link>
-            <Link to="/track-order" className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-orange-50 transition-colors">
+            <Link to="/track-order" className="flex items-center gap-3 p-4 bg-muted rounded-xl hover:bg-orange-50 transition-colors">
               <MapPin className="w-6 h-6 text-orange-500" />
               <span className="font-medium">Sipariş Takip</span>
             </Link>
-            <Link to="/returns" className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-orange-50 transition-colors">
+            <Link to="/returns" className="flex items-center gap-3 p-4 bg-muted rounded-xl hover:bg-orange-50 transition-colors">
               <MessageCircle className="w-6 h-6 text-orange-500" />
               <span className="font-medium">İade Politikası</span>
             </Link>
@@ -265,6 +266,7 @@ export function Contact() {
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

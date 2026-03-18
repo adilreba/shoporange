@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   Package, 
   Search, 
-  ChevronRight, 
+ 
   Clock, 
   CheckCircle, 
   Truck, 
@@ -78,13 +78,13 @@ export function Orders() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-muted">
         <Header />
         <div className="container-custom py-20">
           <div className="max-w-md mx-auto text-center">
             <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h1 className="text-2xl font-bold mb-2">Giriş Yapın</h1>
-            <p className="text-gray-500 mb-6">Siparişlerinizi görüntülemek için giriş yapmanız gerekiyor.</p>
+            <p className="text-muted-foreground mb-6">Siparişlerinizi görüntülemek için giriş yapmanız gerekiyor.</p>
             <Button className="gradient-orange" onClick={() => navigate('/login')}>
               Giriş Yap
             </Button>
@@ -96,34 +96,27 @@ export function Orders() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Header />
       
-      <main className="container-custom py-8">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <Link to="/" className="hover:text-orange-500">Anasayfa</Link>
-          <ChevronRight className="w-4 h-4" />
-          <span className="text-gray-900 font-medium">Siparişlerim</span>
-        </div>
-
+      <main className="container-custom pt-[42px] pb-6 sm:pt-[42px] sm:pb-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar */}
           <aside className="lg:w-64">
             <Card>
               <CardContent className="p-4">
                 <nav className="space-y-1">
-                  <Link to="/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
+                  <Link to="/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted text-foreground">
                     <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
                       <span className="text-orange-600 font-medium">{user?.name?.charAt(0)}</span>
                     </div>
                     <div>
                       <p className="font-medium">{user?.name}</p>
-                      <p className="text-xs text-gray-500">{user?.email}</p>
+                      <p className="text-xs text-muted-foreground">{user?.email}</p>
                     </div>
                   </Link>
                   <hr className="my-2" />
-                  <Link to="/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
+                  <Link to="/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted text-foreground">
                     <Package className="w-5 h-5" />
                     Profilim
                   </Link>
@@ -131,11 +124,11 @@ export function Orders() {
                     <Package className="w-5 h-5" />
                     Siparişlerim
                   </Link>
-                  <Link to="/wishlist" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
+                  <Link to="/wishlist" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted text-foreground">
                     <Package className="w-5 h-5" />
                     Favorilerim
                   </Link>
-                  <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
+                  <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted text-foreground">
                     <Package className="w-5 h-5" />
                     Ayarlar
                   </Link>
@@ -151,10 +144,10 @@ export function Orders() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
                     <CardTitle className="text-2xl">Siparişlerim</CardTitle>
-                    <p className="text-gray-500 mt-1">Tüm siparişlerinizi buradan takip edebilirsiniz</p>
+                    <p className="text-muted-foreground mt-1">Tüm siparişlerinizi buradan takip edebilirsiniz</p>
                   </div>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
                       placeholder="Sipariş no ara..."
                       value={searchTerm}
@@ -178,8 +171,8 @@ export function Orders() {
                     {filteredOrders.length === 0 ? (
                       <div className="text-center py-12">
                         <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Sipariş bulunamadı</h3>
-                        <p className="text-gray-500">Henüz bir siparişiniz bulunmuyor.</p>
+                        <h3 className="text-lg font-medium text-foreground mb-2">Sipariş bulunamadı</h3>
+                        <p className="text-muted-foreground">Henüz bir siparişiniz bulunmuyor.</p>
                         <Button className="mt-4 gradient-orange" onClick={() => navigate('/products')}>
                           Alışverişe Başla
                         </Button>
@@ -195,7 +188,7 @@ export function Orders() {
                                 </div>
                                 <div>
                                   <p className="font-semibold">{order.id}</p>
-                                  <p className="text-sm text-gray-500">{order.date}</p>
+                                  <p className="text-sm text-muted-foreground">{order.date}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-4">
@@ -205,21 +198,21 @@ export function Orders() {
                             </div>
 
                             {/* Order Items */}
-                            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                            <div className="bg-muted rounded-lg p-3 mb-4">
                               {order.items?.map((item: any, idx: number) => (
                                 <div key={idx} className="flex items-center justify-between py-2">
                                   <div className="flex items-center gap-3">
                                     <div className="w-2 h-2 bg-orange-500 rounded-full" />
                                     <span className="text-sm">{item.name}</span>
                                   </div>
-                                  <span className="text-sm text-gray-500">x{item.quantity}</span>
+                                  <span className="text-sm text-muted-foreground">x{item.quantity}</span>
                                 </div>
                               ))}
                             </div>
 
                             {/* Actions */}
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <MapPin className="w-4 h-4" />
                                 {order.shippingAddress?.city}, {order.shippingAddress?.district}
                               </div>

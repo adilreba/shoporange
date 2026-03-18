@@ -20,7 +20,7 @@ export function CompareTable({ products }: CompareTableProps) {
   if (products.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Karşılaştırma listeniz boş.</p>
+        <p className="text-muted-foreground">Karşılaştırma listeniz boş.</p>
       </div>
     );
   }
@@ -77,7 +77,7 @@ export function CompareTable({ products }: CompareTableProps) {
 
       {/* Products Header */}
       <div className="grid gap-4" style={{ gridTemplateColumns: `150px repeat(${products.length}, 1fr)` }}>
-        <div className="font-medium text-gray-500">Özellik</div>
+        <div className="font-medium text-muted-foreground">Özellik</div>
         {products.map((product) => (
           <div key={product.id} className="relative">
             <button
@@ -124,16 +124,16 @@ export function CompareTable({ products }: CompareTableProps) {
           {comparisonRows.map((row, index) => (
             <div
               key={row.key}
-              className={`grid ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}
+              className={`grid ${index % 2 === 0 ? 'bg-muted' : 'bg-card'}`}
               style={{ gridTemplateColumns: `150px repeat(${products.length}, 1fr)` }}
             >
-              <div className="p-4 font-medium text-gray-600 border-r">{row.label}</div>
+              <div className="p-4 font-medium text-muted-foreground border-r">{row.label}</div>
               {products.map((product) => (
                 <div key={product.id} className="p-4 border-r last:border-r-0">
                   {row.key === 'price' ? (
                     <span className="font-bold text-orange-600">{row.render(product)}</span>
                   ) : (
-                    <span className="text-gray-800">{row.render(product)}</span>
+                    <span className="text-foreground">{row.render(product)}</span>
                   )}
                 </div>
               ))}
@@ -144,7 +144,7 @@ export function CompareTable({ products }: CompareTableProps) {
 
       {/* Badges Comparison */}
       <div className="grid gap-4" style={{ gridTemplateColumns: `150px repeat(${products.length}, 1fr)` }}>
-        <div className="font-medium text-gray-500">Özellikler</div>
+        <div className="font-medium text-muted-foreground">Özellikler</div>
         {products.map((product) => (
           <div key={product.id} className="flex flex-wrap gap-1">
             {product.isNew && <Badge className="bg-green-500">Yeni</Badge>}

@@ -31,19 +31,19 @@ function CountdownTimer() {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-lg flex items-center justify-center">
+      <div className="w-12 h-12 md:w-14 md:h-14 bg-card rounded-lg flex items-center justify-center">
         <span className="text-xl md:text-2xl font-bold text-orange-600">
           {formatNumber(timeLeft.hours)}
         </span>
       </div>
       <span className="text-2xl font-bold">:</span>
-      <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-lg flex items-center justify-center">
+      <div className="w-12 h-12 md:w-14 md:h-14 bg-card rounded-lg flex items-center justify-center">
         <span className="text-xl md:text-2xl font-bold text-orange-600">
           {formatNumber(timeLeft.minutes)}
         </span>
       </div>
       <span className="text-2xl font-bold">:</span>
-      <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-lg flex items-center justify-center">
+      <div className="w-12 h-12 md:w-14 md:h-14 bg-card rounded-lg flex items-center justify-center">
         <span className="text-xl md:text-2xl font-bold text-orange-600">
           {formatNumber(timeLeft.seconds)}
         </span>
@@ -76,7 +76,7 @@ export function PromoSection() {
               <Link to="/products?discount=true" className="inline-block mt-8">
                 <Button 
                   size="lg"
-                  className="bg-white text-orange-600 hover:bg-gray-100 px-8"
+                  className="bg-card text-orange-600 hover:bg-muted px-8"
                 >
                   Fırsatları Kaçırma
                   <ArrowRight className="h-5 w-5 ml-2" />
@@ -85,8 +85,8 @@ export function PromoSection() {
             </div>
             
             {/* Decorative Elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-card/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-card/10 rounded-full translate-y-1/2 -translate-x-1/2" />
           </div>
 
           {/* New Arrivals Banner */}
@@ -100,7 +100,7 @@ export function PromoSection() {
             </div>
             
             <div className="relative z-10">
-              <span className="inline-block px-4 py-1 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium mb-4">
+              <span className="inline-block px-4 py-1 bg-card/20 backdrop-blur-sm rounded-full text-white text-sm font-medium mb-4">
                 Yeni Sezon
               </span>
               <h3 className="text-3xl md:text-4xl font-bold text-white mb-4">
@@ -113,7 +113,7 @@ export function PromoSection() {
               <Link to="/products?sort=newest">
                 <Button 
                   size="lg"
-                  className="bg-white text-purple-700 hover:bg-gray-100 px-8"
+                  className="bg-card text-purple-700 hover:bg-muted px-8"
                 >
                   Yeni Ürünleri Gör
                   <ArrowRight className="h-5 w-5 ml-2" />

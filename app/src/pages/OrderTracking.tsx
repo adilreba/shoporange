@@ -82,7 +82,7 @@ export function OrderTracking() {
       case 'shipped':
         return 'bg-orange-500';
       default:
-        return 'bg-gray-500';
+        return 'bg-muted0';
     }
   };
 
@@ -100,7 +100,7 @@ export function OrderTracking() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-muted dark:bg-gray-900">
       <Header />
       
       <main className="container-custom py-12">
@@ -109,10 +109,10 @@ export function OrderTracking() {
           <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Package className="w-8 h-8 text-orange-600" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-3xl font-bold text-foreground dark:text-white mb-2">
             Sipariş Takibi
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-muted-foreground dark:text-muted-foreground">
             Sipariş numaranızı girerek kargonuzun durumunu takip edin
           </p>
         </div>
@@ -121,7 +121,7 @@ export function OrderTracking() {
         <form onSubmit={handleSearch} className="max-w-xl mx-auto mb-12">
           <div className="flex gap-3">
             <div className="flex-1 relative">
-              <Package className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Package className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Sipariş numarası (örn: ORD-2024-001)"
@@ -145,7 +145,7 @@ export function OrderTracking() {
               )}
             </Button>
           </div>
-          <p className="text-sm text-gray-500 mt-3 text-center">
+          <p className="text-sm text-muted-foreground mt-3 text-center">
             Sipariş numaranızı e-posta veya SMS ile aldığınız bildirimde bulabilirsiniz.
           </p>
         </form>
@@ -158,15 +158,15 @@ export function OrderTracking() {
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Sipariş Numarası</p>
+                    <p className="text-sm text-muted-foreground mb-1">Sipariş Numarası</p>
                     <p className="text-xl font-bold">{trackingInfo.orderNumber}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Kargo Takip No</p>
+                    <p className="text-sm text-muted-foreground mb-1">Kargo Takip No</p>
                     <p className="font-medium">{trackingInfo.trackingNumber}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Kargo Firması</p>
+                    <p className="text-sm text-muted-foreground mb-1">Kargo Firması</p>
                     <p className="font-medium">{trackingInfo.carrier}</p>
                   </div>
                   <Badge className={`${getStatusColor(trackingInfo.status)} text-white px-4 py-2`}>
@@ -195,7 +195,7 @@ export function OrderTracking() {
                       {/* Timeline Line */}
                       {index < trackingInfo.events.length - 1 && (
                         <div className={`absolute left-3 top-6 w-0.5 h-full ${
-                          event.completed ? 'bg-orange-500' : 'bg-gray-200'
+                          event.completed ? 'bg-orange-500' : 'bg-muted'
                         }`} />
                       )}
                       
@@ -203,7 +203,7 @@ export function OrderTracking() {
                       <div className={`absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center ${
                         event.completed 
                           ? 'bg-orange-500 text-white' 
-                          : 'bg-gray-200 text-gray-400'
+                          : 'bg-muted text-muted-foreground'
                       }`}>
                         {event.completed ? (
                           <CheckCircle className="w-4 h-4" />
@@ -216,16 +216,16 @@ export function OrderTracking() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div>
                           <p className={`font-medium ${
-                            event.completed ? 'text-gray-900' : 'text-gray-400'
+                            event.completed ? 'text-foreground' : 'text-muted-foreground'
                           }`}>
                             {event.status}
                           </p>
-                          <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                             <MapPin className="w-4 h-4" />
                             {event.location}
                           </div>
                         </div>
-                        <div className="text-sm text-gray-500 text-right">
+                        <div className="text-sm text-muted-foreground text-right">
                           <p>{event.date}</p>
                           <p>{event.time}</p>
                         </div>
@@ -238,7 +238,7 @@ export function OrderTracking() {
 
             {/* Help Section */}
             <div className="text-center">
-              <p className="text-gray-600 mb-4">
+              <p className="text-muted-foreground mb-4">
                 Siparişinizle ilgili bir sorun mu var?
               </p>
               <Button variant="outline" onClick={() => toast.info('Canlı destek başlatılıyor...')}>
@@ -251,11 +251,11 @@ export function OrderTracking() {
         {/* Sample Order Numbers */}
         {!trackingInfo && (
           <div className="max-w-xl mx-auto mt-8">
-            <p className="text-sm text-gray-500 text-center mb-4">Test için kullanabileceğiniz sipariş numaraları:</p>
+            <p className="text-sm text-muted-foreground text-center mb-4">Test için kullanabileceğiniz sipariş numaraları:</p>
             <div className="flex justify-center gap-2">
               <button
                 onClick={() => setOrderNumber('ORD-2024-001')}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors"
+                className="px-4 py-2 bg-muted hover:bg-muted rounded-lg text-sm transition-colors"
               >
                 ORD-2024-001
               </button>

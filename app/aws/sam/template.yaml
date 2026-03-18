@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: ShopOrange E-Commerce Backend - Complete Serverless Infrastructure
+Description: AtusHome E-Commerce Backend - Complete Serverless Infrastructure
 
 Globals:
   Function:
@@ -31,7 +31,7 @@ Resources:
   ProductsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: ShopOrange-Products
+      TableName: AtusHome-Products
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
@@ -52,14 +52,14 @@ Resources:
         StreamViewType: NEW_AND_OLD_IMAGES
       Tags:
         - Key: Project
-          Value: ShopOrange
+          Value: AtusHome
         - Key: Environment
           Value: Production
 
   OrdersTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: ShopOrange-Orders
+      TableName: AtusHome-Orders
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
@@ -78,14 +78,14 @@ Resources:
             ProjectionType: ALL
       Tags:
         - Key: Project
-          Value: ShopOrange
+          Value: AtusHome
         - Key: Environment
           Value: Production
 
   UsersTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: ShopOrange-Users
+      TableName: AtusHome-Users
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
@@ -104,14 +104,14 @@ Resources:
             ProjectionType: ALL
       Tags:
         - Key: Project
-          Value: ShopOrange
+          Value: AtusHome
         - Key: Environment
           Value: Production
 
   ReviewsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: ShopOrange-Reviews
+      TableName: AtusHome-Reviews
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
@@ -138,14 +138,14 @@ Resources:
             ProjectionType: ALL
       Tags:
         - Key: Project
-          Value: ShopOrange
+          Value: AtusHome
         - Key: Environment
           Value: Production
 
   CategoriesTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: ShopOrange-Categories
+      TableName: AtusHome-Categories
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
@@ -164,7 +164,7 @@ Resources:
             ProjectionType: ALL
       Tags:
         - Key: Project
-          Value: ShopOrange
+          Value: AtusHome
         - Key: Environment
           Value: Production
 

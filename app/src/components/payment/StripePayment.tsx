@@ -85,17 +85,17 @@ function PaymentForm({ amount, onSuccess, onCancel }: StripePaymentFormProps) {
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Amount Display */}
       <div className="bg-orange-50 rounded-xl p-4 text-center">
-        <p className="text-sm text-gray-600 mb-1">Ödenecek Tutar</p>
+        <p className="text-sm text-muted-foreground mb-1">Ödenecek Tutar</p>
         <p className="text-3xl font-bold text-orange-600">{formatPrice(amount)}</p>
       </div>
 
       {/* Card Input */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+        <label className="text-sm font-medium text-foreground flex items-center gap-2">
           <CreditCard className="h-4 w-4" />
           Kart Bilgileri
         </label>
-        <div className="border rounded-lg p-4 bg-white focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500 transition-all">
+        <div className="border rounded-lg p-4 bg-card focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500 transition-all">
           <CardElement options={cardElementOptions} />
         </div>
         {cardError && (
@@ -104,9 +104,9 @@ function PaymentForm({ amount, onSuccess, onCancel }: StripePaymentFormProps) {
       </div>
 
       {/* Test Cards Info */}
-      <div className="bg-gray-50 rounded-lg p-3 text-sm">
-        <p className="font-medium text-gray-700 mb-2">Test Kartları:</p>
-        <div className="space-y-1 text-gray-600">
+      <div className="bg-muted rounded-lg p-3 text-sm">
+        <p className="font-medium text-foreground mb-2">Test Kartları:</p>
+        <div className="space-y-1 text-muted-foreground">
           <p>✅ Başarılı: 4242 4242 4242 4242</p>
           <p>❌ Reddedilen: 4000 0000 0000 0002</p>
           <p>📅 Herhangi bir gelecek tarih (MM/YY)</p>
@@ -115,7 +115,7 @@ function PaymentForm({ amount, onSuccess, onCancel }: StripePaymentFormProps) {
       </div>
 
       {/* Security Badge */}
-      <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
         <Lock className="h-4 w-4" />
         <span>256-bit SSL ile güvenli ödeme</span>
       </div>

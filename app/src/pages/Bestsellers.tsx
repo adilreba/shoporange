@@ -47,7 +47,7 @@ export function Bestsellers() {
       case 1:
         return <Trophy className="w-8 h-8 text-yellow-500" />;
       case 2:
-        return <Medal className="w-8 h-8 text-gray-400" />;
+        return <Medal className="w-8 h-8 text-muted-foreground" />;
       case 3:
         return <Award className="w-8 h-8 text-orange-400" />;
       default:
@@ -69,15 +69,16 @@ export function Bestsellers() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Header />
       
+      <main className="pt-[42px]">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-orange-500 to-red-500 text-white py-16">
         <div className="container-custom">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <Badge className="bg-white/20 text-white mb-4 px-4 py-1">
+              <Badge className="bg-card/20 text-white mb-4 px-4 py-1">
                 <Flame className="w-4 h-4 mr-1 inline" />
                 Çok Satanlar
               </Badge>
@@ -86,7 +87,7 @@ export function Bestsellers() {
                 Müşterilerimizin en çok tercih ettiği, en popüler ürünler burada!
               </p>
             </div>
-            <div className="flex items-center gap-4 bg-white/10 backdrop-blur rounded-xl p-4">
+            <div className="flex items-center gap-4 bg-card/10 backdrop-blur rounded-xl p-4">
               <TrendingUp className="w-12 h-12" />
               <div>
                 <p className="text-2xl font-bold">{bestsellers.length}</p>
@@ -98,7 +99,7 @@ export function Bestsellers() {
       </section>
 
       {/* Top 3 Section */}
-      <section className="py-12 bg-white">
+      <section className="py-12 bg-card">
         <div className="container-custom">
           <h2 className="text-2xl font-bold text-center mb-8">🏆 Bu Haftanın En İyileri</h2>
           <div className="grid md:grid-cols-3 gap-6">
@@ -109,7 +110,7 @@ export function Bestsellers() {
               >
                 {/* Rank Badge */}
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                  <div className="w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center">
+                  <div className="w-12 h-12 bg-card rounded-full shadow-lg flex items-center justify-center">
                     {getRankIcon(index + 1)}
                   </div>
                 </div>
@@ -127,19 +128,19 @@ export function Bestsellers() {
                       <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 mr-1" />
                       <span className="font-medium">{product.rating}</span>
                     </div>
-                    <span className="text-sm text-gray-500">({product.reviewCount} yorum)</span>
+                    <span className="text-sm text-muted-foreground">({product.reviewCount} yorum)</span>
                   </div>
                   <div className="flex items-center justify-center gap-2 mb-4">
                     <span className="text-2xl font-bold text-orange-600">
                       ₺{product.price.toLocaleString()}
                     </span>
                     {product.originalPrice && (
-                      <span className="text-gray-400 line-through">
+                      <span className="text-muted-foreground line-through">
                         ₺{product.originalPrice.toLocaleString()}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-center gap-2 text-sm text-gray-600 mb-4">
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-4">
                     <ShoppingCart className="w-4 h-4" />
                     <span>{product.salesCount || 100}+ satıldı</span>
                   </div>
@@ -161,7 +162,7 @@ export function Bestsellers() {
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Sidebar */}
             <aside className="lg:w-64">
-              <div className="bg-white rounded-xl shadow-sm p-6 sticky top-24">
+              <div className="bg-card rounded-xl shadow-sm p-6 sticky top-24">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Filter className="w-5 h-5" />
                   Kategoriler
@@ -174,11 +175,11 @@ export function Bestsellers() {
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                         selectedCategory === cat.id 
                           ? 'bg-orange-50 text-orange-600 font-medium' 
-                          : 'hover:bg-gray-50 text-gray-700'
+                          : 'hover:bg-muted text-foreground'
                       }`}
                     >
                       <span>{cat.name}</span>
-                      <span className="text-sm text-gray-400">{cat.count}</span>
+                      <span className="text-sm text-muted-foreground">{cat.count}</span>
                     </button>
                   ))}
                 </div>
@@ -198,7 +199,7 @@ export function Bestsellers() {
                         className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
                           timeRange === option.value 
                             ? 'bg-orange-50 text-orange-600' 
-                            : 'hover:bg-gray-50 text-gray-700'
+                            : 'hover:bg-muted text-foreground'
                         }`}
                       >
                         {option.label}
@@ -212,12 +213,12 @@ export function Bestsellers() {
             {/* Products Grid */}
             <div className="flex-1">
               {/* Toolbar */}
-              <div className="bg-white rounded-xl shadow-sm p-4 mb-6 flex items-center justify-between">
-                <p className="text-gray-500">
-                  <span className="font-semibold text-gray-900">{filteredProducts.length}</span> ürün daha
+              <div className="bg-card rounded-xl shadow-sm p-4 mb-6 flex items-center justify-between">
+                <p className="text-muted-foreground">
+                  <span className="font-semibold text-foreground">{filteredProducts.length}</span> ürün daha
                 </p>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">Sıralama:</span>
+                  <span className="text-sm text-muted-foreground">Sıralama:</span>
                   <select className="border rounded-lg px-3 py-2 text-sm">
                     <option>En Çok Satan</option>
                     <option>En Yüksek Puan</option>
@@ -228,10 +229,10 @@ export function Bestsellers() {
 
               {/* Products */}
               {filteredProducts.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-xl">
+                <div className="text-center py-16 bg-card rounded-xl">
                   <Flame className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz ürün yok</h3>
-                  <p className="text-gray-500">Bu kategoride henüz çok satan ürün bulunmuyor.</p>
+                  <h3 className="text-lg font-medium text-foreground mb-2">Henüz ürün yok</h3>
+                  <p className="text-muted-foreground">Bu kategoride henüz çok satan ürün bulunmuyor.</p>
                 </div>
               ) : (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -258,24 +259,25 @@ export function Bestsellers() {
           <div className="grid md:grid-cols-4 gap-8 text-center">
             <div>
               <p className="text-4xl font-bold text-orange-500 mb-2">1M+</p>
-              <p className="text-gray-400">Toplam Satış</p>
+              <p className="text-muted-foreground">Toplam Satış</p>
             </div>
             <div>
               <p className="text-4xl font-bold text-orange-500 mb-2">500K+</p>
-              <p className="text-gray-400">Mutlu Müşteri</p>
+              <p className="text-muted-foreground">Mutlu Müşteri</p>
             </div>
             <div>
               <p className="text-4xl font-bold text-orange-500 mb-2">4.8</p>
-              <p className="text-gray-400">Ortalama Puan</p>
+              <p className="text-muted-foreground">Ortalama Puan</p>
             </div>
             <div>
               <p className="text-4xl font-bold text-orange-500 mb-2">99%</p>
-              <p className="text-gray-400">Memnuniyet Oranı</p>
+              <p className="text-muted-foreground">Memnuniyet Oranı</p>
             </div>
           </div>
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

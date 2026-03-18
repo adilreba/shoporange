@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# ShopOrange AWS Deployment Script
+# AtusHome AWS Deployment Script
 # This script deploys the complete backend infrastructure to AWS
 
 set -e
 
 echo "=========================================="
-echo "ShopOrange AWS Deployment"
+echo "AtusHome AWS Deployment"
 echo "=========================================="
 
 # Colors for output
@@ -44,8 +44,8 @@ REGION=$(aws configure get region)
 echo -e "${GREEN}Logged in to AWS Account: $ACCOUNT_ID in region: $REGION${NC}"
 
 # Configuration
-STACK_NAME="shoporange-backend"
-S3_BUCKET="shoporange-deployment-$ACCOUNT_ID"
+STACK_NAME="atushome-backend"
+S3_BUCKET="atushome-deployment-$ACCOUNT_ID"
 
 echo ""
 echo "=========================================="
@@ -132,7 +132,7 @@ echo "   curl $API_URL/categories"
 echo "   curl $API_URL/products"
 echo ""
 echo "Admin Login:"
-echo "  Email: admin@shoporange.com"
+echo "  Email: admin@atushome.com"
 echo "  Password: password"
 echo ""
 echo "=========================================="

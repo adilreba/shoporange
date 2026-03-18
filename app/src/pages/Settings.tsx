@@ -54,13 +54,13 @@ export function Settings() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-muted">
         <Header />
         <div className="container-custom py-20">
           <div className="max-w-md mx-auto text-center">
             <Shield className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h1 className="text-2xl font-bold mb-2">Giriş Yapın</h1>
-            <p className="text-gray-500 mb-6">Ayarlarınıza erişmek için giriş yapmanız gerekiyor.</p>
+            <p className="text-muted-foreground mb-6">Ayarlarınıza erişmek için giriş yapmanız gerekiyor.</p>
             <Button className="gradient-orange" onClick={() => navigate('/login')}>
               Giriş Yap
             </Button>
@@ -72,15 +72,15 @@ export function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Header />
       
       <main className="container-custom py-8">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
           <Link to="/" className="hover:text-orange-500">Anasayfa</Link>
           <ChevronRight className="w-4 h-4" />
-          <span className="text-gray-900 font-medium">Ayarlar</span>
+          <span className="text-foreground font-medium">Ayarlar</span>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
@@ -89,25 +89,25 @@ export function Settings() {
             <Card>
               <CardContent className="p-4">
                 <nav className="space-y-1">
-                  <Link to="/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
+                  <Link to="/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted text-foreground">
                     <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
                       <span className="text-orange-600 font-medium">{user?.name?.charAt(0)}</span>
                     </div>
                     <div>
                       <p className="font-medium">{user?.name}</p>
-                      <p className="text-xs text-gray-500">{user?.email}</p>
+                      <p className="text-xs text-muted-foreground">{user?.email}</p>
                     </div>
                   </Link>
                   <hr className="my-2" />
-                  <Link to="/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
+                  <Link to="/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted text-foreground">
                     <User className="w-5 h-5" />
                     Profilim
                   </Link>
-                  <Link to="/orders" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
+                  <Link to="/orders" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted text-foreground">
                     <CreditCard className="w-5 h-5" />
                     Siparişlerim
                   </Link>
-                  <Link to="/wishlist" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
+                  <Link to="/wishlist" className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted text-foreground">
                     <Bell className="w-5 h-5" />
                     Favorilerim
                   </Link>
@@ -139,28 +139,28 @@ export function Settings() {
                   {/* General Settings */}
                   <TabsContent value="general" className="space-y-6">
                     {/* Theme */}
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                           <Moon className="w-5 h-5 text-purple-600" />
                         </div>
                         <div>
                           <p className="font-medium">Karanlık Mod</p>
-                          <p className="text-sm text-gray-500">Gece görünümünü etkinleştir</p>
+                          <p className="text-sm text-muted-foreground">Gece görünümünü etkinleştir</p>
                         </div>
                       </div>
                       <Switch checked={isDark} onCheckedChange={toggleTheme} />
                     </div>
 
                     {/* Language */}
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                           <Globe className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
                           <p className="font-medium">Dil</p>
-                          <p className="text-sm text-gray-500">Uygulama dilini seçin</p>
+                          <p className="text-sm text-muted-foreground">Uygulama dilini seçin</p>
                         </div>
                       </div>
                       <select 
@@ -174,14 +174,14 @@ export function Settings() {
                     </div>
 
                     {/* Currency */}
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                           <CreditCard className="w-5 h-5 text-green-600" />
                         </div>
                         <div>
                           <p className="font-medium">Para Birimi</p>
-                          <p className="text-sm text-gray-500">Fiyat gösterim birimi</p>
+                          <p className="text-sm text-muted-foreground">Fiyat gösterim birimi</p>
                         </div>
                       </div>
                       <select 
@@ -198,14 +198,14 @@ export function Settings() {
 
                   {/* Notifications */}
                   <TabsContent value="notifications" className="space-y-6">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                           <Mail className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
                           <p className="font-medium">E-posta Bildirimleri</p>
-                          <p className="text-sm text-gray-500">Önemli güncellemeleri e-posta ile al</p>
+                          <p className="text-sm text-muted-foreground">Önemli güncellemeleri e-posta ile al</p>
                         </div>
                       </div>
                       <Switch 
@@ -214,14 +214,14 @@ export function Settings() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                           <Smartphone className="w-5 h-5 text-green-600" />
                         </div>
                         <div>
                           <p className="font-medium">SMS Bildirimleri</p>
-                          <p className="text-sm text-gray-500">Sipariş güncellemelerini SMS ile al</p>
+                          <p className="text-sm text-muted-foreground">Sipariş güncellemelerini SMS ile al</p>
                         </div>
                       </div>
                       <Switch 
@@ -230,14 +230,14 @@ export function Settings() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
                           <Bell className="w-5 h-5 text-orange-600" />
                         </div>
                         <div>
                           <p className="font-medium">Pazarlama E-postaları</p>
-                          <p className="text-sm text-gray-500">Kampanya ve indirimleri kaçırma</p>
+                          <p className="text-sm text-muted-foreground">Kampanya ve indirimleri kaçırma</p>
                         </div>
                       </div>
                       <Switch 
@@ -246,14 +246,14 @@ export function Settings() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                           <CreditCard className="w-5 h-5 text-purple-600" />
                         </div>
                         <div>
                           <p className="font-medium">Sipariş Güncellemeleri</p>
-                          <p className="text-sm text-gray-500">Sipariş durumu değişikliklerini bildir</p>
+                          <p className="text-sm text-muted-foreground">Sipariş durumu değişikliklerini bildir</p>
                         </div>
                       </div>
                       <Switch 
@@ -265,14 +265,14 @@ export function Settings() {
 
                   {/* Security */}
                   <TabsContent value="security" className="space-y-6">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
                           <Lock className="w-5 h-5 text-red-600" />
                         </div>
                         <div>
                           <p className="font-medium">İki Faktörlü Doğrulama</p>
-                          <p className="text-sm text-gray-500">Hesabınızı ekstra güvenlikle koruyun</p>
+                          <p className="text-sm text-muted-foreground">Hesabınızı ekstra güvenlikle koruyun</p>
                         </div>
                       </div>
                       <Switch 
@@ -283,14 +283,14 @@ export function Settings() {
 
                     <Separator />
 
-                    <div className="p-4 bg-gray-50 rounded-lg">
+                    <div className="p-4 bg-muted rounded-lg">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                           <Shield className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
                           <p className="font-medium">Şifre Değiştir</p>
-                          <p className="text-sm text-gray-500">Hesap şifrenizi güncelleyin</p>
+                          <p className="text-sm text-muted-foreground">Hesap şifrenizi güncelleyin</p>
                         </div>
                       </div>
                       <div className="space-y-3">
@@ -327,25 +327,25 @@ export function Settings() {
 
                   {/* Payment */}
                   <TabsContent value="payment" className="space-y-6">
-                    <div className="p-4 bg-gray-50 rounded-lg">
+                    <div className="p-4 bg-muted rounded-lg">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                           <CreditCard className="w-5 h-5 text-green-600" />
                         </div>
                         <div>
                           <p className="font-medium">Kayıtlı Kartlarım</p>
-                          <p className="text-sm text-gray-500">Ödeme yöntemlerinizi yönetin</p>
+                          <p className="text-sm text-muted-foreground">Ödeme yöntemlerinizi yönetin</p>
                         </div>
                       </div>
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                        <div className="flex items-center justify-between p-3 bg-card rounded-lg border">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-6 bg-blue-600 rounded flex items-center justify-center text-white text-xs font-bold">
                               Visa
                             </div>
                             <div>
                               <p className="font-medium">**** **** **** 4242</p>
-                              <p className="text-sm text-gray-500">Son kullanma: 12/25</p>
+                              <p className="text-sm text-muted-foreground">Son kullanma: 12/25</p>
                             </div>
                           </div>
                           <Badge className="bg-green-100 text-green-700">Varsayılan</Badge>
@@ -360,14 +360,14 @@ export function Settings() {
                       </div>
                     </div>
 
-                    <div className="p-4 bg-gray-50 rounded-lg">
+                    <div className="p-4 bg-muted rounded-lg">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
                           <MapPin className="w-5 h-5 text-orange-600" />
                         </div>
                         <div>
                           <p className="font-medium">Fatura Adresleri</p>
-                          <p className="text-sm text-gray-500">Fatura adreslerinizi yönetin</p>
+                          <p className="text-sm text-muted-foreground">Fatura adreslerinizi yönetin</p>
                         </div>
                       </div>
                       <Button 

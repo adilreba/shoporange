@@ -1,6 +1,6 @@
 const AWS = require('aws-sdk');
 const dynamodb = new AWS.DynamoDB.DocumentClient();
-const ORDERS_TABLE = process.env.ORDERS_TABLE || 'ShopOrange-Orders';
+const ORDERS_TABLE = process.env.ORDERS_TABLE || 'AtusHome-Orders';
 
 const headers = {
   'Content-Type': 'application/json',

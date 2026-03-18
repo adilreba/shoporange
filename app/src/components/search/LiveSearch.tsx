@@ -133,11 +133,11 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
       />
       
       {/* Search Container */}
-      <div className="absolute top-0 left-0 right-0 bg-white shadow-2xl">
+      <div className="absolute top-0 left-0 right-0 bg-card shadow-2xl">
         <div className="max-w-3xl mx-auto p-4">
           {/* Search Input */}
           <form onSubmit={handleSubmit} className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               ref={inputRef}
               type="text"
@@ -150,9 +150,9 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-5 h-5 text-muted-foreground" />
               </button>
             )}
           </form>
@@ -163,7 +163,7 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
             {query.trim() && results.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-2">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     {results.length} sonuç bulundu
                   </p>
                   <button
@@ -186,14 +186,14 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
                       className="w-16 h-16 object-cover rounded-lg"
                     />
                     <div className="flex-1">
-                      <p className="text-sm text-gray-500">{product.brand}</p>
-                      <p className="font-medium text-gray-900">{product.name}</p>
+                      <p className="text-sm text-muted-foreground">{product.brand}</p>
+                      <p className="font-medium text-foreground">{product.name}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="font-bold text-orange-600">
                           {formatPrice(product.price)}
                         </span>
                         {product.originalPrice && (
-                          <span className="text-sm text-gray-400 line-through">
+                          <span className="text-sm text-muted-foreground line-through">
                             {formatPrice(product.originalPrice)}
                           </span>
                         )}
@@ -214,8 +214,8 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
             {query.trim() && results.length === 0 && (
               <div className="text-center py-8">
                 <Search className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">"{query}" için sonuç bulunamadı</p>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="text-muted-foreground">"{query}" için sonuç bulunamadı</p>
+                <p className="text-sm text-muted-foreground mt-1">
                   Farklı bir arama terimi deneyin
                 </p>
               </div>
@@ -228,13 +228,13 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
                 {recentSearches.length > 0 && (
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2 text-gray-700">
+                      <div className="flex items-center gap-2 text-foreground">
                         <Clock className="w-4 h-4" />
                         <span className="font-medium">Son Aramalar</span>
                       </div>
                       <button
                         onClick={clearRecent}
-                        className="text-sm text-gray-400 hover:text-gray-600"
+                        className="text-sm text-muted-foreground hover:text-muted-foreground"
                       >
                         Temizle
                       </button>
@@ -244,7 +244,7 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
                         <button
                           key={term}
                           onClick={() => handleSuggestedClick(term)}
-                          className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-full text-sm transition-colors"
+                          className="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted rounded-full text-sm transition-colors"
                         >
                           {term}
                           <span
@@ -261,7 +261,7 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
 
                 {/* Trending Searches */}
                 <div>
-                  <div className="flex items-center gap-2 text-gray-700 mb-3">
+                  <div className="flex items-center gap-2 text-foreground mb-3">
                     <TrendingUp className="w-4 h-4" />
                     <span className="font-medium">Popüler Aramalar</span>
                   </div>
@@ -280,7 +280,7 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
 
                 {/* Quick Categories */}
                 <div>
-                  <p className="font-medium text-gray-700 mb-3">Popüler Kategoriler</p>
+                  <p className="font-medium text-foreground mb-3">Popüler Kategoriler</p>
                   <div className="grid grid-cols-4 gap-3">
                     {[
                       { name: 'Elektronik', icon: '💻' },
@@ -291,7 +291,7 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
                       <button
                         key={cat.name}
                         onClick={() => handleSuggestedClick(cat.name)}
-                        className="flex flex-col items-center gap-2 p-4 bg-gray-50 hover:bg-orange-50 rounded-xl transition-colors"
+                        className="flex flex-col items-center gap-2 p-4 bg-muted hover:bg-orange-50 rounded-xl transition-colors"
                       >
                         <span className="text-2xl">{cat.icon}</span>
                         <span className="text-sm font-medium">{cat.name}</span>

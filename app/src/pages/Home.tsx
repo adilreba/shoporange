@@ -12,7 +12,7 @@ export function Home() {
   return (
     <div className="min-h-screen bg-background">
       <SEO 
-        title="ShopOrange - Modern E-Ticaret Platformu"
+        title="AtusHome - Modern E-Ticaret Platformu"
         description="Turuncu temalı, modern, tam donanımlı e-ticaret platformu. 8 kategori, binlerce ürün, uygun fiyatlar ve hızlı teslimat."
         keywords="e-ticaret, alışveriş, online mağaza, elektronik, moda, ev yaşam, kozmetik, spor, kitap"
       />

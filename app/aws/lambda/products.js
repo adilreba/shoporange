@@ -1,6 +1,6 @@
 const AWS = require('aws-sdk');
 const dynamodb = new AWS.DynamoDB.DocumentClient();
-const TABLE_NAME = process.env.TABLE_NAME || 'ShopOrange-Products';
+const TABLE_NAME = process.env.TABLE_NAME || 'AtusHome-Products';
 
 // CORS headers
 const headers = {

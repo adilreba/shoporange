@@ -61,14 +61,14 @@ export function StockAlertDialog({ productId, productName, isOpen, onClose }: St
             Stokta Olmunca Haber Ver
           </DialogTitle>
           <DialogDescription className="text-center">
-            <span className="font-medium text-gray-900">{productName}</span> stokta olduğunda
+            <span className="font-medium text-foreground">{productName}</span> stokta olduğunda
             size e-posta ile haber verelim.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               type="email"
               placeholder="E-posta adresiniz"
@@ -106,7 +106,7 @@ export function StockAlertDialog({ productId, productName, isOpen, onClose }: St
             </Button>
           )}
 
-          <p className="text-xs text-gray-500 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Stok bildirimini istediğiniz zaman iptal edebilirsiniz.
           </p>
         </form>

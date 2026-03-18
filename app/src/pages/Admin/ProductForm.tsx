@@ -128,8 +128,8 @@ export function ProductForm() {
   const availableSubcategories = formData.category ? subcategories[formData.category] : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-muted">
+      <header className="bg-card border-b">
         <div className="container-custom py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -185,7 +185,7 @@ export function ProductForm() {
           </aside>
 
           <main className="lg:col-span-4">
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 p-6">
+            <form onSubmit={handleSubmit} className="bg-card rounded-2xl border border-border p-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <h3 className="text-lg font-semibold mb-4">Temel Bilgiler</h3>

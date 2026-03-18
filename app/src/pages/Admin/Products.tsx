@@ -64,9 +64,9 @@ export function AdminProducts() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       {/* Admin Header */}
-      <header className="bg-white border-b">
+      <header className="bg-card border-b">
         <div className="container-custom py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -127,7 +127,7 @@ export function AdminProducts() {
                 <div className="flex flex-wrap gap-4 items-center justify-between">
                   <div className="flex gap-4 flex-1">
                     <div className="relative flex-1 max-w-md">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         placeholder="Ürün ara..."
                         value={searchQuery}
@@ -162,7 +162,7 @@ export function AdminProducts() {
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="bg-muted border-b">
                       <tr>
                         <th className="text-left p-4 font-medium">Ürün</th>
                         <th className="text-left p-4 font-medium">Kategori</th>
@@ -174,7 +174,7 @@ export function AdminProducts() {
                     </thead>
                     <tbody>
                       {paginatedProducts.map((product) => (
-                        <tr key={product.id} className="border-b hover:bg-gray-50">
+                        <tr key={product.id} className="border-b hover:bg-muted">
                           <td className="p-4">
                             <div className="flex items-center gap-3">
                               <img
@@ -184,7 +184,7 @@ export function AdminProducts() {
                               />
                               <div>
                                 <p className="font-medium">{product.name}</p>
-                                <p className="text-sm text-gray-500">{product.brand}</p>
+                                <p className="text-sm text-muted-foreground">{product.brand}</p>
                               </div>
                             </div>
                           </td>
@@ -194,7 +194,7 @@ export function AdminProducts() {
                           <td className="p-4">
                             <span className="font-medium">{formatPrice(product.price)}</span>
                             {product.originalPrice && (
-                              <span className="text-sm text-gray-400 line-through ml-2">
+                              <span className="text-sm text-muted-foreground line-through ml-2">
                                 {formatPrice(product.originalPrice)}
                               </span>
                             )}
@@ -245,7 +245,7 @@ export function AdminProducts() {
                 {/* Pagination */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between p-4 border-t">
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       {filteredProducts.length} üründen {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)} arası gösteriliyor
                     </p>
                     <div className="flex gap-2">

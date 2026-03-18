@@ -1,0 +1,439 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AtusHome E-Ticaret Backend
+
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 512
+    Runtime: nodejs20.x
+    Environment:
+      Variables:
+        NODE_ENV: production
+        PRODUCTS_TABLE: !Ref ProductsTable
+        USERS_TABLE: !Ref UsersTable
+        ORDERS_TABLE: !Ref OrdersTable
+        CART_TABLE: !Ref CartTable
+        COGNITO_USER_POOL_ID: !Ref UserPool
+        COGNITO_CLIENT_ID: !Ref UserPoolClient
+
+Parameters:
+  StripeSecretKey:
+    Type: String
+    NoEcho: true
+    Description: Stripe Secret Key
+  StripeWebhookSecret:
+    Type: String
+    NoEcho: true
+    Description: Stripe Webhook Secret
+
+Resources:
+  # ============================================
+  # DynamoDB Tables
+  # ============================================
+  
+  ProductsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Products
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: CategoryIndex
+          KeySchema:
+            - AttributeName: category
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EmailIndex
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Orders
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserOrdersIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  CartTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Cart
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: productId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: productId
+          KeyType: RANGE
+
+  # ============================================
+  # Cognito User Pool
+  # ============================================
+  
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: AtusHome-UserPool
+      AutoVerifiedAttributes:
+        - email
+      MfaConfiguration: 'OFF'
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: name
+          Required: true
+          Mutable: true
+        - Name: phone_number
+          Required: false
+          Mutable: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: AtusHome-WebClient
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+      PreventUserExistenceErrors: ENABLED
+
+  # ============================================
+  # API Gateway
+  # ============================================
+  
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+        MaxAge: "'600'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+            Identity:
+              Header: Authorization
+              ValidationExpression: ^Bearer [-0-9a-zA-Z\._]*$
+
+  # ============================================
+  # Lambda Functions
+  # ============================================
+  
+  # Products Functions
+  GetProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/products
+      Handler: index.getProducts
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /products
+            Method: get
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
+  GetProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/products
+      Handler: index.getProduct
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /products/{id}
+            Method: get
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
+  SearchProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/products
+      Handler: index.searchProducts
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /products/search
+            Method: get
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
+  # Users Functions
+  GetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/users
+      Handler: index.getUser
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /users/me
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  UpdateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/users
+      Handler: index.updateUser
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /users/me
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  # Orders Functions
+  GetOrdersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/orders
+      Handler: index.getOrders
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /orders
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  CreateOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/orders
+      Handler: index.createOrder
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /orders
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  GetOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/orders
+      Handler: index.getOrder
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /orders/{id}
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  # Cart Functions
+  GetCartFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/cart
+      Handler: index.getCart
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /cart
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  AddToCartFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/cart
+      Handler: index.addToCart
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /cart
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  UpdateCartItemFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/cart
+      Handler: index.updateCartItem
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /cart/{productId}
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  RemoveFromCartFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/cart
+      Handler: index.removeFromCart
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /cart/{productId}
+            Method: delete
+            RestApiId: !Ref ApiGateway
+
+  ClearCartFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/cart
+      Handler: index.clearCart
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /cart
+            Method: delete
+            RestApiId: !Ref ApiGateway
+
+  # Payment Functions
+  CreatePaymentIntentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/payments
+      Handler: index.createPaymentIntent
+      Environment:
+        Variables:
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payments/create-intent
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  StripeWebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/payments
+      Handler: index.webhook
+      Environment:
+        Variables:
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payments/webhook
+            Method: post
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
+  # Seed Data Function
+  SeedDataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handlers/admin
+      Handler: index.seedData
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/seed
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+# ============================================
+# Outputs
+# ============================================
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway Endpoint URL
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
+  
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+  
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
+  
+  CognitoDomain:
+    Description: Cognito Domain
+    Value: !Sub '${UserPool}.auth.${AWS::Region}.amazoncognito.com'

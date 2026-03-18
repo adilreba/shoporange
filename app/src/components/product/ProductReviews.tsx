@@ -59,7 +59,7 @@ export function ProductReviews({ reviews, averageRating, totalReviews }: Product
   return (
     <div className="space-y-8">
       {/* Rating Summary */}
-      <div className="bg-gray-50 rounded-2xl p-6">
+      <div className="bg-muted rounded-2xl p-6">
         <div className="grid md:grid-cols-2 gap-8">
           {/* Average Rating */}
           <div className="text-center md:text-left">
@@ -76,7 +76,7 @@ export function ProductReviews({ reviews, averageRating, totalReviews }: Product
                 />
               ))}
             </div>
-            <p className="text-gray-500">{totalReviews} değerlendirme</p>
+            <p className="text-muted-foreground">{totalReviews} değerlendirme</p>
           </div>
 
           {/* Rating Distribution */}
@@ -88,13 +88,13 @@ export function ProductReviews({ reviews, averageRating, totalReviews }: Product
               return (
                 <div key={star} className="flex items-center gap-3">
                   <span className="text-sm w-8">{star} ★</span>
-                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-amber-400 rounded-full transition-all"
                       style={{ width: `${percentage}%` }}
                     />
                   </div>
-                  <span className="text-sm text-gray-500 w-8">{count}</span>
+                  <span className="text-sm text-muted-foreground w-8">{count}</span>
                 </div>
               );
             })}
@@ -185,7 +185,7 @@ export function ProductReviews({ reviews, averageRating, totalReviews }: Product
                   )}
                   <div>
                     <p className="font-medium">{review.userName}</p>
-                    <p className="text-sm text-gray-500">{review.createdAt}</p>
+                    <p className="text-sm text-muted-foreground">{review.createdAt}</p>
                   </div>
                 </div>
                 <div className="flex">
@@ -202,7 +202,7 @@ export function ProductReviews({ reviews, averageRating, totalReviews }: Product
                 </div>
               </div>
               
-              <p className="text-gray-700 mb-3">{review.comment}</p>
+              <p className="text-foreground mb-3">{review.comment}</p>
               
               <div className="flex items-center gap-4">
                 {review.verified && (
@@ -211,7 +211,7 @@ export function ProductReviews({ reviews, averageRating, totalReviews }: Product
                     Doğrulanmış Satın Alma
                   </span>
                 )}
-                <button className="flex items-center gap-1 text-gray-500 text-sm hover:text-orange-600">
+                <button className="flex items-center gap-1 text-muted-foreground text-sm hover:text-orange-600">
                   <ThumbsUp className="h-4 w-4" />
                   Faydalı (0)
                 </button>
@@ -221,7 +221,7 @@ export function ProductReviews({ reviews, averageRating, totalReviews }: Product
         ) : (
           <div className="text-center py-12">
             <Star className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Henüz yorum yapılmamış. İlk yorumu siz yapın!</p>
+            <p className="text-muted-foreground">Henüz yorum yapılmamış. İlk yorumu siz yapın!</p>
           </div>
         )}
       </div>

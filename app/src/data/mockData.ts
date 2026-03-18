@@ -4,56 +4,56 @@ export const categories: CategoryInfo[] = [
   {
     id: 'elektronik',
     name: 'Elektronik',
-    icon: 'Smartphone',
+    icon: '💻',
     image: 'https://images.unsplash.com/photo-1498049860654-af1a5c5668ba?w=800',
     productCount: 1250
   },
   {
     id: 'moda',
     name: 'Moda',
-    icon: 'Shirt',
+    icon: '👕',
     image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=800',
     productCount: 3400
   },
   {
     id: 'ev-yasam',
     name: 'Ev & Yaşam',
-    icon: 'Home',
+    icon: '🏠',
     image: 'https://images.unsplash.com/photo-1484101403633-562f891dc89a?w=800',
     productCount: 2100
   },
   {
     id: 'kozmetik',
     name: 'Kozmetik',
-    icon: 'Sparkles',
+    icon: '💄',
     image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800',
     productCount: 890
   },
   {
     id: 'spor',
     name: 'Spor',
-    icon: 'Dumbbell',
+    icon: '⚽',
     image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
     productCount: 760
   },
   {
     id: 'kitap',
     name: 'Kitap',
-    icon: 'BookOpen',
+    icon: '📚',
     image: 'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=800',
     productCount: 5200
   },
   {
     id: 'oyuncak',
     name: 'Oyuncak',
-    icon: 'Gamepad2',
+    icon: '🎮',
     image: 'https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=800',
     productCount: 430
   },
   {
     id: 'supermarket',
     name: 'Süpermarket',
-    icon: 'ShoppingBasket',
+    icon: '🛒',
     image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800',
     productCount: 1800
   }
@@ -764,7 +764,7 @@ export const mockUser: User = {
 
 export const mockAdminUser: User = {
   id: 'admin1',
-  email: 'admin@shoporange.com',
+  email: 'admin@atushome.com',
   name: 'Admin Kullanıcı',
   avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
   phone: '+90 555 999 8888',
@@ -983,7 +983,7 @@ export const mockUsers = [
   {
     id: 'admin1',
     name: 'Admin User',
-    email: 'admin@shoporange.com',
+    email: 'admin@atushome.com',
     phone: '0850 123 4567',
     role: 'admin',
     createdAt: '2023-12-01',

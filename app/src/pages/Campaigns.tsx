@@ -68,13 +68,14 @@ export function Campaigns() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Header />
       
+      <main className="pt-[42px]">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-orange-500 to-red-500 text-white py-16">
         <div className="container-custom text-center">
-          <Badge className="bg-white/20 text-white mb-4 px-4 py-1">
+          <Badge className="bg-card/20 text-white mb-4 px-4 py-1">
             <Percent className="w-4 h-4 mr-1 inline" />
             Özel Fırsatlar
           </Badge>
@@ -86,7 +87,7 @@ export function Campaigns() {
       </section>
 
       {/* Coupon Codes */}
-      <section className="py-8 bg-white border-b">
+      <section className="py-8 bg-card border-b">
         <div className="container-custom">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Tag className="w-5 h-5 text-orange-500" />
@@ -108,7 +109,7 @@ export function Campaigns() {
                   <span className="font-bold text-orange-600">{coupon.code}</span>
                   <Badge className="bg-orange-500">{coupon.discount}</Badge>
                 </div>
-                <p className="text-sm text-gray-500">{coupon.min} üzeri {coupon.desc}</p>
+                <p className="text-sm text-muted-foreground">{coupon.min} üzeri {coupon.desc}</p>
                 <p className="text-xs text-orange-500 mt-2">Kopyalamak için tıklayın</p>
               </div>
             ))}
@@ -125,7 +126,7 @@ export function Campaigns() {
               <div className={`bg-gradient-to-r ${campaign.color} rounded-2xl p-6 md:p-8 text-white mb-6`}>
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center">
+                    <div className="w-16 h-16 bg-card/20 rounded-xl flex items-center justify-center">
                       <campaign.icon className="w-8 h-8" />
                     </div>
                     <div>
@@ -134,11 +135,11 @@ export function Campaigns() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg">
+                    <div className="flex items-center gap-2 bg-card/20 px-4 py-2 rounded-lg">
                       <Clock className="w-5 h-5" />
                       <span>Son: {campaign.endDate}</span>
                     </div>
-                    <Button asChild className="bg-white text-gray-900 hover:bg-gray-100">
+                    <Button asChild className="bg-card text-foreground hover:bg-muted">
                       <Link to="/products">
                         Tümünü Gör
                         <ArrowRight className="w-4 h-4 ml-2" />
@@ -163,14 +164,14 @@ export function Campaigns() {
       <section className="py-12 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
         <div className="container-custom text-center">
           <h2 className="text-2xl font-bold mb-4">Kampanyalardan Haberdar Olun</h2>
-          <p className="text-gray-400 mb-6 max-w-xl mx-auto">
+          <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
             Bültenimize abone olun, yeni kampanya ve indirimlerden ilk siz haberdar olun.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
             <input 
               type="email" 
               placeholder="E-posta adresiniz"
-              className="flex-1 px-4 py-3 rounded-lg text-gray-900"
+              className="flex-1 px-4 py-3 rounded-lg text-foreground"
             />
             <Button className="gradient-orange px-6">
               Abone Ol
@@ -179,6 +180,7 @@ export function Campaigns() {
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

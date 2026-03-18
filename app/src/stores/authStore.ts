@@ -2,11 +2,26 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, LoginCredentials, RegisterData } from '@/types';
 import { mockUser, mockAdminUser } from '@/data/mockData';
-import { authApi, usersApi } from '@/services/api';
 
 // Check if API URL is configured
-const API_URL = import.meta.env.VITE_API_URL;
-const USE_AWS_API = API_URL && !API_URL.includes('your-api-gateway');
+// const API_URL = import.meta.env.VITE_API_URL;
+// Temporarily disabled until AWS auth API is fully implemented
+const USE_AWS_API = false; // API_URL && !API_URL.includes('your-api-gateway');
+
+// Placeholder API objects (to be replaced with real implementation from '@/services/api')
+const authApi = {
+  verifyToken: async (_token: string) => {},
+  login: async (_email: string, _password: string) => ({ user: mockUser, token: 'mock_token' }),
+  register: async (_data: any) => ({ user: mockUser, token: 'mock_token' }),
+  socialLogin: async (_provider: string, _token?: string) => ({ user: mockUser, token: 'mock_token' }),
+};
+
+const usersApi = {
+  update: async (_id: string, data: any) => data,
+  addAddress: async (_id: string, _address: any) => {},
+  deleteAddress: async (_id: string, _addressId: string) => {},
+  updateAddress: async (_id: string, _addressId: string, _data: any) => {},
+};
 
 interface Address {
   id: string;

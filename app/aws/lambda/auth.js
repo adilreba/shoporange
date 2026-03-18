@@ -1,7 +1,7 @@
 const AWS = require('aws-sdk');
 const crypto = require('crypto');
 const dynamodb = new AWS.DynamoDB.DocumentClient();
-const USERS_TABLE = process.env.USERS_TABLE || 'ShopOrange-Users';
+const USERS_TABLE = process.env.USERS_TABLE || 'AtusHome-Users';
 
 const headers = {
   'Content-Type': 'application/json',

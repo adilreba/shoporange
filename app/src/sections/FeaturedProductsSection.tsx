@@ -1,82 +1,92 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import { ProductCard } from '@/components/product/ProductCard';
+import { Button } from '@/components/ui/button';
 import { products } from '@/data/mockData';
+import { cn } from '@/lib/utils';
 
 const tabs = [
-  { id: 'featured', label: 'Öne Çıkanlar' },
+  { id: 'all', label: 'Tümü' },
   { id: 'new', label: 'Yeni Gelenler' },
-  { id: 'bestseller', label: 'Çok Satanlar' },
-  { id: 'discount', label: 'İndirimdekiler' }
+  { id: 'popular', label: 'Popüler' },
+  { id: 'sale', label: 'İndirimli' },
 ];
 
 export function FeaturedProductsSection() {
-  const [activeTab, setActiveTab] = useState('featured');
+  const [activeTab, setActiveTab] = useState('all');
 
-  const getProducts = () => {
+  const filteredProducts = products.filter((product) => {
     switch (activeTab) {
       case 'new':
-        return products.filter(p => p.isNew).slice(0, 8);
-      case 'bestseller':
-        return products.filter(p => p.isBestseller).slice(0, 8);
-      case 'discount':
-        return products.filter(p => p.discount && p.discount > 0).slice(0, 8);
+        return product.isNew;
+      case 'popular':
+        return product.rating >= 4.5;
+      case 'sale':
+        return product.originalPrice && product.originalPrice > product.price;
       default:
-        return products.filter(p => p.isFeatured).slice(0, 8);
+        return true;
     }
-  };
-
-  const displayedProducts = getProducts();
+  });
 
   return (
-    <section className="section-padding">
-      <div className="container-custom">
-        {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+    <section className="py-[clamp(2rem,5vw,4rem)] bg-background">
+      <div className="container-custom px-[clamp(0.75rem,2vw,1.5rem)]">
+        {/* Section Header - Fluid */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-[clamp(0.5rem,1.5vw,1rem)] mb-[clamp(1rem,3vw,2rem)]">
           <div>
-            <span className="text-orange-600 font-medium mb-2 block">Ürünler</span>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+            <span className="text-orange-600 font-medium mb-[clamp(0.25rem,1vw,0.5rem)] block text-[clamp(0.75rem,1.2vw,1rem)]">
+              Öne Çıkan Ürünler
+            </span>
+            <h2 className="text-[clamp(1.25rem,3vw,2.5rem)] font-bold text-foreground">
               Keşfetmeye Başla
             </h2>
           </div>
-
-          {/* Tabs */}
-          <div className="flex flex-wrap gap-2">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  activeTab === tab.id
-                    ? 'gradient-orange text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <Link 
+            to="/products" 
+            className="hidden sm:flex items-center gap-2 text-orange-600 font-medium hover:gap-3 transition-all text-[clamp(0.75rem,1.2vw,1rem)]"
+          >
+            Tümünü Gör
+            <ArrowRight className="w-[clamp(1rem,2vw,1.25rem)] h-[clamp(1rem,2vw,1.25rem)]" />
+          </Link>
         </div>
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {displayedProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
+        {/* Category Tabs - Fluid */}
+        <div className="flex flex-wrap gap-[clamp(0.25rem,1vw,0.5rem)] mb-[clamp(1rem,3vw,2rem)]">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'px-[clamp(0.75rem,1.5vw,1.25rem)] py-[clamp(0.375rem,1vw,0.625rem)] rounded-full text-[clamp(0.625rem,1vw,0.875rem)] font-medium transition-all duration-300',
+                activeTab === tab.id
+                  ? 'gradient-orange text-white shadow-lg shadow-orange-500/25'
+                  : 'bg-card text-foreground hover:bg-orange-50 border border-border'
+              )}
+            >
+              {tab.label}
+            </button>
           ))}
         </div>
 
-        {/* View All Button */}
-        <div className="mt-12 text-center">
+        {/* Products Grid - Mobile: 2 cols, Desktop: auto */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+          {filteredProducts.slice(0, 8).map((product) => (
+            <div key={product.id} className="h-full">
+              <ProductCard product={product} />
+            </div>
+          ))}
+        </div>
+
+        {/* Mobile View All Button */}
+        <div className="mt-[clamp(1.5rem,4vw,2.5rem)] text-center sm:hidden">
           <Link to="/products">
             <Button 
-              size="lg" 
-              variant="outline"
-              className="border-2 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white px-8"
+              variant="outline" 
+              className="rounded-full px-[clamp(1.5rem,4vw,2rem)] border-2 border-orange-200 hover:border-orange-500 hover:bg-orange-50"
             >
-              Tüm Ürünleri Gör
-              <ArrowRight className="h-5 w-5 ml-2" />
+              Tümünü Gör
+              <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>
         </div>

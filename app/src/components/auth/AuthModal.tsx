@@ -109,7 +109,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
               <div className="space-y-2">
                 <Label htmlFor="login-email">E-posta</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="login-email"
                     type="email"
@@ -125,7 +125,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
               <div className="space-y-2">
                 <Label htmlFor="login-password">Şifre</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="login-password"
                     type={showPassword ? 'text' : 'password'}
@@ -138,7 +138,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -148,7 +148,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
               <div className="flex items-center justify-between text-sm">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" className="rounded border-gray-300" />
-                  <span className="text-gray-600">Beni hatırla</span>
+                  <span className="text-muted-foreground">Beni hatırla</span>
                 </label>
                 <button type="button" className="text-orange-600 hover:underline">
                   Şifremi unuttum
@@ -169,7 +169,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
                 <Separator />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-500">veya şununla devam et</span>
+                <span className="bg-card px-2 text-muted-foreground">veya şununla devam et</span>
               </div>
             </div>
 
@@ -194,7 +194,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
               </Button>
             </div>
 
-            <p className="text-center text-sm text-gray-600">
+            <p className="text-center text-sm text-muted-foreground">
               Hesabınız yok mu?{' '}
               <button 
                 onClick={() => setActiveTab('register')}
@@ -211,7 +211,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
               <div className="space-y-2">
                 <Label htmlFor="register-name">Ad Soyad</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="register-name"
                     type="text"
@@ -227,7 +227,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
               <div className="space-y-2">
                 <Label htmlFor="register-email">E-posta</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="register-email"
                     type="email"
@@ -254,7 +254,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
               <div className="space-y-2">
                 <Label htmlFor="register-password">Şifre</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="register-password"
                     type={showPassword ? 'text' : 'password'}
@@ -268,7 +268,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -294,7 +294,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
                   checked={agreeTerms}
                   onChange={(e) => setAgreeTerms(e.target.checked)}
                 />
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-muted-foreground">
                   <button type="button" className="text-orange-600 hover:underline">Kullanım Koşulları</button>'nı ve{' '}
                   <button type="button" className="text-orange-600 hover:underline">Gizlilik Politikası</button>'nı okudum ve kabul ediyorum.
                 </span>
@@ -314,7 +314,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
                 <Separator />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-500">veya şununla kaydol</span>
+                <span className="bg-card px-2 text-muted-foreground">veya şununla kaydol</span>
               </div>
             </div>
 
@@ -339,7 +339,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = 'login' }: AuthModa
               </Button>
             </div>
 
-            <p className="text-center text-sm text-gray-600">
+            <p className="text-center text-sm text-muted-foreground">
               Zaten hesabınız var mı?{' '}
               <button 
                 onClick={() => setActiveTab('login')}

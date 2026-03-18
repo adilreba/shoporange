@@ -3,7 +3,6 @@ import { Plus, Minus, ShoppingBag, Trash2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { useCartStore } from '@/stores/cartStore';
 import { toast } from 'sonner';
@@ -51,13 +50,13 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg flex flex-col">
-        <SheetHeader className="space-y-2.5 pb-4">
+      <SheetContent className="w-full sm:max-w-lg flex flex-col p-0">
+        <SheetHeader className="space-y-2.5 p-4 border-b shrink-0">
           <div className="flex items-center justify-between">
             <SheetTitle className="flex items-center gap-2 text-xl">
               <ShoppingBag className="h-6 w-6 text-orange-500" />
               Alışveriş Sepeti
-              <span className="text-sm font-normal text-gray-500">
+              <span className="text-sm font-normal text-muted-foreground">
                 ({totalItems()} ürün)
               </span>
             </SheetTitle>
@@ -65,14 +64,14 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
         </SheetHeader>
 
         {items.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
             <div className="w-24 h-24 rounded-full bg-orange-100 flex items-center justify-center mb-4">
               <ShoppingBag className="h-12 w-12 text-orange-500" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
               Sepetiniz Boş
             </h3>
-            <p className="text-gray-500 mb-6 max-w-xs">
+            <p className="text-muted-foreground mb-6 max-w-xs">
               Sepetinizde ürün bulunmuyor. Hemen alışverişe başlayın!
             </p>
             <Button 
@@ -87,32 +86,37 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
           </div>
         ) : (
           <>
-            <ScrollArea className="flex-1 -mx-6 px-6">
+            {/* Scrollable Items Area */}
+            <div className="flex-1 overflow-y-auto p-4">
               <div className="space-y-4">
                 {items.map((item) => (
                   <div 
                     key={item.product.id}
-                    className="flex gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
+                    className="flex gap-3 p-3 rounded-xl bg-muted"
                   >
                     {/* Product Image */}
                     <div 
-                      className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer"
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer"
                       onClick={() => {
                         onOpenChange(false);
                         navigate(`/product/${item.product.id}`);
                       }}
                     >
                       <img
-                        src={item.product.images[0]}
+                        src={item.product.images?.[0] || 'https://placehold.co/100x100/orange/white?text=Urun'}
                         alt={item.product.name}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://placehold.co/100x100/orange/white?text=Urun';
+                        }}
                       />
                     </div>
 
                     {/* Product Info */}
                     <div className="flex-1 min-w-0">
                       <h4 
-                        className="font-medium text-gray-900 line-clamp-1 cursor-pointer hover:text-orange-600 transition-colors"
+                        className="font-medium text-foreground text-sm line-clamp-1 cursor-pointer hover:text-orange-600 transition-colors"
                         onClick={() => {
                           onOpenChange(false);
                           navigate(`/product/${item.product.id}`);
@@ -120,7 +124,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                       >
                         {item.product.name}
                       </h4>
-                      <p className="text-sm text-gray-500">{item.product.brand}</p>
+                      <p className="text-xs text-muted-foreground">{item.product.brand}</p>
                       
                       <div className="flex items-center justify-between mt-2">
                         {/* Quantity Controls */}
@@ -129,12 +133,18 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                             variant="outline"
                             size="icon"
                             className="h-7 w-7 rounded-full"
-                            onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                            disabled={item.quantity <= 1}
+                            onClick={() => {
+                              if (item.quantity <= 1) {
+                                removeFromCart(item.product.id);
+                                toast.info('Ürün sepetten çıkarıldı');
+                              } else {
+                                updateQuantity(item.product.id, item.quantity - 1);
+                              }
+                            }}
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
-                          <span className="w-8 text-center font-medium">
+                          <span className="w-8 text-center font-medium text-sm">
                             {item.quantity}
                           </span>
                           <Button
@@ -149,11 +159,9 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                         </div>
 
                         {/* Price */}
-                        <div className="text-right">
-                          <span className="font-semibold text-orange-600">
-                            {formatPrice(item.product.price * item.quantity)}
-                          </span>
-                        </div>
+                        <span className="font-semibold text-orange-600 text-sm">
+                          {formatPrice(item.product.price * item.quantity)}
+                        </span>
                       </div>
                     </div>
 
@@ -161,7 +169,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-gray-400 hover:text-red-500 flex-shrink-0"
+                      className="h-8 w-8 text-muted-foreground hover:text-red-500 flex-shrink-0"
                       onClick={() => {
                         removeFromCart(item.product.id);
                         toast.info('Ürün sepetten çıkarıldı');
@@ -175,10 +183,10 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
 
               {/* Coupon Code */}
               <div className="mt-6">
-                <p className="text-sm font-medium text-gray-700 mb-2">İndirim Kuponu</p>
+                <p className="text-sm font-medium text-foreground mb-2">İndirim Kuponu</p>
                 {couponCode ? (
                   <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
-                    <span className="flex-1 text-green-700 font-medium">
+                    <span className="flex-1 text-green-700 font-medium text-sm">
                       {couponCode} - %{discountAmount} İndirim
                     </span>
                     <Button 
@@ -196,24 +204,26 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                       placeholder="Kupon kodu girin"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value)}
-                      className="flex-1"
+                      className="flex-1 text-sm"
                     />
                     <Button 
                       variant="outline"
                       onClick={handleApplyCoupon}
                       disabled={!couponInput.trim()}
+                      size="sm"
                     >
                       Uygula
                     </Button>
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
-            <div className="border-t pt-4 mt-4 space-y-4">
+            {/* Fixed Bottom Summary */}
+            <div className="border-t p-4 space-y-4 shrink-0 bg-card">
               {/* Summary */}
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-gray-600">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Ara Toplam</span>
                   <span>{formatPrice(totalPrice())}</span>
                 </div>
@@ -223,7 +233,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                     <span>-{formatPrice(totalPrice() * discountAmount / 100)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-gray-600">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Kargo</span>
                   <span className={shippingCost() === 0 ? 'text-green-600' : ''}>
                     {shippingCost() === 0 ? 'Ücretsiz' : formatPrice(shippingCost())}
@@ -239,7 +249,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
               {/* Actions */}
               <div className="space-y-2">
                 <Button 
-                  className="w-full gradient-orange btn-shine h-12 text-base"
+                  className="w-full gradient-orange h-12 text-base"
                   onClick={() => {
                     onOpenChange(false);
                     navigate('/checkout');

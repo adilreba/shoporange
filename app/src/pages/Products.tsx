@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { 
-  SlidersHorizontal, 
-  Grid3X3, 
-  LayoutList, 
+import {
+  SlidersHorizontal,
+  Grid3X3,
+  LayoutList,
   X,
   Filter
 } from 'lucide-react';
@@ -14,7 +14,9 @@ import { Slider } from '@/components/ui/slider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
+import { SEO } from '@/components/common/SEO';
 import { ProductCard } from '@/components/product/ProductCard';
+import { ProductGridSkeleton } from '@/components/product/ProductCardSkeleton';
 import { products, categories, brands, subcategories } from '@/data/mockData';
 import type { Category } from '@/types';
 
@@ -23,15 +25,15 @@ const sortOptions = [
   { value: 'price-asc', label: 'Fiyat: Düşükten Yükseğe' },
   { value: 'price-desc', label: 'Fiyat: Yüksekten Düşüğe' },
   { value: 'newest', label: 'En Yeniler' },
-  { value: 'rating', label: 'En Yüksek Puan' }
+  { value: 'rating', label: 'En Yüksek Puan' },
+  { value: 'discount', label: 'İndirimli Ürünler' }
 ];
 
 export function Products() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  
-  // Filters
+
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     searchParams.get('category') as Category || null
   );
@@ -43,15 +45,41 @@ export function Products() {
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [sortBy, setSortBy] = useState('popular');
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Filter products
+  // Sayfa yüklendiğinde loading state'i kapat
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // URL parametreleri değiştiğinde state'leri güncelle
+  useEffect(() => {
+    const categoryParam = searchParams.get('category') as Category;
+    const subcategoryParam = searchParams.get('subcategory');
+    const searchParam = searchParams.get('search') || '';
+    
+    setSelectedCategory(categoryParam || null);
+    setSelectedSubcategory(subcategoryParam || null);
+    setSearchQuery(searchParam);
+  }, [searchParams]);
+
+  const brandCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    brands.forEach(brand => {
+      counts[brand] = products.filter(p => p.brand === brand).length;
+    });
+    return counts;
+  }, []);
+
   const filteredProducts = useMemo(() => {
     let result = [...products];
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(p => 
+      result = result.filter(p =>
         p.name.toLowerCase().includes(query) ||
         p.description.toLowerCase().includes(query) ||
         p.brand.toLowerCase().includes(query) ||
@@ -59,40 +87,32 @@ export function Products() {
       );
     }
 
-    // Category filter
     if (selectedCategory) {
       result = result.filter(p => p.category === selectedCategory);
     }
 
-    // Subcategory filter
     if (selectedSubcategory) {
       result = result.filter(p => p.subcategory === selectedSubcategory);
     }
 
-    // Brand filter
     if (selectedBrands.length > 0) {
       result = result.filter(p => selectedBrands.includes(p.brand));
     }
 
-    // Price filter
     result = result.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
 
-    // Rating filter
     if (minRating > 0) {
       result = result.filter(p => p.rating >= minRating);
     }
 
-    // Discount filter
     if (onlyDiscount) {
       result = result.filter(p => p.discount && p.discount > 0);
     }
 
-    // Stock filter
     if (onlyInStock) {
       result = result.filter(p => p.stock > 0);
     }
 
-    // Sort
     switch (sortBy) {
       case 'price-asc':
         result.sort((a, b) => a.price - b.price);
@@ -106,8 +126,12 @@ export function Products() {
       case 'rating':
         result.sort((a, b) => b.rating - a.rating);
         break;
-      default:
-        // Popular - keep original order
+      case 'discount':
+        result.sort((a, b) => {
+          const discountA = a.discount || 0;
+          const discountB = b.discount || 0;
+          return discountB - discountA;
+        });
         break;
     }
 
@@ -137,11 +161,43 @@ export function Products() {
   };
 
   const toggleBrand = (brand: string) => {
-    setSelectedBrands(prev => 
-      prev.includes(brand) 
+    setSelectedBrands(prev =>
+      prev.includes(brand)
         ? prev.filter(b => b !== brand)
         : [...prev, brand]
     );
+  };
+
+  // Kategori seçildiğinde URL'yi güncelle
+  const handleCategoryChange = (categoryId: string) => {
+    const newCategory = selectedCategory === categoryId ? null : categoryId;
+    setSelectedCategory(newCategory as Category | null);
+    setSelectedSubcategory(null);
+    
+    // URL'yi güncelle
+    const params = new URLSearchParams(searchParams);
+    if (newCategory) {
+      params.set('category', newCategory);
+    } else {
+      params.delete('category');
+    }
+    params.delete('subcategory'); // Alt kategori sıfırla
+    setSearchParams(params);
+  };
+
+  // Alt kategori seçildiğinde URL'yi güncelle
+  const handleSubcategoryChange = (sub: string) => {
+    const newSubcategory = selectedSubcategory === sub ? null : sub;
+    setSelectedSubcategory(newSubcategory);
+    
+    // URL'yi güncelle
+    const params = new URLSearchParams(searchParams);
+    if (newSubcategory) {
+      params.set('subcategory', newSubcategory);
+    } else {
+      params.delete('subcategory');
+    }
+    setSearchParams(params);
   };
 
   const formatPrice = (price: number) => {
@@ -152,220 +208,228 @@ export function Products() {
     }).format(price);
   };
 
-  // Filter Sidebar Content
   const FilterContent = () => (
-    <div className="space-y-6">
-      {/* Categories */}
-      <div>
-        <h4 className="font-semibold mb-3">Kategoriler</h4>
+    <div className="space-y-6 pb-20">
+      <div className="border-b border-border pb-4">
+        <h4 className="font-semibold mb-3 text-foreground text-sm">Kategoriler</h4>
         <div className="space-y-2">
           {categories.map(cat => (
-            <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
+            <label key={cat.id} className="flex items-center gap-3 cursor-pointer group py-1">
               <Checkbox
                 checked={selectedCategory === cat.id}
-                onCheckedChange={() => {
-                  setSelectedCategory(selectedCategory === cat.id ? null : cat.id);
-                  setSelectedSubcategory(null);
-                }}
+                onCheckedChange={() => handleCategoryChange(cat.id)}
+                className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
               />
-              <span className="text-sm">{cat.name}</span>
-              <span className="text-xs text-gray-400 ml-auto">{cat.productCount}</span>
+              <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors">{cat.name}</span>
+              <span className="text-xs text-muted-foreground ml-auto bg-muted px-2 py-0.5 rounded-full">{cat.productCount}</span>
             </label>
           ))}
         </div>
       </div>
 
-      {/* Subcategories */}
       {selectedCategory && subcategories[selectedCategory] && (
-        <div>
-          <h4 className="font-semibold mb-3">Alt Kategoriler</h4>
+        <div className="border-b border-border pb-4">
+          <h4 className="font-semibold mb-3 text-foreground text-sm">Alt Kategoriler</h4>
           <div className="space-y-2">
             {subcategories[selectedCategory].map(sub => (
-              <label key={sub} className="flex items-center gap-2 cursor-pointer">
+              <label key={sub} className="flex items-center gap-3 cursor-pointer group py-1">
                 <Checkbox
                   checked={selectedSubcategory === sub}
-                  onCheckedChange={() => {
-                    setSelectedSubcategory(selectedSubcategory === sub ? null : sub);
-                  }}
+                  onCheckedChange={() => handleSubcategoryChange(sub)}
+                  className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
-                <span className="text-sm">{sub}</span>
+                <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors">{sub}</span>
               </label>
             ))}
           </div>
         </div>
       )}
 
-      {/* Price Range */}
-      <div>
-        <h4 className="font-semibold mb-3">Fiyat Aralığı</h4>
-        <Slider
-          value={priceRange}
-          onValueChange={(value) => setPriceRange(value as [number, number])}
-          max={100000}
-          step={1000}
-          className="mb-4"
-        />
-        <div className="flex items-center justify-between text-sm">
-          <span>{formatPrice(priceRange[0])}</span>
-          <span>{formatPrice(priceRange[1])}</span>
+      <div className="border-b border-border pb-4">
+        <h4 className="font-semibold mb-3 text-foreground text-sm">Fiyat Aralığı</h4>
+        <div className="px-1">
+          <Slider
+            value={priceRange}
+            onValueChange={(value) => setPriceRange(value as [number, number])}
+            max={100000}
+            step={1000}
+            className="mb-4"
+          />
+        </div>
+        <div className="flex items-center justify-between text-sm mt-2">
+          <span className="font-medium text-foreground bg-muted px-3 py-1 rounded-lg">{formatPrice(priceRange[0])}</span>
+          <span className="text-muted-foreground">-</span>
+          <span className="font-medium text-foreground bg-muted px-3 py-1 rounded-lg">{formatPrice(priceRange[1])}</span>
         </div>
       </div>
 
-      {/* Brands */}
-      <div>
-        <h4 className="font-semibold mb-3">Markalar</h4>
-        <div className="space-y-2 max-h-48 overflow-y-auto">
+      <div className="border-b border-border pb-4">
+        <h4 className="font-semibold mb-3 text-foreground text-sm">Markalar</h4>
+        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
           {brands.map(brand => (
-            <label key={brand} className="flex items-center gap-2 cursor-pointer">
+            <label key={brand} className="flex items-center gap-3 cursor-pointer group py-1">
               <Checkbox
                 checked={selectedBrands.includes(brand)}
                 onCheckedChange={() => toggleBrand(brand)}
+                className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
               />
-              <span className="text-sm">{brand}</span>
+              <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">{brand}</span>
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{brandCounts[brand] || 0}</span>
             </label>
           ))}
         </div>
       </div>
 
-      {/* Rating */}
-      <div>
-        <h4 className="font-semibold mb-3">Minimum Puan</h4>
+      <div className="border-b border-border pb-4">
+        <h4 className="font-semibold mb-3 text-foreground text-sm">Minimum Puan</h4>
         <div className="space-y-2">
           {[4, 3, 2, 1].map(rating => (
-            <label key={rating} className="flex items-center gap-2 cursor-pointer">
+            <label key={rating} className="flex items-center gap-3 cursor-pointer group py-1">
               <Checkbox
                 checked={minRating === rating}
                 onCheckedChange={() => setMinRating(minRating === rating ? 0 : rating)}
+                className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
               />
               <div className="flex items-center gap-1">
                 {[...Array(5)].map((_, i) => (
-                  <span key={i} className={`text-sm ${i < rating ? 'text-amber-400' : 'text-gray-300'}`}>
+                  <span key={i} className={`text-base ${i < rating ? 'text-amber-400' : 'text-gray-200'}`}>
                     ★
                   </span>
                 ))}
-                <span className="text-sm text-gray-500 ml-1">ve üzeri</span>
+                <span className="text-sm text-muted-foreground ml-2">ve üzeri</span>
               </div>
             </label>
           ))}
         </div>
       </div>
 
-      {/* Other Filters */}
       <div>
-        <h4 className="font-semibold mb-3">Diğer Filtreler</h4>
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 cursor-pointer">
+        <h4 className="font-semibold mb-3 text-foreground text-sm">Diğer Filtreler</h4>
+        <div className="space-y-3">
+          <label className="flex items-center gap-3 cursor-pointer group py-1">
             <Checkbox
               checked={onlyDiscount}
               onCheckedChange={(checked) => setOnlyDiscount(checked as boolean)}
+              className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
             />
-            <span className="text-sm">Sadece İndirimli Ürünler</span>
+            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors">Sadece İndirimli Ürünler</span>
+            <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full ml-auto">İNDİRİM</span>
           </label>
-          <label className="flex items-center gap-2 cursor-pointer">
+          <label className="flex items-center gap-3 cursor-pointer group py-1">
             <Checkbox
               checked={onlyInStock}
               onCheckedChange={(checked) => setOnlyInStock(checked as boolean)}
+              className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
             />
-            <span className="text-sm">Sadece Stoktakiler</span>
+            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors">Sadece Stoktakiler</span>
+            <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full ml-auto">STOKTA</span>
           </label>
         </div>
       </div>
     </div>
   );
 
+  const pageTitle = searchQuery 
+    ? `"${searchQuery}" Arama Sonuçları`
+    : selectedCategory 
+      ? categories.find(c => c.id === selectedCategory)?.name || 'Ürünler'
+      : 'Tüm Ürünler';
+
+  const pageDescription = selectedCategory
+    ? `${categories.find(c => c.id === selectedCategory)?.name} kategorisinde ${filteredProducts.length} ürün bulunuyor. En uygun fiyatlarla ${categories.find(c => c.id === selectedCategory)?.name} ürünleri AtusHome'da!`
+    : `AtusHome'da ${filteredProducts.length} ürün arasından size uygun olanı bulun. Elektronik, moda, ev yaşam ve daha fazlası.`;
+
   return (
     <div className="min-h-screen bg-background">
+      <SEO 
+        title={pageTitle}
+        description={pageDescription}
+        keywords={`${selectedCategory || 'tüm ürünler'}, e-ticaret, alışveriş, online mağaza`}
+      />
       <Header />
-      
-      <main className="container-custom py-8">
-        {/* Breadcrumb & Title */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-            <span>Ana Sayfa</span>
-            <span>/</span>
-            <span className="text-gray-900">Ürünler</span>
-            {selectedCategory && (
-              <>
-                <span>/</span>
-                <span className="text-orange-600">
-                  {categories.find(c => c.id === selectedCategory)?.name}
-                </span>
-              </>
-            )}
-          </div>
-          <h1 className="text-3xl font-bold">
-            {searchQuery ? `"${searchQuery}" Arama Sonuçları` : 
-             selectedCategory ? categories.find(c => c.id === selectedCategory)?.name : 
-             'Tüm Ürünler'}
+
+      <main className="container-custom pt-[42px] pb-6 sm:pt-[42px] sm:pb-8 px-4 sm:px-6 lg:px-8">
+        {/* Title */}
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">
+            {searchQuery ? `"${searchQuery}" Arama Sonuçları` :
+              selectedCategory ? categories.find(c => c.id === selectedCategory)?.name :
+                'Tüm Ürünler'}
           </h1>
-          <p className="text-gray-500 mt-1">
+          <p className="text-muted-foreground mt-1 text-sm">
             {filteredProducts.length} ürün bulundu
           </p>
         </div>
 
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
-          <div className="flex items-center gap-4">
-            {/* Mobile Filter Button */}
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6 p-3 sm:p-4 bg-muted rounded-xl">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" className="lg:hidden">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filtrele
+                <Button variant="outline" className="lg:hidden text-xs sm:text-sm h-9">
+                  <Filter className="h-4 w-4 mr-1.5 sm:mr-2" />
+                  Filtre
                   {activeFiltersCount > 0 && (
-                    <Badge variant="secondary" className="ml-2">
+                    <Badge variant="secondary" className="ml-1.5 sm:ml-2 bg-orange-100 text-orange-700 text-xs">
                       {activeFiltersCount}
                     </Badge>
                   )}
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-80 overflow-y-auto">
-                <SheetHeader>
-                  <SheetTitle>Filtreler</SheetTitle>
-                </SheetHeader>
-                <div className="mt-6">
-                  <FilterContent />
+              <SheetContent side="left" className="w-[300px] sm:w-[350px] p-0">
+                <div className="flex flex-col h-full">
+                  <SheetHeader className="px-5 py-4 border-b border-border bg-card sticky top-0 z-10">
+                    <SheetTitle className="text-lg font-semibold text-foreground">Filtreler</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex-1 overflow-y-auto px-5 py-4">
+                    <FilterContent />
+                  </div>
+                  <div className="px-5 py-4 border-t border-border bg-muted sticky bottom-0">
+                    <Button
+                      className="w-full gradient-orange"
+                      onClick={() => setIsFilterOpen(false)}
+                    >
+                      {filteredProducts.length} Ürünü Göster
+                    </Button>
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
 
-            {/* Desktop Filter Button */}
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="hidden lg:flex"
-              onClick={() => setIsFilterOpen(true)}
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
             >
               <SlidersHorizontal className="h-4 w-4 mr-2" />
-              Filtrele
+              {isFilterOpen ? 'Filtreleri Gizle' : 'Filtrele'}
               {activeFiltersCount > 0 && (
-                <Badge variant="secondary" className="ml-2">
+                <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700">
                   {activeFiltersCount}
                 </Badge>
               )}
             </Button>
 
-            {/* Clear Filters */}
             {activeFiltersCount > 0 && (
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={clearFilters}
-                className="text-red-500 hover:text-red-600"
+                className="text-red-500 hover:text-red-600 text-xs sm:text-sm"
               >
                 <X className="h-4 w-4 mr-1" />
-                Filtreleri Temizle
+                Temizle
               </Button>
             )}
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* Sort */}
+          <div className="flex items-center gap-2 sm:gap-4 ml-auto">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 hidden sm:inline">Sırala:</span>
+              <span className="text-sm text-muted-foreground hidden sm:inline">Sırala:</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                className="border rounded-lg px-2 sm:px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-background"
               >
                 {sortOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -373,12 +437,11 @@ export function Products() {
               </select>
             </div>
 
-            {/* View Mode */}
-            <div className="flex items-center border rounded-lg overflow-hidden">
+            <div className="hidden sm:flex items-center border rounded-lg overflow-hidden">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
                 size="icon"
-                className={viewMode === 'grid' ? 'gradient-orange rounded-none' : 'rounded-none'}
+                className={viewMode === 'grid' ? 'gradient-orange rounded-none h-9 w-9' : 'rounded-none h-9 w-9'}
                 onClick={() => setViewMode('grid')}
               >
                 <Grid3X3 className="h-4 w-4" />
@@ -386,7 +449,7 @@ export function Products() {
               <Button
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="icon"
-                className={viewMode === 'list' ? 'gradient-orange rounded-none' : 'rounded-none'}
+                className={viewMode === 'list' ? 'gradient-orange rounded-none h-9 w-9' : 'rounded-none h-9 w-9'}
                 onClick={() => setViewMode('list')}
               >
                 <LayoutList className="h-4 w-4" />
@@ -395,54 +458,67 @@ export function Products() {
           </div>
         </div>
 
-        <div className="flex gap-8">
+        <div className="flex gap-6 lg:gap-8">
           {/* Sidebar Filters - Desktop */}
-          <aside className="hidden lg:block w-64 flex-shrink-0">
-            <div className="sticky top-24">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Filtreler</h3>
+          <aside className={`hidden lg:block flex-shrink-0 transition-all duration-300 ${isFilterOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
+            {isFilterOpen && (
+              <div className="sticky top-24 bg-card rounded-xl border border-border p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+                  <h3 className="font-semibold text-lg text-foreground">Filtreler</h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsFilterOpen(false)}
+                    className="h-8 w-8"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
                 {activeFiltersCount > 0 && (
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="sm"
                     onClick={clearFilters}
-                    className="text-red-500 hover:text-red-600 h-auto py-1"
+                    className="text-red-500 hover:text-red-600 h-auto py-1 mb-3 -mt-1 text-xs"
                   >
-                    Temizle
+                    Tümünü Temizle
                   </Button>
                 )}
+                <FilterContent />
               </div>
-              <FilterContent />
-            </div>
+            )}
           </aside>
 
           {/* Products Grid */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             {filteredProducts.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Filter className="h-10 w-10 text-gray-400" />
+              <div className="text-center py-12 sm:py-16">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Filter className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
                   Ürün Bulunamadı
                 </h3>
-                <p className="text-gray-500 mb-6">
+                <p className="text-muted-foreground mb-6 text-sm">
                   Seçtiğiniz filtrelere uygun ürün bulunmuyor.
                 </p>
-                <Button onClick={clearFilters} variant="outline">
+                <Button onClick={clearFilters} variant="outline" size="sm">
                   Filtreleri Temizle
                 </Button>
               </div>
+            ) : isLoading ? (
+              <ProductGridSkeleton count={8} />
             ) : (
-              <div className={`grid gap-4 md:gap-6 ${
-                viewMode === 'grid' 
-                  ? 'grid-cols-2 md:grid-cols-3' 
-                  : 'grid-cols-1'
-              }`}>
+              <div 
+                className={`grid gap-[clamp(0.5rem,1.5vw,1rem)] ${viewMode === 'grid' ? '' : 'grid-cols-1'}`}
+                style={viewMode === 'grid' ? {
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))'
+                } : undefined}
+              >
                 {filteredProducts.map(product => (
-                  <ProductCard 
-                    key={product.id} 
-                    product={product} 
+                  <ProductCard
+                    key={product.id}
+                    product={product}
                     variant={viewMode === 'list' ? 'horizontal' : 'default'}
                   />
                 ))}

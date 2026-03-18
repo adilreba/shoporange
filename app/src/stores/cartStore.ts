@@ -1,11 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Product, CartItem } from '@/types';
+import { cartApi } from '@/services/api';
+import { useAuthStore } from './authStore';
 
 interface CartState {
   items: CartItem[];
   couponCode: string | null;
   discountAmount: number;
+  isLoading: boolean;
   
   // Getters
   totalItems: () => number;
@@ -14,14 +17,15 @@ interface CartState {
   shippingCost: () => number;
   
   // Actions
-  addToCart: (product: Product, quantity?: number) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
-  clearCart: () => void;
+  addToCart: (product: Product, quantity?: number) => Promise<void>;
+  removeFromCart: (productId: string) => Promise<void>;
+  updateQuantity: (productId: string, quantity: number) => Promise<void>;
+  clearCart: () => Promise<void>;
   applyCoupon: (code: string) => boolean;
   removeCoupon: () => void;
   isInCart: (productId: string) => boolean;
   getCartItem: (productId: string) => CartItem | undefined;
+  syncWithServer: () => Promise<void>;
 }
 
 const COUPONS: Record<string, number> = {
@@ -38,6 +42,7 @@ export const useCartStore = create<CartState>()(
       items: [],
       couponCode: null,
       discountAmount: 0,
+      isLoading: false,
 
       totalItems: () => {
         return get().items.reduce((total, item) => total + item.quantity, 0);
@@ -62,8 +67,39 @@ export const useCartStore = create<CartState>()(
         return 49;
       },
 
-      addToCart: (product: Product, quantity = 1) => {
+      // Server ile senkronizasyon
+      syncWithServer: async () => {
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        if (!isAuthenticated) return;
+
+        try {
+          set({ isLoading: true });
+          const data = await cartApi.get();
+          
+          // API'den gelen veriyi CartItem formatına çevir
+          const serverItems: CartItem[] = data.items.map((item: any) => ({
+            product: {
+              id: item.productId,
+              name: item.name,
+              price: item.price,
+              images: [item.image],
+              stock: 100, // Server'dan stock bilgisi gelmiyorsa default
+            } as Product,
+            quantity: item.quantity,
+          }));
+
+          set({ items: serverItems, isLoading: false });
+        } catch (error) {
+          console.error('Failed to sync cart:', error);
+          set({ isLoading: false });
+        }
+      },
+
+      addToCart: async (product: Product, quantity = 1) => {
         const { items } = get();
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        
+        // Local state güncelle
         const existingItem = items.find(item => item.product.id === product.id);
 
         if (existingItem) {
@@ -82,17 +118,44 @@ export const useCartStore = create<CartState>()(
             items: [...items, { product, quantity }]
           });
         }
+
+        // API'ye gönder (eğer giriş yapılmışsa)
+        if (isAuthenticated) {
+          try {
+            await cartApi.addItem({
+              productId: product.id,
+              name: product.name,
+              price: product.price,
+              image: product.images[0],
+              quantity,
+            });
+          } catch (error) {
+            console.error('Failed to add to cart on server:', error);
+          }
+        }
       },
 
-      removeFromCart: (productId: string) => {
+      removeFromCart: async (productId: string) => {
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        
         set({
           items: get().items.filter(item => item.product.id !== productId)
         });
+
+        if (isAuthenticated) {
+          try {
+            await cartApi.removeItem(productId);
+          } catch (error) {
+            console.error('Failed to remove from cart on server:', error);
+          }
+        }
       },
 
-      updateQuantity: (productId: string, quantity: number) => {
+      updateQuantity: async (productId: string, quantity: number) => {
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        
         if (quantity <= 0) {
-          get().removeFromCart(productId);
+          await get().removeFromCart(productId);
           return;
         }
 
@@ -105,11 +168,29 @@ export const useCartStore = create<CartState>()(
                 : i
             )
           });
+
+          if (isAuthenticated) {
+            try {
+              await cartApi.updateItem(productId, quantity);
+            } catch (error) {
+              console.error('Failed to update cart on server:', error);
+            }
+          }
         }
       },
 
-      clearCart: () => {
+      clearCart: async () => {
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        
         set({ items: [], couponCode: null, discountAmount: 0 });
+
+        if (isAuthenticated) {
+          try {
+            await cartApi.clear();
+          } catch (error) {
+            console.error('Failed to clear cart on server:', error);
+          }
+        }
       },
 
       applyCoupon: (code: string) => {

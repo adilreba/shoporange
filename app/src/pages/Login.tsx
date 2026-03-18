@@ -22,6 +22,25 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Form validasyonu
+    if (!email.trim()) {
+      toast.error('E-posta adresi girin');
+      return;
+    }
+    if (!email.includes('@')) {
+      toast.error('Geçerli bir e-posta adresi girin');
+      return;
+    }
+    if (!password.trim()) {
+      toast.error('Şifre girin');
+      return;
+    }
+    if (password.length < 6) {
+      toast.error('Şifre en az 6 karakter olmalı');
+      return;
+    }
+    
     const success = await login({ email, password });
     if (success) {
       toast.success('Giriş başarılı!');
@@ -47,14 +66,14 @@ export function Login() {
       
       <main className="container-custom py-12">
         <div className="max-w-md mx-auto">
-          <div className="bg-white rounded-2xl shadow-soft p-8">
+          <div className="bg-card rounded-2xl shadow-soft p-8">
             {/* Logo */}
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold mb-2">
-                <span className="text-gradient">Shop</span>
-                <span className="text-orange-600">Orange</span>
+                <span className="text-gradient">Atus</span>
+                <span className="text-orange-600">Home</span>
               </h1>
-              <p className="text-gray-500">Hesabınıza giriş yapın</p>
+              <p className="text-muted-foreground">Hesabınıza giriş yapın</p>
             </div>
 
             {/* Social Login */}
@@ -84,7 +103,7 @@ export function Login() {
                 <Separator />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-500">veya e-posta ile</span>
+                <span className="bg-card px-2 text-muted-foreground">veya e-posta ile</span>
               </div>
             </div>
 
@@ -93,7 +112,7 @@ export function Login() {
               <div>
                 <Label htmlFor="email">E-posta</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
@@ -109,7 +128,7 @@ export function Login() {
               <div>
                 <Label htmlFor="password">Şifre</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
@@ -122,7 +141,7 @@ export function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -135,7 +154,7 @@ export function Login() {
                     checked={rememberMe}
                     onCheckedChange={(checked) => setRememberMe(checked as boolean)}
                   />
-                  <span className="text-sm text-gray-600">Beni hatırla</span>
+                  <span className="text-sm text-muted-foreground">Beni hatırla</span>
                 </label>
                 <Link to="/forgot-password" className="text-sm text-orange-600 hover:underline">
                   Şifremi unuttum
@@ -155,12 +174,12 @@ export function Login() {
             <div className="mt-6 p-4 bg-orange-50 rounded-lg">
               <p className="text-sm font-medium text-orange-800 mb-2">Demo Giriş Bilgileri:</p>
               <div className="text-sm text-orange-700 space-y-1">
-                <p><strong>Admin:</strong> admin@shoporange.com / admin123</p>
+                <p><strong>Admin:</strong> admin@atushome.com / admin123</p>
                 <p><strong>User:</strong> Herhangi bir email / 6+ karakter şifre</p>
               </div>
             </div>
 
-            <p className="text-center text-sm text-gray-600 mt-6">
+            <p className="text-center text-sm text-muted-foreground mt-6">
               Hesabınız yok mu?{' '}
               <Link to="/register" className="text-orange-600 font-medium hover:underline">
                 Kayıt olun

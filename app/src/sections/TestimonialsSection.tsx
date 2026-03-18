@@ -8,7 +8,7 @@ const testimonials = [
     name: 'Ayşe Yılmaz',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
     rating: 5,
-    comment: 'ShopOrange\'dan alışveriş yapmak çok keyifli! Ürünler kaliteli, kargo hızlı ve müşteri hizmetleri çok ilgili. Kesinlikle tavsiye ederim.',
+    comment: 'AtusHome\'dan alışveriş yapmak çok keyifli! Ürünler kaliteli, kargo hızlı ve müşteri hizmetleri çok ilgili. Kesinlikle tavsiye ederim.',
     role: 'Müşteri'
   },
   {
@@ -16,7 +16,7 @@ const testimonials = [
     name: 'Mehmet Kaya',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
     rating: 5,
-    comment: 'Elektronik ürünlerdeki fiyatlar gerçekten çok uygun. iPhone 15 Pro\'yu piyasadan çok daha ucuz aldım. Teşekkürler ShopOrange!',
+    comment: 'Elektronik ürünlerdeki fiyatlar gerçekten çok uygun. iPhone 15 Pro\'yu piyasadan çok daha ucuz aldım. Teşekkürler AtusHome!',
     role: 'Müşteri'
   },
   {
@@ -32,7 +32,7 @@ const testimonials = [
     name: 'Can Özdemir',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
     rating: 5,
-    comment: 'Süpermarket alışverişlerimi artık sadece ShopOrange\'dan yapıyorum. Ücretsiz kargo limiti düşük, ürünler taze ve paketleme çok iyi.',
+    comment: 'Süpermarket alışverişlerimi artık sadece AtusHome\'dan yapıyorum. Ücretsiz kargo limiti düşük, ürünler taze ve paketleme çok iyi.',
     role: 'Müşteri'
   }
 ];
@@ -54,11 +54,11 @@ export function TestimonialsSection() {
         {/* Section Header */}
         <div className="text-center mb-12">
           <span className="text-orange-600 font-medium mb-2 block">Müşteri Yorumları</span>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
             Müşterilerimiz Ne Diyor?
           </h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Binlerce mutlu müşterimizin deneyimlerini okuyun ve siz de ShopOrange ailesine katılın.
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Binlerce mutlu müşterimizin deneyimlerini okuyun ve siz de AtusHome ailesine katılın.
           </p>
         </div>
 
@@ -74,7 +74,7 @@ export function TestimonialsSection() {
                   key={testimonial.id}
                   className="w-full flex-shrink-0 px-4"
                 >
-                  <div className="bg-white rounded-3xl shadow-soft p-8 md:p-12 text-center">
+                  <div className="bg-card rounded-3xl shadow-soft p-8 md:p-12 text-center">
                     <Quote className="h-12 w-12 text-orange-200 mx-auto mb-6" />
                     
                     {/* Rating */}
@@ -92,7 +92,7 @@ export function TestimonialsSection() {
                     </div>
 
                     {/* Comment */}
-                    <p className="text-lg md:text-xl text-gray-700 mb-8 leading-relaxed">
+                    <p className="text-lg md:text-xl text-foreground mb-8 leading-relaxed">
                       "{testimonial.comment}"
                     </p>
 
@@ -104,8 +104,8 @@ export function TestimonialsSection() {
                         className="w-14 h-14 rounded-full object-cover"
                       />
                       <div className="text-left">
-                        <h4 className="font-semibold text-gray-900">{testimonial.name}</h4>
-                        <p className="text-sm text-gray-500">{testimonial.role}</p>
+                        <h4 className="font-semibold text-foreground">{testimonial.name}</h4>
+                        <p className="text-sm text-muted-foreground">{testimonial.role}</p>
                       </div>
                     </div>
                   </div>
@@ -160,7 +160,7 @@ export function TestimonialsSection() {
               <div className="text-3xl md:text-4xl font-bold text-orange-600 mb-1">
                 {stat.value}
               </div>
-              <div className="text-gray-600">{stat.label}</div>
+              <div className="text-muted-foreground">{stat.label}</div>
             </div>
           ))}
         </div>

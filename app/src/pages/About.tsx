@@ -51,9 +51,10 @@ export function About() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-card">
       <Header />
       
+      <main className="pt-[42px]">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-orange-500 to-orange-600 text-white py-20">
         <div className="container-custom text-center">
@@ -65,15 +66,15 @@ export function About() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 bg-gray-50">
+      <section className="py-16 bg-muted">
         <div className="container-custom">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {stats.map((stat, index) => (
               <Card key={index} className="text-center hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
                   <stat.icon className="w-10 h-10 text-orange-500 mx-auto mb-4" />
-                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                  <p className="text-gray-500">{stat.label}</p>
+                  <p className="text-3xl font-bold text-foreground">{stat.value}</p>
+                  <p className="text-muted-foreground">{stat.label}</p>
                 </CardContent>
               </Card>
             ))}
@@ -87,16 +88,16 @@ export function About() {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-3xl font-bold mb-6">Hikayemiz</h2>
-              <p className="text-gray-600 mb-4 leading-relaxed">
-                ShopOrange, 2009 yılında küçük bir girişim olarak başladı. Amacımız, insanların kaliteli ürünlere 
+              <p className="text-muted-foreground mb-4 leading-relaxed">
+                AtusHome, 2009 yılında küçük bir girişim olarak başladı. Amacımız, insanların kaliteli ürünlere 
                 kolayca ve güvenle ulaşmasını sağlamaktı. Bugün, Türkiye'nin dört bir yanındaki müşterilerimize 
                 hizmet veren büyük bir aile olduk.
               </p>
-              <p className="text-gray-600 mb-4 leading-relaxed">
+              <p className="text-muted-foreground mb-4 leading-relaxed">
                 Teknoloji, moda, ev yaşam, kozmetik ve daha birçok kategoride 50.000'den fazla ürün çeşidiyle, 
                 her ihtiyaca uygun çözümler sunuyoruz. Müşteri memnuniyeti bizim için her zaman ön planda.
               </p>
-              <p className="text-gray-600 leading-relaxed">
+              <p className="text-muted-foreground leading-relaxed">
                 Sürekli gelişen teknolojimiz ve profesyonel ekibimizle, alışveriş deneyimini her geçen gün 
                 daha da iyileştiriyoruz.
               </p>
@@ -113,7 +114,7 @@ export function About() {
       </section>
 
       {/* Values Section */}
-      <section className="py-16 bg-gray-50">
+      <section className="py-16 bg-muted">
         <div className="container-custom">
           <h2 className="text-3xl font-bold text-center mb-12">Değerlerimiz</h2>
           <div className="grid md:grid-cols-3 gap-8">
@@ -122,7 +123,7 @@ export function About() {
                 <CardContent className="p-6">
                   <value.icon className="w-12 h-12 text-orange-500 mb-4" />
                   <h3 className="text-xl font-bold mb-3">{value.title}</h3>
-                  <p className="text-gray-600">{value.description}</p>
+                  <p className="text-muted-foreground">{value.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -133,7 +134,7 @@ export function About() {
       {/* Features Section */}
       <section className="py-16">
         <div className="container-custom">
-          <h2 className="text-3xl font-bold text-center mb-12">Neden ShopOrange?</h2>
+          <h2 className="text-3xl font-bold text-center mb-12">Neden AtusHome?</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => (
               <div key={index} className="text-center p-6">
@@ -141,7 +142,7 @@ export function About() {
                   <feature.icon className="w-8 h-8 text-orange-500" />
                 </div>
                 <h3 className="font-bold mb-2">{feature.title}</h3>
-                <p className="text-gray-500 text-sm">{feature.description}</p>
+                <p className="text-muted-foreground text-sm">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -156,16 +157,17 @@ export function About() {
             Milyonlarca müşterimiz arasına katılın, kaliteli ürünleri uygun fiyatlarla keşfedin.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild className="bg-white text-orange-600 hover:bg-gray-100 px-8 py-6 text-lg">
+            <Button asChild className="bg-card text-orange-600 hover:bg-muted px-8 py-6 text-lg">
               <Link to="/products">Alışverişe Başla</Link>
             </Button>
-            <Button asChild variant="outline" className="border-white text-white hover:bg-white/10 px-8 py-6 text-lg">
+            <Button asChild variant="outline" className="border-white text-white hover:bg-card/10 px-8 py-6 text-lg">
               <Link to="/contact">Bize Ulaşın</Link>
             </Button>
           </div>
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

@@ -1,4 +1,4 @@
-# ShopOrange AWS Backend Entegrasyonu - Özet
+# AtusHome AWS Backend Entegrasyonu - Özet
 
 ## Tamamlanan İşlemler
 
@@ -165,7 +165,7 @@ chmod +x deploy.sh
 ### 4. API URL'yi Kaydedin
 ```bash
 API_URL=$(aws cloudformation describe-stacks \
-    --stack-name shoporange-backend \
+    --stack-name atushome-backend \
     --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
     --output text)
 
@@ -186,8 +186,8 @@ npm run build
 
 ### 7. Frontend Deploy Edin (S3)
 ```bash
-aws s3 mb s3://shoporange-frontend-$(aws sts get-caller-identity --query Account --output text)
-aws s3 sync dist/ s3://shoporange-frontend-$(aws sts get-caller-identity --query Account --output text)/ --delete
+aws s3 mb s3://atushome-frontend-$(aws sts get-caller-identity --query Account --output text)
+aws s3 sync dist/ s3://atushome-frontend-$(aws sts get-caller-identity --query Account --output text)/ --delete
 ```
 
 ## Önemli Dosyalar
@@ -222,7 +222,7 @@ aws s3 sync dist/ s3://shoporange-frontend-$(aws sts get-caller-identity --query
 ## Test Kullanıcıları
 
 ### Admin
-- Email: `admin@shoporange.com`
+- Email: `admin@atushome.com`
 - Şifre: `password`
 
 ### Test Kullanıcısı
@@ -243,13 +243,13 @@ aws s3 sync dist/ s3://shoporange-frontend-$(aws sts get-caller-identity --query
 ```bash
 # CloudFormation hatalarını görüntüle
 aws cloudformation describe-stack-events \
-    --stack-name shoporange-backend
+    --stack-name atushome-backend
 ```
 
 ### Lambda Logları
 ```bash
 # Lambda loglarını görüntüle
-aws logs tail /aws/lambda/shoporange-backend-GetProductsFunction --follow
+aws logs tail /aws/lambda/atushome-backend-GetProductsFunction --follow
 ```
 
 ### API Test

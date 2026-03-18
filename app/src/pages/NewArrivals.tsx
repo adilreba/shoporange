@@ -52,15 +52,16 @@ export function NewArrivals() {
     : sortedProducts.filter(p => p.category === selectedCategory);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Header />
       
+      <main className="pt-[42px]">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-green-500 to-emerald-600 text-white py-16">
         <div className="container-custom">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <Badge className="bg-white/20 text-white mb-4 px-4 py-1">
+              <Badge className="bg-card/20 text-white mb-4 px-4 py-1">
                 <Sparkles className="w-4 h-4 mr-1 inline" />
                 Yeni Gelenler
               </Badge>
@@ -69,7 +70,7 @@ export function NewArrivals() {
                 En son teknolojiler, en yeni moda trendleri ve daha fazlası burada!
               </p>
             </div>
-            <div className="flex items-center gap-4 bg-white/10 backdrop-blur rounded-xl p-4">
+            <div className="flex items-center gap-4 bg-card/10 backdrop-blur rounded-xl p-4">
               <Clock className="w-12 h-12" />
               <div>
                 <p className="text-2xl font-bold">{newProducts.length}</p>
@@ -86,7 +87,7 @@ export function NewArrivals() {
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Sidebar Filters */}
             <aside className="lg:w-64">
-              <div className="bg-white rounded-xl shadow-sm p-6 sticky top-24">
+              <div className="bg-card rounded-xl shadow-sm p-6 sticky top-24">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Filter className="w-5 h-5" />
                   Kategoriler
@@ -99,11 +100,11 @@ export function NewArrivals() {
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                         selectedCategory === cat.id 
                           ? 'bg-green-50 text-green-600 font-medium' 
-                          : 'hover:bg-gray-50 text-gray-700'
+                          : 'hover:bg-muted text-foreground'
                       }`}
                     >
                       <span>{cat.name}</span>
-                      <span className="text-sm text-gray-400">{cat.count}</span>
+                      <span className="text-sm text-muted-foreground">{cat.count}</span>
                     </button>
                   ))}
                 </div>
@@ -116,9 +117,9 @@ export function NewArrivals() {
                   <input 
                     type="email" 
                     placeholder="E-posta adresiniz"
-                    className="w-full px-3 py-2 rounded-lg text-gray-900 text-sm mb-2"
+                    className="w-full px-3 py-2 rounded-lg text-foreground text-sm mb-2"
                   />
-                  <Button className="w-full bg-white text-green-600 hover:bg-gray-100 text-sm">
+                  <Button className="w-full bg-card text-green-600 hover:bg-muted text-sm">
                     Abone Ol
                   </Button>
                 </div>
@@ -128,9 +129,9 @@ export function NewArrivals() {
             {/* Products Grid */}
             <div className="flex-1">
               {/* Toolbar */}
-              <div className="bg-white rounded-xl shadow-sm p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <p className="text-gray-500">
-                  <span className="font-semibold text-gray-900">{filteredProducts.length}</span> ürün bulundu
+              <div className="bg-card rounded-xl shadow-sm p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <p className="text-muted-foreground">
+                  <span className="font-semibold text-foreground">{filteredProducts.length}</span> ürün bulundu
                 </p>
                 <div className="flex items-center gap-4">
                   <select 
@@ -146,13 +147,13 @@ export function NewArrivals() {
                   <div className="flex items-center border rounded-lg overflow-hidden">
                     <button
                       onClick={() => setViewMode('grid')}
-                      className={`p-2 ${viewMode === 'grid' ? 'bg-gray-100' : ''}`}
+                      className={`p-2 ${viewMode === 'grid' ? 'bg-muted' : ''}`}
                     >
                       <Grid3X3 className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => setViewMode('list')}
-                      className={`p-2 ${viewMode === 'list' ? 'bg-gray-100' : ''}`}
+                      className={`p-2 ${viewMode === 'list' ? 'bg-muted' : ''}`}
                     >
                       <List className="w-5 h-5" />
                     </button>
@@ -162,10 +163,10 @@ export function NewArrivals() {
 
               {/* Products */}
               {filteredProducts.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-xl">
+                <div className="text-center py-16 bg-card rounded-xl">
                   <Sparkles className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz yeni ürün yok</h3>
-                  <p className="text-gray-500">Yakında yeni ürünler eklenecek!</p>
+                  <h3 className="text-lg font-medium text-foreground mb-2">Henüz yeni ürün yok</h3>
+                  <p className="text-muted-foreground">Yakında yeni ürünler eklenecek!</p>
                 </div>
               ) : (
                 <div className={`grid gap-4 ${
@@ -184,10 +185,10 @@ export function NewArrivals() {
       </section>
 
       {/* CTA */}
-      <section className="py-12 bg-white border-t">
+      <section className="py-12 bg-card border-t">
         <div className="container-custom text-center">
           <h2 className="text-2xl font-bold mb-4">Tüm Ürünleri Keşfedin</h2>
-          <p className="text-gray-500 mb-6">Binlerce ürün arasından size en uygun olanı bulun.</p>
+          <p className="text-muted-foreground mb-6">Binlerce ürün arasından size en uygun olanı bulun.</p>
           <Button asChild className="gradient-orange">
             <Link to="/products">
               Tüm Ürünler
@@ -197,6 +198,7 @@ export function NewArrivals() {
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

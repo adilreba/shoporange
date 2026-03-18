@@ -10,14 +10,14 @@ interface SEOProps {
 }
 
 export function SEO({ 
-  title = 'ShopOrange - Modern E-Ticaret Platformu',
+  title = 'AtusHome - Modern E-Ticaret Platformu',
   description = 'Turuncu temalı, modern, tam donanımlı e-ticaret platformu. 8 kategori, binlerce ürün, uygun fiyatlar ve hızlı teslimat.',
   keywords = 'e-ticaret, alışveriş, online mağaza, elektronik, moda, ev yaşam, kozmetik',
   image = 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200',
-  url = 'https://shoporange.com',
+  url = 'https://atushome.com',
   type = 'website'
 }: SEOProps) {
-  const fullTitle = title.includes('ShopOrange') ? title : `${title} | ShopOrange`;
+  const fullTitle = title.includes('AtusHome') ? title : `${title} | AtusHome`;
 
   return (
     <Helmet>
@@ -25,7 +25,7 @@ export function SEO({
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
       <meta name="keywords" content={keywords} />
-      <meta name="author" content="ShopOrange" />
+      <meta name="author" content="AtusHome" />
       <meta name="robots" content="index, follow" />
       
       {/* Open Graph / Facebook */}
@@ -34,7 +34,7 @@ export function SEO({
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={image} />
-      <meta property="og:site_name" content="ShopOrange" />
+      <meta property="og:site_name" content="AtusHome" />
       <meta property="og:locale" content="tr_TR" />
       
       {/* Twitter */}

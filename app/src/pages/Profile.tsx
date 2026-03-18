@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   User, 
   MapPin, 
@@ -12,7 +12,7 @@ import {
   Trash2,
   Check,
   Truck,
-  ChevronRight,
+
   Camera,
   Mail,
   Phone,
@@ -67,13 +67,13 @@ export function Profile() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-muted">
         <Header />
-        <main className="container-custom py-16 text-center">
+        <main className="container-custom pt-[42px] pb-12 sm:pt-[42px] sm:py-16 text-center">
           <div className="max-w-md mx-auto">
             <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h1 className="text-2xl font-bold mb-4">Giriş Yapın</h1>
-            <p className="text-gray-500 mb-6">Profilinizi görüntülemek için giriş yapın.</p>
+            <p className="text-muted-foreground mb-6">Profilinizi görüntülemek için giriş yapın.</p>
             <Button className="gradient-orange" onClick={() => navigate('/login')}>
               Giriş Yap
             </Button>
@@ -166,17 +166,10 @@ export function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Header />
       
-      <main className="container-custom py-8">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <Link to="/" className="hover:text-orange-500">Anasayfa</Link>
-          <ChevronRight className="w-4 h-4" />
-          <span className="text-gray-900 font-medium">Profilim</span>
-        </div>
-
+      <main className="container-custom pt-[42px] pb-6 sm:pt-[42px] sm:pb-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar */}
           <aside className="lg:w-72">
@@ -196,7 +189,7 @@ export function Profile() {
                     </button>
                   </div>
                   <h2 className="text-xl font-bold">{user.name}</h2>
-                  <p className="text-gray-500 text-sm">{user.email}</p>
+                  <p className="text-muted-foreground text-sm">{user.email}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <Badge variant="secondary" className="text-xs">
                       {user.role === 'admin' ? 'Admin' : 'Üye'}
@@ -216,7 +209,7 @@ export function Profile() {
                   <button
                     onClick={() => setActiveTab('profile')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                      activeTab === 'profile' ? 'bg-orange-50 text-orange-600' : 'hover:bg-gray-100 text-gray-700'
+                      activeTab === 'profile' ? 'bg-orange-50 text-orange-600' : 'hover:bg-muted text-foreground'
                     }`}
                   >
                     <User className="w-5 h-5" />
@@ -226,7 +219,7 @@ export function Profile() {
                   <button
                     onClick={() => setActiveTab('orders')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                      activeTab === 'orders' ? 'bg-orange-50 text-orange-600' : 'hover:bg-gray-100 text-gray-700'
+                      activeTab === 'orders' ? 'bg-orange-50 text-orange-600' : 'hover:bg-muted text-foreground'
                     }`}
                   >
                     <Package className="w-5 h-5" />
@@ -239,18 +232,18 @@ export function Profile() {
                   <button
                     onClick={() => setActiveTab('addresses')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                      activeTab === 'addresses' ? 'bg-orange-50 text-orange-600' : 'hover:bg-gray-100 text-gray-700'
+                      activeTab === 'addresses' ? 'bg-orange-50 text-orange-600' : 'hover:bg-muted text-foreground'
                     }`}
                   >
                     <MapPin className="w-5 h-5" />
                     <span className="font-medium">Adreslerim</span>
-                    <Badge className="ml-auto bg-gray-200 text-gray-700">{addresses.length}</Badge>
+                    <Badge className="ml-auto bg-muted text-foreground">{addresses.length}</Badge>
                   </button>
                   
                   <button
                     onClick={() => setActiveTab('wishlist')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                      activeTab === 'wishlist' ? 'bg-orange-50 text-orange-600' : 'hover:bg-gray-100 text-gray-700'
+                      activeTab === 'wishlist' ? 'bg-orange-50 text-orange-600' : 'hover:bg-muted text-foreground'
                     }`}
                   >
                     <Heart className="w-5 h-5" />
@@ -264,7 +257,7 @@ export function Profile() {
                   
                   <Link
                     to="/settings"
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-700 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted text-foreground transition-colors"
                   >
                     <Settings className="w-5 h-5" />
                     <span className="font-medium">Ayarlar</span>
@@ -290,7 +283,7 @@ export function Profile() {
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
                     <CardTitle className="text-2xl">Profil Bilgileri</CardTitle>
-                    <p className="text-gray-500 mt-1">Kişisel bilgilerinizi görüntüleyin ve düzenleyin</p>
+                    <p className="text-muted-foreground mt-1">Kişisel bilgilerinizi görüntüleyin ve düzenleyin</p>
                   </div>
                   <Button 
                     variant="outline" 
@@ -316,7 +309,7 @@ export function Profile() {
                           <Input 
                             value={profileData.email}
                             disabled
-                            className="bg-gray-100"
+                            className="bg-muted"
                           />
                         </div>
                         <div className="space-y-2">
@@ -341,42 +334,42 @@ export function Profile() {
                   ) : (
                     <div className="space-y-6">
                       <div className="grid md:grid-cols-2 gap-6">
-                        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
                           <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
                             <User className="w-6 h-6 text-orange-600" />
                           </div>
                           <div>
-                            <p className="text-sm text-gray-500">Ad Soyad</p>
+                            <p className="text-sm text-muted-foreground">Ad Soyad</p>
                             <p className="font-medium">{user.name}</p>
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
                           <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                             <Mail className="w-6 h-6 text-blue-600" />
                           </div>
                           <div>
-                            <p className="text-sm text-gray-500">E-posta</p>
+                            <p className="text-sm text-muted-foreground">E-posta</p>
                             <p className="font-medium">{user.email}</p>
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
                           <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                             <Phone className="w-6 h-6 text-green-600" />
                           </div>
                           <div>
-                            <p className="text-sm text-gray-500">Telefon</p>
+                            <p className="text-sm text-muted-foreground">Telefon</p>
                             <p className="font-medium">{user.phone || 'Belirtilmemiş'}</p>
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
                           <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                             <Calendar className="w-6 h-6 text-purple-600" />
                           </div>
                           <div>
-                            <p className="text-sm text-gray-500">Üyelik Tarihi</p>
+                            <p className="text-sm text-muted-foreground">Üyelik Tarihi</p>
                             <p className="font-medium">{user.createdAt ? new Date(user.createdAt).toLocaleDateString('tr-TR') : '15 Ocak 2024'}</p>
                           </div>
                         </div>
@@ -389,22 +382,22 @@ export function Profile() {
                         <div className="text-center p-4 bg-orange-50 rounded-lg">
                           <ShoppingBag className="w-8 h-8 text-orange-500 mx-auto mb-2" />
                           <p className="text-2xl font-bold">{userOrders.length}</p>
-                          <p className="text-sm text-gray-500">Sipariş</p>
+                          <p className="text-sm text-muted-foreground">Sipariş</p>
                         </div>
                         <div className="text-center p-4 bg-red-50 rounded-lg">
                           <Heart className="w-8 h-8 text-red-500 mx-auto mb-2" />
                           <p className="text-2xl font-bold">{wishlistItems.length}</p>
-                          <p className="text-sm text-gray-500">Favori</p>
+                          <p className="text-sm text-muted-foreground">Favori</p>
                         </div>
                         <div className="text-center p-4 bg-blue-50 rounded-lg">
                           <MapPin className="w-8 h-8 text-blue-500 mx-auto mb-2" />
                           <p className="text-2xl font-bold">{addresses.length}</p>
-                          <p className="text-sm text-gray-500">Adres</p>
+                          <p className="text-sm text-muted-foreground">Adres</p>
                         </div>
                         <div className="text-center p-4 bg-green-50 rounded-lg">
                           <Star className="w-8 h-8 text-green-500 mx-auto mb-2" />
                           <p className="text-2xl font-bold">0</p>
-                          <p className="text-sm text-gray-500">Yorum</p>
+                          <p className="text-sm text-muted-foreground">Yorum</p>
                         </div>
                       </div>
                     </div>
@@ -418,14 +411,14 @@ export function Profile() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-2xl">Siparişlerim</CardTitle>
-                  <p className="text-gray-500 mt-1">Tüm siparişlerinizi buradan takip edebilirsiniz</p>
+                  <p className="text-muted-foreground mt-1">Tüm siparişlerinizi buradan takip edebilirsiniz</p>
                 </CardHeader>
                 <CardContent>
                   {userOrders.length === 0 ? (
                     <div className="text-center py-12">
                       <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz siparişiniz yok</h3>
-                      <p className="text-gray-500 mb-4">İlk siparişinizi vermek için alışverişe başlayın</p>
+                      <h3 className="text-lg font-medium text-foreground mb-2">Henüz siparişiniz yok</h3>
+                      <p className="text-muted-foreground mb-4">İlk siparişinizi vermek için alışverişe başlayın</p>
                       <Button className="gradient-orange" onClick={() => navigate('/products')}>
                         Alışverişe Başla
                       </Button>
@@ -441,7 +434,7 @@ export function Profile() {
                               </div>
                               <div>
                                 <p className="font-semibold">{order.id}</p>
-                                <p className="text-sm text-gray-500">{order.date}</p>
+                                <p className="text-sm text-muted-foreground">{order.date}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-4">
@@ -450,20 +443,20 @@ export function Profile() {
                             </div>
                           </div>
                           
-                          <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                          <div className="bg-muted rounded-lg p-3 mb-4">
                             {order.items?.map((item: any, idx: number) => (
                               <div key={idx} className="flex items-center justify-between py-2">
                                 <div className="flex items-center gap-3">
                                   <div className="w-2 h-2 bg-orange-500 rounded-full" />
                                   <span className="text-sm">{item.name}</span>
                                 </div>
-                                <span className="text-sm text-gray-500">x{item.quantity}</span>
+                                <span className="text-sm text-muted-foreground">x{item.quantity}</span>
                               </div>
                             ))}
                           </div>
                           
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <MapPin className="w-4 h-4" />
                               {order.shippingAddress?.city}, {order.shippingAddress?.district}
                             </div>
@@ -492,7 +485,7 @@ export function Profile() {
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
                     <CardTitle className="text-2xl">Adreslerim</CardTitle>
-                    <p className="text-gray-500 mt-1">Teslimat adreslerinizi yönetin</p>
+                    <p className="text-muted-foreground mt-1">Teslimat adreslerinizi yönetin</p>
                   </div>
                   <Dialog open={isAddressDialogOpen} onOpenChange={setIsAddressDialogOpen}>
                     <DialogTrigger asChild>
@@ -582,8 +575,8 @@ export function Profile() {
                   {addresses.length === 0 ? (
                     <div className="text-center py-12">
                       <MapPin className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz adres eklenmemiş</h3>
-                      <p className="text-gray-500 mb-4">Sipariş vermek için bir adres ekleyin</p>
+                      <h3 className="text-lg font-medium text-foreground mb-2">Henüz adres eklenmemiş</h3>
+                      <p className="text-muted-foreground mb-4">Sipariş vermek için bir adres ekleyin</p>
                       <Button className="gradient-orange" onClick={() => setIsAddressDialogOpen(true)}>
                         <Plus className="w-4 h-4 mr-2" />
                         Adres Ekle
@@ -605,7 +598,7 @@ export function Profile() {
                               {!address.isDefault && (
                                 <button 
                                   onClick={() => handleSetDefaultAddress(address.id)}
-                                  className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                                  className="p-2 hover:bg-muted rounded-lg text-muted-foreground"
                                   title="Varsayılan yap"
                                 >
                                   <Check className="w-4 h-4" />
@@ -621,11 +614,11 @@ export function Profile() {
                           </div>
                           <div className="space-y-1 text-sm">
                             <p className="font-medium">{address.fullName}</p>
-                            <p className="text-gray-500">{address.phone}</p>
-                            <p className="text-gray-600">
+                            <p className="text-muted-foreground">{address.phone}</p>
+                            <p className="text-muted-foreground">
                               {address.addressLine}, {address.neighborhood}
                             </p>
-                            <p className="text-gray-600">
+                            <p className="text-muted-foreground">
                               {address.district}/{address.city} {address.zipCode}
                             </p>
                           </div>
@@ -642,14 +635,14 @@ export function Profile() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-2xl">Favorilerim</CardTitle>
-                  <p className="text-gray-500 mt-1">Beğendiğiniz ürünler</p>
+                  <p className="text-muted-foreground mt-1">Beğendiğiniz ürünler</p>
                 </CardHeader>
                 <CardContent>
                   {wishlistItems.length === 0 ? (
                     <div className="text-center py-12">
                       <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz favori ürününüz yok</h3>
-                      <p className="text-gray-500 mb-4">Beğendiğiniz ürünleri favorilere ekleyin</p>
+                      <h3 className="text-lg font-medium text-foreground mb-2">Henüz favori ürününüz yok</h3>
+                      <p className="text-muted-foreground mb-4">Beğendiğiniz ürünleri favorilere ekleyin</p>
                       <Button className="gradient-orange" onClick={() => navigate('/products')}>
                         Ürünleri Keşfet
                       </Button>

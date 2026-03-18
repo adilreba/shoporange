@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, ShoppingCart, Scale, Eye, Star } from 'lucide-react';
+import { ShoppingCart, Heart, Check, Star, Scale, Eye, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { Product } from '@/types';
 import { useCartStore } from '@/stores/cartStore';
 import { useWishlistStore } from '@/stores/wishlistStore';
 import { useCompareStore } from '@/stores/compareStore';
 import { toast } from 'sonner';
-import { QuickView } from './QuickView';
+import type { Product } from '@/types';
 
 interface ProductCardProps {
   product: Product;
@@ -16,123 +15,160 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, variant = 'default' }: ProductCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
-  const [quickViewOpen, setQuickViewOpen] = useState(false);
-  const { addToCart, isInCart } = useCartStore();
-  const { toggleWishlist, isInWishlist } = useWishlistStore();
-  const { toggleCompare, isInCompare } = useCompareStore();
-
-  const handleQuickView = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setQuickViewOpen(true);
-  };
-
-  const inCart = isInCart(product.id);
-  const inWishlist = isInWishlist(product.id);
-  const inCompare = isInCompare(product.id);
+  const { addToCart } = useCartStore();
+  const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlistStore();
+  const { isInCompare, addToCompare, removeFromCompare } = useCompareStore();
+  const [isAdded, setIsAdded] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  
+  const isWishlisted = isInWishlist(product.id);
+  const isCompared = isInCompare(product.id);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     addToCart(product, 1);
-    toast.success(`${product.name} sepete eklendi!`, {
-      description: 'Sepetinizi görüntülemek için tıklayın.',
-      action: {
-        label: 'Sepete Git',
-        onClick: () => window.location.href = '/cart'
-      }
-    });
+    setIsAdded(true);
+    setTimeout(() => setIsAdded(false), 1500);
   };
 
   const handleToggleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    toggleWishlist(product);
-    if (inWishlist) {
-      toast.info(`${product.name} favorilerden çıkarıldı`);
+    if (isWishlisted) {
+      removeFromWishlist(product.id);
     } else {
-      toast.success(`${product.name} favorilere eklendi!`);
+      addToWishlist(product);
     }
   };
 
   const handleToggleCompare = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const result = toggleCompare(product);
-    if (result.success) {
-      toast.success(result.message);
+    if (isCompared) {
+      removeFromCompare(product.id);
+      toast.info('Karşılaştırmadan çıkarıldı');
     } else {
-      toast.warning(result.message);
+      addToCompare(product);
+      toast.success('Karşılaştırmaya eklendi', {
+        description: 'Üst menüden karşılaştırma sayfasına gidebilirsiniz',
+        action: {
+          label: 'Git',
+          onClick: () => window.location.href = '/compare'
+        }
+      });
     }
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: 'TRY',
-      minimumFractionDigits: 0
-    }).format(price);
-  };
+  const discount = product.originalPrice 
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+    : 0;
 
-  if (variant === 'horizontal') {
+  // Compact variant for tighter spaces
+  if (variant === 'compact') {
     return (
-      <Link 
+      <Link
         to={`/product/${product.id}`}
-        className="flex gap-4 bg-white rounded-xl border border-gray-100 p-4 hover:shadow-lg transition-shadow"
+        className="group flex flex-col bg-card rounded-[clamp(0.75rem,2vw,1.25rem)] border border-border overflow-hidden hover:shadow-xl transition-all duration-300 h-full"
       >
-        <div className="relative w-32 h-32 flex-shrink-0">
+        {/* Image Container - Fluid aspect ratio */}
+        <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: '1 / 1' }}>
+          {!imageLoaded && (
+            <div className="absolute inset-0 bg-muted animate-pulse" />
+          )}
           <img
             src={product.images[0]}
             alt={product.name}
-            className="w-full h-full object-cover rounded-lg"
+            className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${
+              imageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            onLoad={() => setImageLoaded(true)}
+            loading="lazy"
           />
-          {product.discount && product.discount > 0 && (
-            <Badge className="absolute top-2 left-2 bg-red-500">
-              %{product.discount} İNDİRİM
-            </Badge>
-          )}
-        </div>
-        <div className="flex-1 flex flex-col">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-orange-600 font-medium">{product.brand}</p>
-              <h3 className="font-semibold text-gray-900 line-clamp-2">{product.name}</h3>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`${inWishlist ? 'text-red-500' : 'text-gray-400'}`}
-              onClick={handleToggleWishlist}
-            >
-              <Heart className={`h-5 w-5 ${inWishlist ? 'fill-current' : ''}`} />
-            </Button>
-          </div>
           
-          <div className="flex items-center gap-1 mt-1">
-            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-            <span className="text-sm font-medium">{product.rating}</span>
-            <span className="text-sm text-gray-400">({product.reviewCount})</span>
+          {/* Badges */}
+          <div className="absolute top-[clamp(0.25rem,1vw,0.5rem)] left-[clamp(0.25rem,1vw,0.5rem)] flex flex-col gap-1">
+            {discount > 0 && (
+              <Badge className="bg-red-500 text-white text-[clamp(0.625rem,1vw,0.75rem)] px-[clamp(0.25rem,1vw,0.5rem)] py-0.5">
+                -{discount}%
+              </Badge>
+            )}
+            {product.isNew && (
+              <Badge className="bg-green-500 text-white text-[clamp(0.625rem,1vw,0.75rem)] px-[clamp(0.25rem,1vw,0.5rem)] py-0.5">
+                YENİ
+              </Badge>
+            )}
           </div>
 
-          <div className="mt-auto flex items-center justify-between">
-            <div>
-              <span className="text-xl font-bold text-orange-600">
-                {formatPrice(product.price)}
+          {/* Action Buttons - Top Right */}
+          <div className="absolute top-[clamp(0.25rem,1vw,0.5rem)] right-[clamp(0.25rem,1vw,0.5rem)] flex flex-col gap-1">
+            {/* Wishlist Button */}
+            <button
+              onClick={handleToggleWishlist}
+              className={`w-[clamp(1.5rem,3.5vw,1.75rem)] h-[clamp(1.5rem,3.5vw,1.75rem)] rounded-full flex items-center justify-center transition-all duration-200 hover:bg-orange-50 ${
+                isWishlisted 
+                  ? 'bg-red-500 text-white hover:bg-red-600' 
+                  : 'bg-white/90 text-gray-600 hover:text-orange-500 opacity-0 group-hover:opacity-100'
+              }`}
+            >
+              <Heart className={`w-[clamp(0.625rem,1.5vw,0.875rem)] h-[clamp(0.625rem,1.5vw,0.875rem)] transition-colors ${isWishlisted ? 'fill-current' : 'group-hover:text-orange-500'}`} />
+            </button>
+            
+            {/* Compare Button */}
+            <button
+              onClick={handleToggleCompare}
+              className={`w-[clamp(1.5rem,3.5vw,1.75rem)] h-[clamp(1.5rem,3.5vw,1.75rem)] rounded-full flex items-center justify-center transition-all duration-200 hover:bg-orange-50 ${
+                isCompared 
+                  ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                  : 'bg-white/90 text-gray-600 hover:text-orange-500 opacity-0 group-hover:opacity-100'
+              }`}
+            >
+              <Scale className={`w-[clamp(0.625rem,1.5vw,0.875rem)] h-[clamp(0.625rem,1.5vw,0.875rem)] transition-colors ${isCompared ? 'text-white' : 'group-hover:text-orange-500'}`} />
+            </button>
+            
+            {/* Quick View Button */}
+            <Link
+              to={`/product/${product.id}`}
+              className="w-[clamp(1.5rem,3.5vw,1.75rem)] h-[clamp(1.5rem,3.5vw,1.75rem)] rounded-full flex items-center justify-center bg-white/90 text-gray-600 hover:text-orange-500 hover:bg-orange-50 opacity-0 group-hover:opacity-100 transition-all duration-200"
+            >
+              <Eye className="w-[clamp(0.625rem,1.5vw,0.875rem)] h-[clamp(0.625rem,1.5vw,0.875rem)] transition-colors group-hover:text-orange-500" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Content - Fluid padding */}
+        <div className="p-[clamp(0.5rem,1.5vw,1rem)] flex flex-col flex-1">
+          <p className="text-[clamp(0.625rem,1vw,0.75rem)] text-orange-600 font-medium mb-0.5">{product.brand}</p>
+          <h3 className="text-[clamp(0.75rem,1.2vw,0.875rem)] font-semibold text-foreground line-clamp-2 mb-[clamp(0.25rem,1vw,0.5rem)]" style={{ minHeight: '2.5em' }}>
+            {product.name}
+          </h3>
+          
+          {/* Price & Add to Cart - Always at bottom */}
+          <div className="mt-auto flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              <span className="text-[clamp(0.875rem,1.5vw,1.125rem)] font-bold text-orange-600">
+                {product.price.toLocaleString('tr-TR')}₺
               </span>
               {product.originalPrice && (
-                <span className="text-sm text-gray-400 line-through ml-2">
-                  {formatPrice(product.originalPrice)}
+                <span className="text-[clamp(0.625rem,1vw,0.75rem)] text-muted-foreground line-through">
+                  {product.originalPrice.toLocaleString('tr-TR')}₺
                 </span>
               )}
             </div>
-            <Button 
-              size="sm"
-              className="gradient-orange"
+            <Button
+              size="icon"
+              className={`h-[clamp(1.75rem,4vw,2rem)] w-[clamp(1.75rem,4vw,2rem)] rounded-full transition-all duration-200 ${
+                isAdded 
+                  ? 'bg-green-500 hover:bg-green-600' 
+                  : 'gradient-orange'
+              }`}
               onClick={handleAddToCart}
             >
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Sepete Ekle
+              {isAdded ? (
+                <Check className="w-[clamp(0.75rem,2vw,1rem)] h-[clamp(0.75rem,2vw,1rem)]" />
+              ) : (
+                <ShoppingCart className="w-[clamp(0.75rem,2vw,1rem)] h-[clamp(0.75rem,2vw,1rem)]" />
+              )}
             </Button>
           </div>
         </div>
@@ -140,38 +176,104 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
     );
   }
 
-  if (variant === 'compact') {
+  // Horizontal variant for list views
+  if (variant === 'horizontal') {
     return (
-      <Link 
+      <Link
         to={`/product/${product.id}`}
-        className="group block bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all"
+        className="group flex bg-card rounded-[clamp(0.75rem,2vw,1.25rem)] border border-border overflow-hidden hover:shadow-xl transition-all duration-300"
       >
-        <div className="relative aspect-square overflow-hidden">
+        {/* Image */}
+        <div className="relative w-[clamp(5rem,15vw,8rem)] flex-shrink-0 overflow-hidden bg-muted">
+          {!imageLoaded && (
+            <div className="absolute inset-0 bg-muted animate-pulse" />
+          )}
           <img
             src={product.images[0]}
             alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${
+              imageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            onLoad={() => setImageLoaded(true)}
+            loading="lazy"
           />
-          {product.discount && product.discount > 0 && (
-            <Badge className="absolute top-2 left-2 bg-red-500">
-              %{product.discount}
+          {discount > 0 && (
+            <Badge className="absolute top-2 left-2 bg-red-500 text-white text-[clamp(0.625rem,1vw,0.75rem)]">
+              -{discount}%
             </Badge>
           )}
         </div>
-        <div className="p-3">
-          <p className="text-xs text-orange-600 font-medium">{product.brand}</p>
-          <h3 className="font-medium text-sm text-gray-900 line-clamp-1 mt-0.5">{product.name}</h3>
-          <div className="flex items-center justify-between mt-2">
-            <span className="font-bold text-orange-600">
-              {formatPrice(product.price)}
-            </span>
+
+        {/* Content */}
+        <div className="flex-1 p-[clamp(0.5rem,1.5vw,1rem)] flex flex-col">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-[clamp(0.625rem,1vw,0.875rem)] text-orange-600 font-medium mb-0.5">{product.brand}</p>
+              <h3 className="text-[clamp(0.75rem,1.2vw,1rem)] font-semibold text-foreground line-clamp-2">
+                {product.name}
+              </h3>
+            </div>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={handleToggleWishlist}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0 hover:bg-orange-50 ${
+                  isWishlisted 
+                    ? 'bg-red-500 text-white hover:bg-red-600' 
+                    : 'bg-gray-100 text-gray-600 hover:text-orange-500'
+                }`}
+              >
+                <Heart className={`w-4 h-4 transition-colors ${isWishlisted ? 'fill-current' : 'hover:text-orange-500'}`} />
+              </button>
+              <button
+                onClick={handleToggleCompare}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0 hover:bg-orange-50 ${
+                  isCompared 
+                    ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                    : 'bg-gray-100 text-gray-600 hover:text-orange-500'
+                }`}
+              >
+                <Scale className={`w-4 h-4 transition-colors ${isCompared ? 'text-white' : 'hover:text-orange-500'}`} />
+              </button>
+              <Link
+                to={`/product/${product.id}`}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 text-gray-600 hover:text-orange-500 hover:bg-orange-50 transition-all flex-shrink-0"
+              >
+                <Eye className="w-4 h-4 transition-colors hover:text-orange-500" />
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-auto pt-2 flex items-center justify-between">
+            <div>
+              <span className="text-[clamp(0.875rem,1.5vw,1.25rem)] font-bold text-orange-600">
+                {product.price.toLocaleString('tr-TR')}₺
+              </span>
+              {product.originalPrice && (
+                <span className="text-[clamp(0.625rem,1vw,0.875rem)] text-muted-foreground line-through ml-2">
+                  {product.originalPrice.toLocaleString('tr-TR')}₺
+                </span>
+              )}
+            </div>
             <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
+              size="sm"
+              className={`rounded-full transition-all ${
+                isAdded 
+                  ? 'bg-green-500 hover:bg-green-600' 
+                  : 'gradient-orange'
+              }`}
               onClick={handleAddToCart}
             >
-              <ShoppingCart className="h-4 w-4" />
+              {isAdded ? (
+                <>
+                  <Check className="w-4 h-4 mr-1" />
+                  <span className="text-[clamp(0.625rem,1vw,0.75rem)]">Eklendi</span>
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="w-4 h-4 mr-1" />
+                  <span className="text-[clamp(0.625rem,1vw,0.75rem)]">Ekle</span>
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -179,150 +281,136 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
     );
   }
 
+  // Default card variant - FLUID (no fixed breakpoints)
   return (
-    <div 
-      className="group relative bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-orange-200 transition-all duration-300"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+    <Link
+      to={`/product/${product.id}`}
+      className="group relative bg-card rounded-[clamp(0.75rem,2vw,1.5rem)] border border-border overflow-hidden hover:shadow-2xl transition-all duration-300 flex flex-col h-full"
     >
-      {/* Badges */}
-      <div className="absolute top-3 left-3 z-10 flex flex-col gap-1">
+      {/* Badges - Top Left - Compact for mobile */}
+      <div className="absolute top-2 left-2 z-10 flex flex-wrap gap-1 max-w-[70%]">
+        {discount > 0 && (
+          <Badge className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 font-bold rounded">
+            -{discount}%
+          </Badge>
+        )}
         {product.isNew && (
-          <Badge className="bg-green-500 hover:bg-green-600">YENİ</Badge>
+          <Badge className="bg-green-500 text-white text-[10px] px-1.5 py-0.5 font-bold rounded">
+            YENİ
+          </Badge>
         )}
-        {product.discount && product.discount > 0 && (
-          <Badge className="bg-red-500 hover:bg-red-600">%{product.discount} İNDİRİM</Badge>
-        )}
-        {product.isBestseller && (
-          <Badge className="bg-amber-500 hover:bg-amber-600">ÇOK SATAN</Badge>
+        {product.rating >= 4.5 && (
+          <Badge className="bg-orange-500 text-white text-[10px] px-1.5 py-0.5 font-bold rounded">
+            🔥 ÇOK SATAN
+          </Badge>
         )}
       </div>
 
-      {/* Action Buttons */}
-      <div className={`absolute top-3 right-3 z-10 flex flex-col gap-2 transition-all duration-300 ${
-        isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-      }`}>
-        <Button
-          variant="secondary"
-          size="icon"
-          className={`w-9 h-9 rounded-full shadow-md transition-colors ${
-            inWishlist ? 'bg-red-50 text-red-500' : 'bg-white text-gray-600 hover:text-red-500'
-          }`}
+      {/* Action Buttons - Top Right - Compact */}
+      <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
+        {/* Wishlist Button */}
+        <button
           onClick={handleToggleWishlist}
-        >
-          <Heart className={`h-4 w-4 ${inWishlist ? 'fill-current' : ''}`} />
-        </Button>
-        <Button
-          variant="secondary"
-          size="icon"
-          className={`w-9 h-9 rounded-full shadow-md transition-colors ${
-            inCompare ? 'bg-orange-50 text-orange-500' : 'bg-white text-gray-600 hover:text-orange-500'
+          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-orange-50 ${
+            isWishlisted 
+              ? 'bg-red-500 text-white shadow' 
+              : 'bg-white/90 text-gray-600 hover:text-orange-500 opacity-0 group-hover:opacity-100 shadow-sm'
           }`}
+        >
+          <Heart className={`w-3.5 h-3.5 ${isWishlisted ? 'fill-current' : ''}`} />
+        </button>
+        
+        {/* Compare Button */}
+        <button
           onClick={handleToggleCompare}
+          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-orange-50 ${
+            isCompared 
+              ? 'bg-orange-500 text-white shadow' 
+              : 'bg-white/90 text-gray-600 hover:text-orange-500 opacity-0 group-hover:opacity-100 shadow-sm'
+          }`}
         >
-          <Scale className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="secondary"
-          size="icon"
-          className="w-9 h-9 rounded-full shadow-md bg-white text-gray-600 hover:text-orange-500"
-          onClick={handleQuickView}
+          <Scale className={`w-3.5 h-3.5 ${isCompared ? 'text-white' : ''}`} />
+        </button>
+        
+        {/* Quick View Button */}
+        <Link
+          to={`/product/${product.id}`}
+          className="w-7 h-7 rounded-full flex items-center justify-center bg-white/90 text-gray-600 hover:text-orange-500 hover:bg-orange-50 opacity-0 group-hover:opacity-100 shadow-sm transition-all duration-200"
         >
-          <Eye className="h-4 w-4" />
-        </Button>
+          <Eye className="w-3.5 h-3.5" />
+        </Link>
       </div>
 
-      {/* Image */}
-      <Link to={`/product/${product.id}`} className="block">
-        <div className="relative aspect-square overflow-hidden bg-gray-50">
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
-          {product.images[1] && (
-            <img
-              src={product.images[1]}
-              alt={product.name}
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
-                isHovered ? 'opacity-100' : 'opacity-0'
-              }`}
-            />
-          )}
-        </div>
-      </Link>
+      {/* Image Container - Square for mobile, 4:3 for desktop */}
+      <div className="relative overflow-hidden bg-gray-100 aspect-square sm:aspect-[4/3]">
+        {!imageLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <Package className="w-8 h-8 text-gray-300" />
+          </div>
+        )}
+        <img
+          src={product.images[0]}
+          alt={product.name}
+          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${
+            imageLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
+          onLoad={() => setImageLoaded(true)}
+          loading="lazy"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" font-family="Arial" font-size="12" fill="%239ca3af" text-anchor="middle" dy=".3em"%3EÜrün%3C/text%3E%3C/svg%3E';
+          }}
+        />
+      </div>
 
       {/* Content */}
-      <div className="p-4">
-        <Link to={`/product/${product.id}`}>
-          <p className="text-sm text-orange-600 font-medium">{product.brand}</p>
-          <h3 className="font-semibold text-gray-900 line-clamp-2 mt-1 group-hover:text-orange-600 transition-colors">
-            {product.name}
-          </h3>
-        </Link>
-
-        {/* Rating */}
-        <div className="flex items-center gap-1 mt-2">
-          <div className="flex">
-            {[...Array(5)].map((_, i) => (
-              <Star 
-                key={i} 
-                className={`h-4 w-4 ${
-                  i < Math.floor(product.rating) 
-                    ? 'fill-amber-400 text-amber-400' 
-                    : 'text-gray-300'
-                }`} 
-              />
-            ))}
-          </div>
-          <span className="text-sm text-gray-500">({product.reviewCount})</span>
+      <div className="p-2 sm:p-3 flex flex-col flex-1">
+        {/* Brand & Rating */}
+        <div className="flex items-center justify-between gap-2 mb-0.5">
+          <p className="text-xs text-orange-600 font-semibold truncate">{product.brand}</p>
+          {product.rating > 0 && (
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+              <span className="text-xs font-medium">{product.rating.toFixed(1)}</span>
+            </div>
+          )}
         </div>
 
-        {/* Price & Add to Cart */}
-        <div className="flex items-end justify-between mt-3">
-          <div>
-            <span className="text-xl font-bold text-orange-600">
-              {formatPrice(product.price)}
-            </span>
-            {product.originalPrice && (
-              <span className="text-sm text-gray-400 line-through ml-2">
-                {formatPrice(product.originalPrice)}
+        {/* Product Name */}
+        <h3 className="text-sm font-semibold text-foreground line-clamp-2 mb-1 leading-tight">
+          {product.name}
+        </h3>
+
+        {/* Price & Add to Cart - Mobile optimized */}
+        <div className="mt-auto pt-2 border-t border-border/50">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <span className="text-sm sm:text-base font-bold text-orange-600 block">
+                {product.price.toLocaleString('tr-TR')}₺
               </span>
-            )}
+              {product.originalPrice && (
+                <p className="text-xs text-muted-foreground line-through">
+                  {product.originalPrice.toLocaleString('tr-TR')}₺
+                </p>
+              )}
+            </div>
+            <Button
+              size="icon"
+              className={`rounded-full h-8 w-8 flex-shrink-0 ${
+                isAdded 
+                  ? 'bg-green-500 hover:bg-green-600' 
+                  : 'gradient-orange'
+              }`}
+              onClick={handleAddToCart}
+            >
+              {isAdded ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <ShoppingCart className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-          <Button 
-            size="sm"
-            className={`rounded-full transition-all ${
-              inCart 
-                ? 'bg-green-500 hover:bg-green-600' 
-                : 'gradient-orange hover:shadow-orange'
-            }`}
-            onClick={handleAddToCart}
-          >
-            <ShoppingCart className="h-4 w-4 mr-1" />
-            {inCart ? 'Eklendi' : 'Sepete Ekle'}
-          </Button>
         </div>
-
-        {/* Stock Status */}
-        {product.stock < 10 && product.stock > 0 && (
-          <p className="text-xs text-red-500 mt-2">
-            Sadece {product.stock} adet kaldı!
-          </p>
-        )}
-        {product.stock === 0 && (
-          <p className="text-xs text-gray-500 mt-2">
-            Stokta yok
-          </p>
-        )}
       </div>
-
-      {/* Quick View Modal */}
-      <QuickView 
-        product={product} 
-        isOpen={quickViewOpen} 
-        onClose={() => setQuickViewOpen(false)} 
-      />
-    </div>
+    </Link>
   );
 }

@@ -37,7 +37,7 @@ export function NewsletterSection() {
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
                 Bültenimize Abone Olun
               </h2>
-              <p className="text-gray-400 text-lg mb-8">
+              <p className="text-muted-foreground text-lg mb-8">
                 Yeni ürünler, özel indirimler ve kampanyalardan ilk siz haberdar olun. 
                 Abone olanlara özel %10 indirim kodu hediye!
               </p>
@@ -60,16 +60,16 @@ export function NewsletterSection() {
             </div>
 
             {/* Right Content - Form */}
-            <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
+            <div className="bg-card/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
                     type="email"
                     placeholder="E-posta adresinizi girin"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-white text-gray-900 rounded-xl border-0 text-base"
+                    className="w-full pl-12 pr-4 py-4 bg-card text-foreground rounded-xl border-0 text-base"
                     required
                   />
                 </div>
@@ -82,7 +82,7 @@ export function NewsletterSection() {
                 </Button>
               </form>
 
-              <p className="text-gray-500 text-sm text-center mt-4">
+              <p className="text-muted-foreground text-sm text-center mt-4">
                 Abone olarak{' '}
                 <a href="#" className="text-orange-400 hover:underline">gizlilik politikamızı</a>
                 {' '}kabul etmiş olursunuz.
@@ -92,17 +92,17 @@ export function NewsletterSection() {
               <div className="flex items-center justify-center gap-6 mt-8 pt-6 border-t border-white/10">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-white">50K+</div>
-                  <div className="text-xs text-gray-500">Abone</div>
+                  <div className="text-xs text-muted-foreground">Abone</div>
                 </div>
-                <div className="w-px h-10 bg-white/20" />
+                <div className="w-px h-10 bg-card/20" />
                 <div className="text-center">
                   <div className="text-2xl font-bold text-white">%10</div>
-                  <div className="text-xs text-gray-500">İndirim</div>
+                  <div className="text-xs text-muted-foreground">İndirim</div>
                 </div>
-                <div className="w-px h-10 bg-white/20" />
+                <div className="w-px h-10 bg-card/20" />
                 <div className="text-center">
                   <div className="text-2xl font-bold text-white">0</div>
-                  <div className="text-xs text-gray-500">Spam</div>
+                  <div className="text-xs text-muted-foreground">Spam</div>
                 </div>
               </div>
             </div>

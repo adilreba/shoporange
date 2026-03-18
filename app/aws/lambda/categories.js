@@ -1,7 +1,7 @@
 const AWS = require('aws-sdk');
 const dynamodb = new AWS.DynamoDB.DocumentClient();
-const CATEGORIES_TABLE = process.env.CATEGORIES_TABLE || 'ShopOrange-Categories';
-const PRODUCTS_TABLE = process.env.TABLE_NAME || 'ShopOrange-Products';
+const CATEGORIES_TABLE = process.env.CATEGORIES_TABLE || 'AtusHome-Categories';
+const PRODUCTS_TABLE = process.env.TABLE_NAME || 'AtusHome-Products';
 
 const headers = {
   'Content-Type': 'application/json',

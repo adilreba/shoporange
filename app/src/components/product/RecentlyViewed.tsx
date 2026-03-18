@@ -31,7 +31,7 @@ export function RecentlyViewed() {
   if (recentItems.length === 0) return null;
 
   return (
-    <section className="py-12 bg-gray-50 dark:bg-gray-900">
+    <section className="py-12 bg-muted dark:bg-gray-900">
       <div className="container-custom">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -40,10 +40,10 @@ export function RecentlyViewed() {
               <Clock className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-2xl font-bold text-foreground dark:text-white">
                 Son Görüntüledikleriniz
               </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                 Son baktığınız {recentItems.length} ürün
               </p>
             </div>
@@ -54,7 +54,7 @@ export function RecentlyViewed() {
               variant="ghost"
               size="sm"
               onClick={handleClearAll}
-              className="text-gray-500 hover:text-red-500"
+              className="text-muted-foreground hover:text-red-500"
             >
               <Trash2 className="w-4 h-4 mr-1" />
               Temizle
@@ -74,18 +74,18 @@ export function RecentlyViewed() {
             <Link
               key={product.id}
               to={`/product/${product.id}`}
-              className="group relative bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
+              className="group relative bg-card dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
             >
               {/* Remove Button */}
               <button
                 onClick={(e) => handleRemove(product.id, product.name, e)}
-                className="absolute top-2 right-2 z-10 p-1.5 bg-white/90 dark:bg-gray-800/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-500"
+                className="absolute top-2 right-2 z-10 p-1.5 bg-card/90 dark:bg-gray-800/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-500"
               >
                 <X className="w-3 h-3" />
               </button>
 
               {/* Image */}
-              <div className="aspect-square overflow-hidden bg-gray-100 dark:bg-gray-700">
+              <div className="aspect-square overflow-hidden bg-muted dark:bg-gray-700">
                 <img
                   src={product.images[0]}
                   alt={product.name}
@@ -98,7 +98,7 @@ export function RecentlyViewed() {
                 <p className="text-xs text-orange-600 font-medium truncate">
                   {product.brand}
                 </p>
-                <h3 className="font-medium text-sm text-gray-900 dark:text-white line-clamp-2 mt-0.5 min-h-[2.5rem]">
+                <h3 className="font-medium text-sm text-foreground dark:text-white line-clamp-2 mt-0.5 min-h-[2.5rem]">
                   {product.name}
                 </h3>
                 <div className="flex items-center justify-between mt-2">
@@ -106,7 +106,7 @@ export function RecentlyViewed() {
                     {formatPrice(product.price)}
                   </span>
                   {product.originalPrice && (
-                    <span className="text-xs text-gray-400 line-through">
+                    <span className="text-xs text-muted-foreground line-through">
                       {formatPrice(product.originalPrice)}
                     </span>
                   )}

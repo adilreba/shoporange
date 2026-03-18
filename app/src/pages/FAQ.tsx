@@ -75,9 +75,10 @@ export function FAQ() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Header />
       
+      <main className="pt-[42px]">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-purple-500 to-purple-600 text-white py-16">
         <div className="container-custom text-center">
@@ -90,13 +91,13 @@ export function FAQ() {
           {/* Search */}
           <div className="max-w-xl mx-auto">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input 
                 type="text"
                 placeholder="Soru ara..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-xl text-gray-900"
+                className="w-full pl-12 pr-4 py-4 rounded-xl text-foreground"
               />
             </div>
           </div>
@@ -104,14 +105,14 @@ export function FAQ() {
       </section>
 
       {/* Breadcrumb */}
-      <div className="bg-white border-b">
+      <div className="bg-card border-b">
         <div className="container-custom py-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link to="/" className="hover:text-purple-600">Anasayfa</Link>
             <ChevronRight className="w-4 h-4" />
             <Link to="/help" className="hover:text-purple-600">Yardım</Link>
             <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-900">SSS</span>
+            <span className="text-foreground">SSS</span>
           </div>
         </div>
       </div>
@@ -128,7 +129,7 @@ export function FAQ() {
                 className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
                   activeCategory === cat.id 
                     ? 'bg-purple-500 text-white' 
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                    : 'bg-card text-foreground hover:bg-muted'
                 }`}
               >
                 <cat.icon className="w-4 h-4" />
@@ -142,29 +143,29 @@ export function FAQ() {
             {filteredFaqs.length === 0 ? (
               <div className="text-center py-12">
                 <HelpCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">Sonuç bulunamadı. Farklı bir arama terimi deneyin.</p>
+                <p className="text-muted-foreground">Sonuç bulunamadı. Farklı bir arama terimi deneyin.</p>
               </div>
             ) : (
               filteredFaqs.map((faq, index) => (
                 <div 
                   key={index}
-                  className="bg-white rounded-xl overflow-hidden shadow-sm"
+                  className="bg-card rounded-xl overflow-hidden shadow-sm"
                 >
                   <button
                     onClick={() => toggleItem(index)}
-                    className="w-full flex items-center justify-between p-5 text-left hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center justify-between p-5 text-left hover:bg-muted transition-colors"
                   >
                     <span className="font-medium pr-4">{faq.q}</span>
                     {openItems[index] ? (
-                      <ChevronUp className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                      <ChevronUp className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                     ) : (
-                      <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                      <ChevronDown className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                     )}
                   </button>
                   {openItems[index] && (
                     <div className="px-5 pb-5">
                       <div className="pt-2 border-t">
-                        <p className="text-gray-600 pt-3">{faq.a}</p>
+                        <p className="text-muted-foreground pt-3">{faq.a}</p>
                       </div>
                     </div>
                   )}
@@ -175,7 +176,7 @@ export function FAQ() {
 
           {/* Still Need Help */}
           <div className="mt-12 text-center">
-            <p className="text-gray-500 mb-4">Cevabınızı bulamadınız mı?</p>
+            <p className="text-muted-foreground mb-4">Cevabınızı bulamadınız mı?</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild className="gradient-orange">
                 <Link to="/contact">
@@ -192,6 +193,7 @@ export function FAQ() {
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

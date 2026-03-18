@@ -1,6 +1,6 @@
-# ShopOrange AWS Backend
+# AtusHome AWS Backend
 
-Bu dizin, ShopOrange e-ticaret platformunun AWS Serverless altyapısını içerir.
+Bu dizin, AtusHome e-ticaret platformunun AWS Serverless altyapısını içerir.
 
 ## Mimari
 
@@ -31,11 +31,11 @@ Bu dizin, ShopOrange e-ticaret platformunun AWS Serverless altyapısını içeri
 
 | Tablo | Amaç | İndeksler |
 |-------|------|-----------|
-| `ShopOrange-Products` | Ürün verileri | CategoryIndex |
-| `ShopOrange-Orders` | Sipariş verileri | UserIndex |
-| `ShopOrange-Users` | Kullanıcı verileri | EmailIndex |
-| `ShopOrange-Reviews` | Yorum verileri | ProductIndex, UserIndex |
-| `ShopOrange-Categories` | Kategori verileri | SlugIndex |
+| `AtusHome-Products` | Ürün verileri | CategoryIndex |
+| `AtusHome-Orders` | Sipariş verileri | UserIndex |
+| `AtusHome-Users` | Kullanıcı verileri | EmailIndex |
+| `AtusHome-Reviews` | Yorum verileri | ProductIndex, UserIndex |
+| `AtusHome-Categories` | Kategori verileri | SlugIndex |
 
 ### Lambda Fonksiyonları
 
@@ -103,7 +103,7 @@ Deployment tamamlandıktan sonra API'yi test edin:
 ```bash
 # API URL'nizi alın
 API_URL=$(aws cloudformation describe-stacks \
-    --stack-name shoporange-backend \
+    --stack-name atushome-backend \
     --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
     --output text)
 
@@ -121,7 +121,7 @@ curl -X POST $API_URL/auth/register \
 # Giriş yap
 curl -X POST $API_URL/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@shoporange.com","password":"password"}'
+  -d '{"email":"admin@atushome.com","password":"password"}'
 ```
 
 ## Frontend Entegrasyonu
@@ -154,13 +154,13 @@ Bu mimari AWS Free Tier kapsamında büyük ölçüde ücretsizdir:
 
 ```bash
 # CloudWatch Logs görüntüle
-aws logs tail /aws/lambda/shoporange-backend-GetProductsFunction --follow
+aws logs tail /aws/lambda/atushome-backend-GetProductsFunction --follow
 
 # API Gateway metrikleri
 aws cloudwatch get-metric-statistics \
     --namespace AWS/ApiGateway \
     --metric-name Count \
-    --dimensions Name=ApiName,Value=shoporange-backend \
+    --dimensions Name=ApiName,Value=atushome-backend \
     --start-time 2024-01-01T00:00:00Z \
     --end-time 2024-01-31T23:59:59Z \
     --period 86400 \
@@ -172,7 +172,7 @@ aws cloudwatch get-metric-statistics \
 Kaynakları silmek için:
 
 ```bash
-aws cloudformation delete-stack --stack-name shoporange-backend
+aws cloudformation delete-stack --stack-name atushome-backend
 ```
 
 ## Sorun Giderme
@@ -181,7 +181,7 @@ aws cloudformation delete-stack --stack-name shoporange-backend
 
 ```bash
 # Mevcut bucket'ı kullanın veya silin
-aws s3 rb s3://shoporange-deployment-[account-id] --force
+aws s3 rb s3://atushome-deployment-[account-id] --force
 ```
 
 ### Lambda Deploy Hatası
@@ -195,9 +195,9 @@ sam build --use-container --skip-pull-image
 
 API Gateway CORS ayarlarını kontrol edin:
 ```bash
-aws apigateway get-rest-apis --query 'items[?name==`shoporange-backend`]'
+aws apigateway get-rest-apis --query 'items[?name==`atushome-backend`]'
 ```
 
 ## Destek
 
-Sorularınız için: [GitHub Issues](https://github.com/your-repo/shoporange/issues)
+Sorularınız için: [GitHub Issues](https://github.com/your-repo/atushome/issues)

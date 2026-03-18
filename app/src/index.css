@@ -50,34 +50,34 @@
   }
 
   .dark {
-    /* Orange Theme - Dark Mode */
-    --background: 24 15% 8%;
-    --foreground: 30 15% 95%;
-    --card: 24 12% 10%;
-    --card-foreground: 30 15% 95%;
-    --popover: 24 12% 10%;
-    --popover-foreground: 30 15% 95%;
+    /* Orange Theme - Dark Mode - Dark Navy/Black */
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 98%;
     --primary: 24 95% 53%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 24 10% 15%;
-    --secondary-foreground: 30 15% 95%;
-    --muted: 24 10% 15%;
-    --muted-foreground: 30 10% 60%;
+    --secondary: 222 47% 11%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 222 47% 11%;
+    --muted-foreground: 215 20% 55%;
     --accent: 35 95% 60%;
     --accent-foreground: 24 10% 10%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 24 10% 18%;
-    --input: 24 10% 18%;
+    --border: 222 47% 14%;
+    --input: 222 47% 14%;
     --ring: 24 95% 53%;
     
-    --sidebar-background: 24 12% 8%;
-    --sidebar-foreground: 30 15% 90%;
+    --sidebar-background: 222 47% 6%;
+    --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 24 95% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 24 10% 15%;
-    --sidebar-accent-foreground: 30 15% 95%;
-    --sidebar-border: 24 10% 18%;
+    --sidebar-accent: 222 47% 11%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 47% 14%;
     --sidebar-ring: 24 95% 53%;
   }
 }
@@ -89,15 +89,65 @@
   
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* Responsive Typography Scale */
+  h1 {
+    @apply text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight;
+    line-height: 1.2;
+  }
+  
+  h2 {
+    @apply text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight;
+    line-height: 1.25;
+  }
+  
+  h3 {
+    @apply text-lg sm:text-xl md:text-2xl font-semibold;
+    line-height: 1.3;
+  }
+  
+  h4 {
+    @apply text-base sm:text-lg font-semibold;
+    line-height: 1.4;
+  }
+
+  p {
+    @apply text-sm sm:text-base;
+    line-height: 1.6;
+  }
+
+  /* Focus Visible Styles for Accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
 }
 
 @layer components {
+  /* Responsive Container */
+  .container-custom {
+    @apply w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12;
+    max-width: 1400px;
+  }
+
+  /* Responsive Section Padding */
+  .section-padding {
+    @apply py-12 sm:py-16 md:py-20 lg:py-24;
+  }
+
+  .section-padding-sm {
+    @apply py-8 sm:py-12 md:py-16;
+  }
+
   /* Gradient Backgrounds */
   .gradient-orange {
     background: linear-gradient(135deg, hsl(24 95% 53%) 0%, hsl(35 95% 60%) 100%);
@@ -113,7 +163,7 @@
   
   /* Glass Effect */
   .glass {
-    @apply bg-white/80 backdrop-blur-xl border border-white/20;
+    @apply bg-card/80 backdrop-blur-xl border border-white/20;
   }
   
   .glass-dark {
@@ -185,13 +235,21 @@
     @apply bg-primary/50;
   }
   
+  /* Mobile Optimized Scrollbar */
+  @media (max-width: 640px) {
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+  }
+  
   /* Product Card */
   .product-card {
-    @apply group relative bg-card rounded-2xl overflow-hidden border border-border transition-all duration-300;
+    @apply group relative bg-card rounded-xl sm:rounded-2xl overflow-hidden border border-border transition-all duration-300;
   }
   
   .product-card:hover {
-    @apply shadow-2xl border-primary/20;
+    @apply shadow-xl border-primary/20;
   }
   
   .product-card .product-image {
@@ -202,39 +260,29 @@
     @apply scale-105;
   }
   
-  /* Badge Styles */
+  /* Badge Styles - Responsive */
   .badge-new {
-    @apply bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full;
+    @apply bg-green-500 text-white text-xs font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full;
   }
   
   .badge-discount {
-    @apply bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full;
+    @apply bg-red-500 text-white text-xs font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full;
   }
   
   .badge-bestseller {
-    @apply bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-full;
+    @apply bg-amber-500 text-white text-xs font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full;
   }
   
   /* Price Styles */
   .price-current {
-    @apply text-xl font-bold text-primary;
+    @apply text-lg sm:text-xl font-bold text-primary;
   }
   
   .price-original {
-    @apply text-sm text-muted-foreground line-through;
+    @apply text-xs sm:text-sm text-muted-foreground line-through;
   }
-  
-  /* Section Spacing */
-  .section-padding {
-    @apply py-16 md:py-24;
-  }
-  
-  /* Container */
-  .container-custom {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
-  }
-  
-  /* Input Focus */
+
+  /* Input Focus States */
   .input-focus {
     @apply focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-200;
   }
@@ -260,9 +308,109 @@
   .toast-info {
     @apply bg-blue-500 text-white;
   }
+
+  /* Mobile-First Tables */
+  .table-responsive {
+    @apply w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
+  }
+
+  .table-responsive table {
+    @apply w-full min-w-[640px] sm:min-w-0;
+  }
+
+  /* Sticky Header Support */
+  .sticky-header {
+    @apply sticky top-0 z-40;
+  }
+
+  /* Touch-friendly Buttons */
+  .btn-touch {
+    @apply min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0;
+  }
+
+  /* Safe Area Support for Mobile */
+  .safe-area-inset {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 @layer utilities {
+  /* FLUID RESPONSIVE SYSTEM - No fixed breakpoints */
+  
+  /* Auto-fit Grid - Automatically adjusts columns based on container width */
+  .grid-auto-fit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    gap: clamp(0.75rem, 2vw, 1.5rem);
+  }
+  
+  .grid-auto-fit-sm {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+    gap: clamp(0.5rem, 1.5vw, 1rem);
+  }
+  
+  .grid-auto-fit-lg {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: clamp(1rem, 2.5vw, 2rem);
+  }
+  
+  /* Fluid Typography - Scales smoothly with viewport */
+  .text-fluid-xs {
+    font-size: clamp(0.625rem, 1vw + 0.25rem, 0.75rem);
+  }
+  
+  .text-fluid-sm {
+    font-size: clamp(0.75rem, 1.2vw + 0.25rem, 0.875rem);
+  }
+  
+  .text-fluid-base {
+    font-size: clamp(0.875rem, 1.5vw + 0.25rem, 1rem);
+  }
+  
+  .text-fluid-lg {
+    font-size: clamp(1rem, 2vw + 0.25rem, 1.25rem);
+  }
+  
+  .text-fluid-xl {
+    font-size: clamp(1.125rem, 2.5vw + 0.25rem, 1.5rem);
+  }
+  
+  .text-fluid-2xl {
+    font-size: clamp(1.25rem, 3vw + 0.25rem, 2rem);
+  }
+  
+  .text-fluid-3xl {
+    font-size: clamp(1.5rem, 4vw + 0.25rem, 2.5rem);
+  }
+  
+  /* Fluid Spacing */
+  .p-fluid {
+    padding: clamp(0.75rem, 2vw, 1.5rem);
+  }
+  
+  .px-fluid {
+    padding-left: clamp(0.75rem, 2vw, 1.5rem);
+    padding-right: clamp(0.75rem, 2vw, 1.5rem);
+  }
+  
+  .py-fluid {
+    padding-top: clamp(0.5rem, 1.5vw, 1rem);
+    padding-bottom: clamp(0.5rem, 1.5vw, 1rem);
+  }
+  
+  .gap-fluid {
+    gap: clamp(0.5rem, 1.5vw, 1.5rem);
+  }
+  
+  /* Container Query for component-level responsive */
+  .container-query {
+    container-type: inline-size;
+  }
+  
   /* Text Gradient */
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-amber-500;
@@ -283,5 +431,85 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* Prevent Text Selection on UI Elements */
+  .select-none {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Smooth Transitions */
+  .transition-smooth {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  /* Line Clamp Utilities */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Aspect Ratio */
+  .aspect-product {
+    aspect-ratio: 1 / 1;
+  }
+
+  .aspect-hero {
+    aspect-ratio: 16 / 9;
+  }
+
+  .aspect-card {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+/* Mobile Optimizations */
+@media (max-width: 640px) {
+  /* Reduce Motion for Accessibility */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Better Touch Targets */
+  button, 
+  [role="button"],
+  a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent Horizontal Scroll */
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* Dark Mode Optimizations */
+@media (prefers-color-scheme: dark) {
+  .dark\:auto {
+    @apply dark;
   }
 }

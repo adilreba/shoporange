@@ -28,13 +28,45 @@ export function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (formData.password !== formData.passwordConfirm) {
-      toast.error('Şifreler eşleşmiyor');
+    // Form validasyonu
+    if (!formData.name.trim()) {
+      toast.error('Ad soyad girin');
+      return;
+    }
+    if (formData.name.trim().length < 3) {
+      toast.error('Ad soyad en az 3 karakter olmalı');
       return;
     }
     
+    if (!formData.email.trim()) {
+      toast.error('E-posta adresi girin');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      toast.error('Geçerli bir e-posta adresi girin');
+      return;
+    }
+    
+    if (!formData.phone.trim()) {
+      toast.error('Telefon numarası girin');
+      return;
+    }
+    if (formData.phone.replace(/\D/g, '').length < 10) {
+      toast.error('Geçerli bir telefon numarası girin');
+      return;
+    }
+    
+    if (!formData.password.trim()) {
+      toast.error('Şifre girin');
+      return;
+    }
     if (formData.password.length < 6) {
       toast.error('Şifre en az 6 karakter olmalıdır');
+      return;
+    }
+    
+    if (formData.password !== formData.passwordConfirm) {
+      toast.error('Şifreler eşleşmiyor');
       return;
     }
     
@@ -78,14 +110,14 @@ export function Register() {
       
       <main className="container-custom py-12">
         <div className="max-w-md mx-auto">
-          <div className="bg-white rounded-2xl shadow-soft p-8">
+          <div className="bg-card rounded-2xl shadow-soft p-8">
             {/* Logo */}
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold mb-2">
-                <span className="text-gradient">Shop</span>
-                <span className="text-orange-600">Orange</span>
+                <span className="text-gradient">Atus</span>
+                <span className="text-orange-600">Home</span>
               </h1>
-              <p className="text-gray-500">Yeni hesap oluşturun</p>
+              <p className="text-muted-foreground">Yeni hesap oluşturun</p>
             </div>
 
             {/* Social Login */}
@@ -115,7 +147,7 @@ export function Register() {
                 <Separator />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-500">veya e-posta ile kaydol</span>
+                <span className="bg-card px-2 text-muted-foreground">veya e-posta ile kaydol</span>
               </div>
             </div>
 
@@ -124,7 +156,7 @@ export function Register() {
               <div>
                 <Label htmlFor="name">Ad Soyad *</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="name"
                     type="text"
@@ -140,7 +172,7 @@ export function Register() {
               <div>
                 <Label htmlFor="email">E-posta *</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
@@ -156,7 +188,7 @@ export function Register() {
               <div>
                 <Label htmlFor="phone">Telefon (İsteğe bağlı)</Label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="phone"
                     type="tel"
@@ -171,7 +203,7 @@ export function Register() {
               <div>
                 <Label htmlFor="password">Şifre *</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
@@ -185,12 +217,12 @@ export function Register() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">En az 6 karakter</p>
+                <p className="text-xs text-muted-foreground mt-1">En az 6 karakter</p>
               </div>
 
               <div>
@@ -211,7 +243,7 @@ export function Register() {
                   onCheckedChange={(checked) => setAgreeTerms(checked as boolean)}
                   className="mt-1"
                 />
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-muted-foreground">
                   <Link to="/terms" className="text-orange-600 hover:underline">Kullanım Koşulları</Link>'nı ve{' '}
                   <Link to="/privacy" className="text-orange-600 hover:underline">Gizlilik Politikası</Link>'nı okudum ve kabul ediyorum.
                 </span>
@@ -245,7 +277,7 @@ export function Register() {
               </ul>
             </div>
 
-            <p className="text-center text-sm text-gray-600 mt-6">
+            <p className="text-center text-sm text-muted-foreground mt-6">
               Zaten hesabınız var mı?{' '}
               <Link to="/login" className="text-orange-600 font-medium hover:underline">
                 Giriş yapın

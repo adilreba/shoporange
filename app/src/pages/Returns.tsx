@@ -69,9 +69,10 @@ export function Returns() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Header />
       
+      <main className="pt-[42px]">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-green-500 to-emerald-600 text-white py-16">
         <div className="container-custom text-center">
@@ -84,14 +85,14 @@ export function Returns() {
       </section>
 
       {/* Breadcrumb */}
-      <div className="bg-white border-b">
+      <div className="bg-card border-b">
         <div className="container-custom py-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link to="/" className="hover:text-green-600">Anasayfa</Link>
             <ChevronRight className="w-4 h-4" />
             <Link to="/help" className="hover:text-green-600">Yardım</Link>
             <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-900">İade Politikası</span>
+            <span className="text-foreground">İade Politikası</span>
           </div>
         </div>
       </div>
@@ -110,7 +111,7 @@ export function Returns() {
                       <step.icon className="w-8 h-8 text-green-600" />
                     </div>
                     <h3 className="font-bold mb-2">{step.title}</h3>
-                    <p className="text-gray-500 text-sm">{step.description}</p>
+                    <p className="text-muted-foreground text-sm">{step.description}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -130,7 +131,7 @@ export function Returns() {
                     {conditions.map((condition, index) => (
                       <li key={index} className="flex items-start gap-3">
                         <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                        <span className="text-gray-700">{condition}</span>
+                        <span className="text-foreground">{condition}</span>
                       </li>
                     ))}
                   </ul>
@@ -145,30 +146,30 @@ export function Returns() {
               </h2>
               <Card>
                 <CardContent className="p-6 space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                     <div className="flex items-center gap-3">
-                      <Package className="w-6 h-6 text-gray-500" />
+                      <Package className="w-6 h-6 text-muted-foreground" />
                       <span>İade Talebi</span>
                     </div>
                     <span className="font-bold text-green-600">14 Gün</span>
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                     <div className="flex items-center gap-3">
-                      <Truck className="w-6 h-6 text-gray-500" />
+                      <Truck className="w-6 h-6 text-muted-foreground" />
                       <span>Kargo Süresi</span>
                     </div>
                     <span className="font-bold text-blue-600">2-5 Gün</span>
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                     <div className="flex items-center gap-3">
-                      <CheckCircle className="w-6 h-6 text-gray-500" />
+                      <CheckCircle className="w-6 h-6 text-muted-foreground" />
                       <span>Kontrol</span>
                     </div>
                     <span className="font-bold text-purple-600">1-2 Gün</span>
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                     <div className="flex items-center gap-3">
-                      <CreditCard className="w-6 h-6 text-gray-500" />
+                      <CreditCard className="w-6 h-6 text-muted-foreground" />
                       <span>Para İadesi</span>
                     </div>
                     <span className="font-bold text-orange-600">3-5 Gün</span>
@@ -189,7 +190,7 @@ export function Returns() {
                       <AlertCircle className="w-5 h-5 text-green-500" />
                       {faq.q}
                     </h3>
-                    <p className="text-gray-600">{faq.a}</p>
+                    <p className="text-muted-foreground">{faq.a}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -204,13 +205,13 @@ export function Returns() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
-                className="bg-white text-green-600 hover:bg-gray-100"
+                className="bg-card text-green-600 hover:bg-muted"
                 onClick={() => toast.info('İade talebi özelliği yakında!')}
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 İade Talebi Oluştur
               </Button>
-              <Button asChild variant="outline" className="border-white text-white hover:bg-white/10">
+              <Button asChild variant="outline" className="border-white text-white hover:bg-card/10">
                 <Link to="/contact">
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Destek Al
@@ -221,6 +222,7 @@ export function Returns() {
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

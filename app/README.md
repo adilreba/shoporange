@@ -1,4 +1,4 @@
-# ShopOrange - Modern E-Ticaret Platformu
+# AtusHome - Modern E-Ticaret Platformu
 
 Turuncu temalı, modern, tam donanımlı bir e-ticaret web uygulaması. AWS Amplify üzerinde deploy edilebilir.
 
@@ -78,7 +78,7 @@ frontend:
 ## Demo Giriş Bilgileri
 
 ### Admin Hesabı
-- Email: `admin@shoporange.com`
+- Email: `admin@atushome.com`
 - Şifre: `admin123`
 
 ### Kullanıcı Hesabı
@@ -128,4 +128,4 @@ MIT License
 
 ## İletişim
 
-Sorularınız için: info@shoporange.com
+Sorularınız için: info@atushome.com

@@ -3,6 +3,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/sonner';
 import { useAuthStore } from '@/stores/authStore';
 import { ChatWidget } from '@/components/chat/ChatWidget';
+import { ScrollToTop } from '@/components/common/ScrollToTop';
 
 // Pages
 import { Home } from '@/pages/Home';
@@ -26,6 +27,7 @@ import { Help } from '@/pages/Help';
 import { Returns } from '@/pages/Returns';
 import { FAQ } from '@/pages/FAQ';
 import { Contact } from '@/pages/Contact';
+import { NotFound } from '@/pages/NotFound';
 
 // Admin Pages
 import { AdminDashboard } from '@/pages/Admin/Dashboard';
@@ -61,6 +63,7 @@ function App() {
           },
         }}
       />
+      <ScrollToTop />
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
@@ -163,8 +166,8 @@ function App() {
           } 
         />
         
-        {/* 404 Redirect */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* 404 Page */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
       
       {/* Chat Widget */}

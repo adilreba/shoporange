@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,16 +39,16 @@ const slides = [
 export function HeroSection() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
 
-  useEffect(() => {
-    if (!isAutoPlaying) return;
-    
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 5000);
+  const nextSlide = useCallback(() => {
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  }, []);
 
-    return () => clearInterval(interval);
-  }, [isAutoPlaying]);
+  const prevSlide = useCallback(() => {
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  }, []);
 
   const goToSlide = (index: number) => {
     setCurrentSlide(index);
@@ -56,20 +56,46 @@ export function HeroSection() {
     setTimeout(() => setIsAutoPlaying(true), 10000);
   };
 
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % slides.length);
-    setIsAutoPlaying(false);
-    setTimeout(() => setIsAutoPlaying(true), 10000);
+  // Auto play
+  useEffect(() => {
+    if (!isAutoPlaying) return;
+    
+    const interval = setInterval(() => {
+      nextSlide();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isAutoPlaying, nextSlide]);
+
+  // Touch handlers for mobile swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
   };
 
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-    setIsAutoPlaying(false);
-    setTimeout(() => setIsAutoPlaying(true), 10000);
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStart - touchEnd > 50) {
+      nextSlide();
+      setIsAutoPlaying(false);
+      setTimeout(() => setIsAutoPlaying(true), 10000);
+    }
+    if (touchStart - touchEnd < -50) {
+      prevSlide();
+      setIsAutoPlaying(false);
+      setTimeout(() => setIsAutoPlaying(true), 10000);
+    }
   };
 
   return (
-    <section className="relative h-[500px] md:h-[600px] lg:h-[700px] overflow-hidden">
+    <section 
+      className="relative h-[400px] sm:h-[500px] md:h-[600px] lg:h-[700px] overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Slides */}
       {slides.map((slide, index) => (
         <div
@@ -85,37 +111,37 @@ export function HeroSection() {
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: `url(${slide.image})` }}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent sm:from-black/70 sm:via-black/40" />
           </div>
 
           {/* Content */}
           <div className="relative h-full container-custom flex items-center">
-            <div className="max-w-xl text-white animate-fade-in-up">
-              <span className={`inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r ${slide.color} mb-4`}>
+            <div className="max-w-md sm:max-w-lg lg:max-w-xl text-white animate-fade-in-up px-4 sm:px-0">
+              <span className={`inline-block px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium bg-gradient-to-r ${slide.color} mb-3 sm:mb-4`}>
                 {slide.subtitle}
               </span>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
+              <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 sm:mb-4 leading-tight">
                 {slide.title}
               </h1>
-              <p className="text-lg md:text-xl text-gray-200 mb-8">
+              <p className="text-base sm:text-lg md:text-xl text-gray-200 mb-6 sm:mb-8 line-clamp-2 sm:line-clamp-none">
                 {slide.description}
               </p>
-              <div className="flex flex-wrap gap-4">
-                <Link to={slide.link}>
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <Link to={slide.link} className="w-full sm:w-auto">
                   <Button 
                     size="lg" 
-                    className={`gradient-orange text-white px-8 h-14 text-lg rounded-full hover:shadow-orange-lg transition-all`}
+                    className={`gradient-orange text-white px-6 sm:px-8 h-12 sm:h-14 text-base sm:text-lg rounded-full hover:shadow-orange-lg transition-all w-full sm:w-auto`}
                   >
-                    <ShoppingBag className="h-5 w-5 mr-2" />
+                    <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                     {slide.cta}
-                    <ArrowRight className="h-5 w-5 ml-2" />
+                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
                   </Button>
                 </Link>
-                <Link to="/products">
+                <Link to="/products" className="w-full sm:w-auto">
                   <Button 
                     size="lg" 
                     variant="outline"
-                    className="border-white text-white hover:bg-white hover:text-gray-900 px-8 h-14 text-lg rounded-full"
+                    className="border-white text-white hover:bg-card hover:text-foreground px-6 sm:px-8 h-12 sm:h-14 text-base sm:text-lg rounded-full w-full sm:w-auto"
                   >
                     Tüm Ürünler
                   </Button>
@@ -126,33 +152,48 @@ export function HeroSection() {
         </div>
       ))}
 
-      {/* Navigation Arrows */}
+      {/* Navigation Arrows - Hidden on mobile, visible on sm+ */}
       <button
-        onClick={prevSlide}
-        className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors z-10"
+        onClick={() => { prevSlide(); setIsAutoPlaying(false); setTimeout(() => setIsAutoPlaying(true), 10000); }}
+        className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-card/20 backdrop-blur-sm items-center justify-center text-white hover:bg-card/30 transition-colors z-10"
+        aria-label="Önceki slayt"
       >
-        <ChevronLeft className="h-6 w-6" />
+        <ChevronLeft className="h-5 w-5 lg:h-6 lg:w-6" />
       </button>
       <button
-        onClick={nextSlide}
-        className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors z-10"
+        onClick={() => { nextSlide(); setIsAutoPlaying(false); setTimeout(() => setIsAutoPlaying(true), 10000); }}
+        className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-card/20 backdrop-blur-sm items-center justify-center text-white hover:bg-card/30 transition-colors z-10"
+        aria-label="Sonraki slayt"
       >
-        <ChevronRight className="h-6 w-6" />
+        <ChevronRight className="h-5 w-5 lg:h-6 lg:w-6" />
       </button>
 
       {/* Dots */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+      <div className="absolute bottom-4 sm:bottom-6 lg:bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
         {slides.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
             className={`transition-all duration-300 rounded-full ${
               index === currentSlide 
-                ? 'w-8 h-2 bg-orange-500' 
-                : 'w-2 h-2 bg-white/50 hover:bg-white'
+                ? 'w-6 sm:w-8 h-2 bg-orange-500' 
+                : 'w-2 h-2 bg-card/50 hover:bg-card'
             }`}
+            aria-label={`Slayt ${index + 1}`}
           />
         ))}
+      </div>
+
+      {/* Swipe Hint - Mobile only */}
+      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 sm:hidden">
+        <div className="flex items-center gap-2 text-white/60 text-xs">
+          <span>Kaydır</span>
+          <div className="flex gap-1">
+            <div className="w-1 h-1 rounded-full bg-white/60" />
+            <div className="w-1 h-1 rounded-full bg-white/60" />
+            <div className="w-1 h-1 rounded-full bg-white/60" />
+          </div>
+        </div>
       </div>
     </section>
   );

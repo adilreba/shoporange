@@ -86,17 +86,17 @@ export function QuickView({ product, isOpen, onClose }: QuickViewProps) {
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 z-50 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center border border-gray-200 hover:bg-gray-100"
+          className="absolute top-2 right-2 z-50 w-8 h-8 bg-card rounded-full shadow-lg flex items-center justify-center border border-border hover:bg-muted"
         >
-          <X className="w-4 h-4 text-gray-600" />
+          <X className="w-4 h-4 text-muted-foreground" />
         </button>
 
         {/* Scrollable Content */}
         <div className="flex flex-col h-full overflow-y-auto">
           {/* IMAGE SECTION */}
-          <div className="relative bg-gray-50 p-3 flex-shrink-0">
+          <div className="relative bg-muted p-3 flex-shrink-0">
             {/* Main Image */}
-            <div className="relative aspect-[4/3] bg-white rounded-lg overflow-hidden">
+            <div className="relative aspect-[4/3] bg-card rounded-lg overflow-hidden">
               <img
                 src={product.images[selectedImage]}
                 alt={product.name}
@@ -119,9 +119,9 @@ export function QuickView({ product, isOpen, onClose }: QuickViewProps) {
               {/* Share Button */}
               <button
                 onClick={handleShare}
-                className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full shadow flex items-center justify-center border border-gray-200"
+                className="absolute top-2 right-2 w-7 h-7 bg-card rounded-full shadow flex items-center justify-center border border-border"
               >
-                <Share2 className="w-3.5 h-3.5 text-gray-600" />
+                <Share2 className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
 
               {/* Navigation Arrows */}
@@ -129,15 +129,15 @@ export function QuickView({ product, isOpen, onClose }: QuickViewProps) {
                 <>
                   <button
                     onClick={prevImage}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/90 rounded-full shadow flex items-center justify-center"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-card/90 rounded-full shadow flex items-center justify-center"
                   >
-                    <ChevronLeft className="w-4 h-4 text-gray-600" />
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                   </button>
                   <button
                     onClick={nextImage}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/90 rounded-full shadow flex items-center justify-center"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-card/90 rounded-full shadow flex items-center justify-center"
                   >
-                    <ChevronRight className="w-4 h-4 text-gray-600" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </button>
                 </>
               )}
@@ -158,7 +158,7 @@ export function QuickView({ product, isOpen, onClose }: QuickViewProps) {
                     key={idx}
                     onClick={() => setSelectedImage(idx)}
                     className={`w-10 h-10 rounded border-2 overflow-hidden ${
-                      selectedImage === idx ? 'border-orange-500' : 'border-gray-200'
+                      selectedImage === idx ? 'border-orange-500' : 'border-border'
                     }`}
                   >
                     <img src={img} alt="" className="w-full h-full object-cover" />
@@ -172,7 +172,7 @@ export function QuickView({ product, isOpen, onClose }: QuickViewProps) {
           <div className="p-4 flex flex-col">
             {/* Brand & Name */}
             <p className="text-xs text-orange-600 font-semibold uppercase">{product.brand}</p>
-            <h2 className="text-base font-bold text-gray-900 mt-0.5 leading-tight">{product.name}</h2>
+            <h2 className="text-base font-bold text-foreground mt-0.5 leading-tight">{product.name}</h2>
 
             {/* Rating */}
             <div className="flex items-center gap-2 mt-2 text-xs">
@@ -180,7 +180,7 @@ export function QuickView({ product, isOpen, onClose }: QuickViewProps) {
                 <Star className="w-3 h-3 text-yellow-400 fill-yellow-400 mr-1" />
                 <span className="font-semibold">{product.rating}</span>
               </div>
-              <span className="text-gray-500">({product.reviewCount} değerlendirme)</span>
+              <span className="text-muted-foreground">({product.reviewCount} değerlendirme)</span>
               <span className="text-gray-300">|</span>
               <span className={product.stock > 0 ? 'text-green-600' : 'text-red-600'}>
                 {product.stock > 0 ? `Stokta (${product.stock})` : 'Stokta Yok'}
@@ -193,33 +193,33 @@ export function QuickView({ product, isOpen, onClose }: QuickViewProps) {
                 {formatPrice(product.price)}
               </span>
               {product.originalPrice && (
-                <span className="text-sm text-gray-400 line-through">
+                <span className="text-sm text-muted-foreground line-through">
                   {formatPrice(product.originalPrice)}
                 </span>
               )}
             </div>
 
             {/* Description */}
-            <p className="text-gray-600 mt-2 text-sm line-clamp-2">{product.description}</p>
+            <p className="text-muted-foreground mt-2 text-sm line-clamp-2">{product.description}</p>
 
             {/* Features */}
             {product.features && Object.keys(product.features).length > 0 && (
               <div className="mt-3">
                 <button
                   onClick={() => setShowFeatures(!showFeatures)}
-                  className="flex items-center gap-2 text-sm font-medium text-gray-700"
+                  className="flex items-center gap-2 text-sm font-medium text-foreground"
                 >
                   <Check className="w-4 h-4 text-green-500" />
                   Ürün Özellikleri
-                  <span className="text-xs text-gray-400">({Object.keys(product.features).length})</span>
+                  <span className="text-xs text-muted-foreground">({Object.keys(product.features).length})</span>
                 </button>
                 
                 {showFeatures && (
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     {Object.entries(product.features).slice(0, 4).map(([key, value]) => (
-                      <div key={key} className="p-2 bg-gray-50 rounded text-xs">
-                        <span className="text-gray-500 uppercase block text-[10px]">{key}</span>
-                        <span className="font-medium text-gray-800">{value}</span>
+                      <div key={key} className="p-2 bg-muted rounded text-xs">
+                        <span className="text-muted-foreground uppercase block text-[10px]">{key}</span>
+                        <span className="font-medium text-foreground">{value}</span>
                       </div>
                     ))}
                   </div>
@@ -228,18 +228,18 @@ export function QuickView({ product, isOpen, onClose }: QuickViewProps) {
             )}
 
             {/* Benefits */}
-            <div className="flex items-center justify-between gap-2 mt-3 py-2 border-y border-gray-100 text-xs">
+            <div className="flex items-center justify-between gap-2 mt-3 py-2 border-y border-border text-xs">
               <div className="flex items-center gap-1">
                 <Truck className="w-3.5 h-3.5 text-blue-500" />
-                <span className="text-gray-600">Ücretsiz Kargo</span>
+                <span className="text-muted-foreground">Ücretsiz Kargo</span>
               </div>
               <div className="flex items-center gap-1">
                 <RotateCcw className="w-3.5 h-3.5 text-green-500" />
-                <span className="text-gray-600">14 Gün İade</span>
+                <span className="text-muted-foreground">14 Gün İade</span>
               </div>
               <div className="flex items-center gap-1">
                 <Shield className="w-3.5 h-3.5 text-purple-500" />
-                <span className="text-gray-600">Garantili</span>
+                <span className="text-muted-foreground">Garantili</span>
               </div>
             </div>
 
@@ -247,20 +247,20 @@ export function QuickView({ product, isOpen, onClose }: QuickViewProps) {
             {product.stock > 0 && (
               <div className="flex items-center gap-3 mt-3">
                 <span className="text-sm font-medium">Adet:</span>
-                <div className="flex items-center border border-gray-200 rounded">
+                <div className="flex items-center border border-border rounded">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="px-2.5 py-1 hover:bg-gray-100"
+                    className="px-2.5 py-1 hover:bg-muted"
                     disabled={quantity <= 1}
                   >
                     <Minus className="w-3 h-3" />
                   </button>
-                  <span className="px-3 py-1 font-semibold text-sm border-x border-gray-200 min-w-[2rem] text-center">
+                  <span className="px-3 py-1 font-semibold text-sm border-x border-border min-w-[2rem] text-center">
                     {quantity}
                   </span>
                   <button
                     onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                    className="px-2.5 py-1 hover:bg-gray-100"
+                    className="px-2.5 py-1 hover:bg-muted"
                     disabled={quantity >= product.stock}
                   >
                     <Plus className="w-3 h-3" />

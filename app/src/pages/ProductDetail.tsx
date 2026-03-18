@@ -9,15 +9,18 @@ import {
   Truck, 
   ShieldCheck, 
   RotateCcw,
-  ChevronRight,
+
   Minus,
-  Plus
+  Plus,
+  Share2,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
+import { SEO } from '@/components/common/SEO';
 import { ProductCard } from '@/components/product/ProductCard';
 import { ProductReviews } from '@/components/product/ProductReviews';
 import { getProductById, products } from '@/data/mockData';
@@ -42,26 +45,41 @@ export function ProductDetail() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
 
   useEffect(() => {
     if (product) {
       setSelectedImage(0);
       setQuantity(1);
-      // Add to recently viewed
       addToRecentlyViewed(product);
+      // Ürün değiştiğinde sayfayı en üste kaydır
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [product, addToRecentlyViewed]);
+
+  // Scroll listener for mobile sticky actions
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      setShowMobileActions(scrollY > 400);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   if (!product) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container-custom py-16 text-center">
-          <h1 className="text-2xl font-bold mb-4">Ürün Bulunamadı</h1>
-          <p className="text-gray-500 mb-6">Aradığınız ürün mevcut değil.</p>
-          <Button onClick={() => navigate('/products')}>
-            Ürünlere Dön
-          </Button>
+        <main className="container-custom py-12 sm:py-16 text-center px-4">
+          <div className="max-w-md mx-auto">
+            <AlertCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h1 className="text-xl sm:text-2xl font-bold mb-3">Ürün Bulunamadı</h1>
+            <p className="text-muted-foreground mb-6 text-sm sm:text-base">Aradığınız ürün mevcut değil.</p>
+            <Button onClick={() => navigate('/products')} className="gradient-orange">
+              Ürünlere Dön
+            </Button>
+          </div>
         </main>
         <Footer />
       </div>
@@ -101,6 +119,23 @@ export function ProductDetail() {
     }
   };
 
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: product.name,
+          text: product.description,
+          url: window.location.href,
+        });
+      } catch {
+        // User cancelled
+      }
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success('Link kopyalandı!');
+    }
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
@@ -111,24 +146,23 @@ export function ProductDetail() {
 
   return (
     <div className="min-h-screen bg-background">
+      {product && (
+        <SEO 
+          title={product.name}
+          description={product.description.substring(0, 160)}
+          keywords={`${product.name}, ${product.brand}, ${product.category}, satın al, fiyat`}
+          image={product.images[0]}
+        />
+      )}
       <Header />
       
-      <main className="container-custom py-8">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <Link to="/" className="hover:text-orange-600">Ana Sayfa</Link>
-          <ChevronRight className="h-4 w-4" />
-          <Link to="/products" className="hover:text-orange-600">Ürünler</Link>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-gray-900">{product.name}</span>
-        </nav>
-
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
-          {/* Images */}
-          <div className="space-y-4">
+      <main className="container-custom pt-[42px] pb-6 sm:pt-[42px] sm:pb-8">
+        <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 lg:gap-12">
+          {/* Images Section */}
+          <div className="space-y-3 sm:space-y-4">
             {/* Main Image */}
             <div 
-              className="relative aspect-square bg-gray-50 rounded-2xl overflow-hidden cursor-zoom-in"
+              className="relative aspect-square bg-muted rounded-xl sm:rounded-2xl overflow-hidden cursor-zoom-in"
               onClick={() => setIsZoomed(!isZoomed)}
             >
               <img
@@ -140,27 +174,35 @@ export function ProductDetail() {
               />
               
               {/* Badges */}
-              <div className="absolute top-4 left-4 flex flex-col gap-2">
+              <div className="absolute top-3 left-3 flex flex-col gap-1.5 sm:gap-2">
                 {product.isNew && (
-                  <Badge className="bg-green-500">YENİ</Badge>
+                  <Badge className="bg-green-500 text-xs">YENİ</Badge>
                 )}
                 {product.discount && product.discount > 0 && (
-                  <Badge className="bg-red-500">%{product.discount} İNDİRİM</Badge>
+                  <Badge className="bg-red-500 text-xs">%{product.discount} İNDİRİM</Badge>
                 )}
                 {product.isBestseller && (
-                  <Badge className="bg-amber-500">ÇOK SATAN</Badge>
+                  <Badge className="bg-amber-500 text-xs">ÇOK SATAN</Badge>
                 )}
               </div>
+
+              {/* Share Button */}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleShare(); }}
+                className="absolute top-3 right-3 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-card/90 flex items-center justify-center shadow-md hover:bg-card transition-colors"
+              >
+                <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
             </div>
 
             {/* Thumbnails */}
             {product.images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-2">
+              <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 no-scrollbar">
                 {product.images.map((img, index) => (
                   <button
                     key={index}
                     onClick={() => setSelectedImage(index)}
-                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors ${
+                    className={`flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border-2 transition-colors ${
                       selectedImage === index 
                         ? 'border-orange-500' 
                         : 'border-transparent hover:border-gray-300'
@@ -178,49 +220,49 @@ export function ProductDetail() {
           </div>
 
           {/* Product Info */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Brand & Name */}
             <div>
               <Link 
                 to={`/products?brand=${product.brand}`}
-                className="text-orange-600 font-medium hover:underline"
+                className="text-orange-600 font-medium text-sm sm:text-base hover:underline"
               >
                 {product.brand}
               </Link>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mt-1">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mt-1 leading-tight">
                 {product.name}
               </h1>
             </div>
 
             {/* Rating */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <div className="flex items-center gap-1">
                 {[...Array(5)].map((_, i) => (
                   <Star 
                     key={i}
-                    className={`h-5 w-5 ${
+                    className={`h-4 w-4 sm:h-5 sm:w-5 ${
                       i < Math.floor(product.rating) 
                         ? 'fill-amber-400 text-amber-400' 
                         : 'text-gray-300'
                     }`}
                   />
                 ))}
-                <span className="font-medium ml-2">{product.rating}</span>
+                <span className="font-medium ml-1 sm:ml-2 text-sm sm:text-base">{product.rating}</span>
               </div>
-              <span className="text-gray-500">({product.reviewCount} değerlendirme)</span>
+              <span className="text-muted-foreground text-xs sm:text-sm">({product.reviewCount} değerlendirme)</span>
             </div>
 
             {/* Price */}
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl md:text-4xl font-bold text-orange-600">
+            <div className="flex flex-wrap items-baseline gap-2 sm:gap-3">
+              <span className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-600">
                 {formatPrice(product.price)}
               </span>
               {product.originalPrice && (
                 <>
-                  <span className="text-xl text-gray-400 line-through">
+                  <span className="text-lg sm:text-xl text-muted-foreground line-through">
                     {formatPrice(product.originalPrice)}
                   </span>
-                  <Badge className="bg-red-500">
+                  <Badge className="bg-red-500 text-xs sm:text-sm">
                     %{product.discount} Tasarruf
                   </Badge>
                 </>
@@ -228,19 +270,19 @@ export function ProductDetail() {
             </div>
 
             {/* Description */}
-            <p className="text-gray-600 leading-relaxed">
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
               {product.description}
             </p>
 
             {/* Features */}
             {product.features && (
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h4 className="font-semibold mb-3">Özellikler</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(product.features).map(([key, value]) => (
+              <div className="bg-muted rounded-xl p-3 sm:p-4">
+                <h4 className="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">Özellikler</h4>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  {Object.entries(product.features).slice(0, 4).map(([key, value]) => (
                     <div key={key} className="flex items-center gap-2">
                       <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      <span className="text-sm">
+                      <span className="text-xs sm:text-sm truncate">
                         <span className="font-medium">{key}:</span> {value}
                       </span>
                     </div>
@@ -253,34 +295,34 @@ export function ProductDetail() {
             <div className="flex items-center gap-2">
               {product.stock > 0 ? (
                 <>
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
-                  <span className="text-green-600 font-medium">
+                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-green-500" />
+                  <span className="text-green-600 font-medium text-sm sm:text-base">
                     Stokta ({product.stock} adet)
                   </span>
                 </>
               ) : (
                 <>
-                  <div className="w-3 h-3 rounded-full bg-red-500" />
-                  <span className="text-red-600 font-medium">Stokta Yok</span>
+                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500" />
+                  <span className="text-red-600 font-medium text-sm sm:text-base">Stokta Yok</span>
                 </>
               )}
             </div>
 
-            {/* Quantity & Add to Cart */}
-            <div className="flex flex-wrap items-center gap-4">
+            {/* Desktop Quantity & Add to Cart */}
+            <div className="hidden sm:flex flex-wrap items-center gap-3">
               {/* Quantity Selector */}
               <div className="flex items-center border rounded-lg">
                 <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="p-3 hover:bg-gray-100 transition-colors"
-                  disabled={quantity <= 1}
+                  onClick={() => setQuantity(Math.max(0, quantity - 1))}
+                  className="p-2.5 sm:p-3 hover:bg-muted transition-colors disabled:opacity-50"
+                  disabled={quantity <= 0}
                 >
                   <Minus className="h-4 w-4" />
                 </button>
-                <span className="w-12 text-center font-medium">{quantity}</span>
+                <span className="w-10 sm:w-12 text-center font-medium">{quantity}</span>
                 <button
                   onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                  className="p-3 hover:bg-gray-100 transition-colors"
+                  className="p-2.5 sm:p-3 hover:bg-muted transition-colors"
                   disabled={quantity >= product.stock}
                 >
                   <Plus className="h-4 w-4" />
@@ -290,7 +332,7 @@ export function ProductDetail() {
               {/* Add to Cart */}
               <Button 
                 size="lg"
-                className="flex-1 gradient-orange h-14 text-lg"
+                className="flex-1 gradient-orange h-12 sm:h-14 text-base sm:text-lg"
                 onClick={handleAddToCart}
                 disabled={product.stock === 0}
               >
@@ -302,7 +344,7 @@ export function ProductDetail() {
               <Button
                 variant="outline"
                 size="icon"
-                className={`h-14 w-14 ${inWishlist ? 'text-red-500 border-red-500' : ''}`}
+                className={`h-12 w-12 sm:h-14 sm:w-14 ${inWishlist ? 'text-red-500 border-red-500' : ''}`}
                 onClick={handleToggleWishlist}
               >
                 <Heart className={`h-5 w-5 ${inWishlist ? 'fill-current' : ''}`} />
@@ -312,16 +354,16 @@ export function ProductDetail() {
               <Button
                 variant="outline"
                 size="icon"
-                className={`h-14 w-14 ${inCompare ? 'text-orange-500 border-orange-500' : ''}`}
+                className={`h-12 w-12 sm:h-14 sm:w-14 ${inCompare ? 'text-orange-500 border-orange-500' : ''}`}
                 onClick={handleToggleCompare}
               >
-                <Scale className="h-5 h-5" />
+                <Scale className="h-5 w-5" />
               </Button>
             </div>
 
             {/* Stock Alert - Show when out of stock */}
             {product.stock === 0 && (
-              <div className="mt-4">
+              <div className="hidden sm:block">
                 <StockAlertButton 
                   productId={product.id} 
                   productName={product.name}
@@ -330,48 +372,94 @@ export function ProductDetail() {
             )}
 
             {/* Benefits */}
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-4 sm:pt-6 border-t">
               <div className="text-center">
-                <Truck className="h-6 w-6 mx-auto mb-2 text-orange-500" />
-                <p className="text-xs text-gray-600">Ücretsiz Kargo</p>
-                <p className="text-xs text-gray-400">500₺ üzeri</p>
+                <Truck className="h-5 w-5 sm:h-6 sm:w-6 mx-auto mb-1.5 sm:mb-2 text-orange-500" />
+                <p className="text-xs text-muted-foreground">Ücretsiz Kargo</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">500₺ üzeri</p>
               </div>
               <div className="text-center">
-                <ShieldCheck className="h-6 w-6 mx-auto mb-2 text-orange-500" />
-                <p className="text-xs text-gray-600">Güvenli Ödeme</p>
-                <p className="text-xs text-gray-400">256-bit SSL</p>
+                <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6 mx-auto mb-1.5 sm:mb-2 text-orange-500" />
+                <p className="text-xs text-muted-foreground">Güvenli Ödeme</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">256-bit SSL</p>
               </div>
               <div className="text-center">
-                <RotateCcw className="h-6 w-6 mx-auto mb-2 text-orange-500" />
-                <p className="text-xs text-gray-600">Kolay İade</p>
-                <p className="text-xs text-gray-400">14 gün içinde</p>
+                <RotateCcw className="h-5 w-5 sm:h-6 sm:w-6 mx-auto mb-1.5 sm:mb-2 text-orange-500" />
+                <p className="text-xs text-muted-foreground">Kolay İade</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">14 gün</p>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Mobile Sticky Actions */}
+        <div className={`fixed bottom-0 left-0 right-0 bg-card border-t p-3 sm:p-4 lg:hidden transition-transform duration-300 z-50 safe-area-inset ${showMobileActions ? 'translate-y-0' : 'translate-y-full'}`}>
+          <div className="flex items-center gap-3">
+            {/* Quantity */}
+            <div className="flex items-center border rounded-lg bg-background flex-shrink-0">
+              <button
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="p-3 hover:bg-muted transition-colors"
+                disabled={quantity <= 1}
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="w-10 text-center font-medium text-base">{quantity}</span>
+              <button
+                onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                className="p-3 hover:bg-muted transition-colors"
+                disabled={quantity >= product.stock}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Add to Cart */}
+            <Button 
+              className="flex-1 gradient-orange h-11 min-w-0"
+              onClick={handleAddToCart}
+              disabled={product.stock === 0}
+            >
+              <ShoppingCart className="h-4 w-4 mr-1.5 flex-shrink-0" />
+              <span className="text-sm truncate">
+                {product.stock === 0 ? 'Stokta Yok' : `Ekle ${formatPrice(product.price * quantity)}`}
+              </span>
+            </Button>
+
+            {/* Wishlist */}
+            <Button
+              variant="outline"
+              size="icon"
+              className={`h-11 w-11 ${inWishlist ? 'text-red-500 border-red-500' : ''}`}
+              onClick={handleToggleWishlist}
+            >
+              <Heart className={`h-5 w-5 ${inWishlist ? 'fill-current' : ''}`} />
+            </Button>
+          </div>
+        </div>
+
         {/* Tabs */}
-        <div className="mt-12">
-          <Tabs defaultValue="description">
-            <TabsList className="w-full justify-start">
-              <TabsTrigger value="description">Ürün Açıklaması</TabsTrigger>
-              <TabsTrigger value="specs">Teknik Özellikler</TabsTrigger>
-              <TabsTrigger value="reviews">
+        <div className="mt-8 sm:mt-12">
+          <Tabs defaultValue="description" className="w-full">
+            <TabsList className="w-full justify-start overflow-x-auto no-scrollbar h-auto p-1 gap-1">
+              <TabsTrigger value="description" className="text-xs sm:text-sm px-3 sm:px-4 py-2">Ürün Açıklaması</TabsTrigger>
+              <TabsTrigger value="specs" className="text-xs sm:text-sm px-3 sm:px-4 py-2">Teknik Özellikler</TabsTrigger>
+              <TabsTrigger value="reviews" className="text-xs sm:text-sm px-3 sm:px-4 py-2">
                 Değerlendirmeler ({product.reviewCount})
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="description" className="mt-6">
+            <TabsContent value="description" className="mt-4 sm:mt-6">
               <div className="prose max-w-none">
-                <p className="text-gray-600 leading-relaxed">
+                <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
                   {product.description}
                 </p>
                 {product.tags && (
-                  <div className="mt-4">
-                    <h4 className="font-semibold mb-2">Etiketler:</h4>
+                  <div className="mt-4 sm:mt-6">
+                    <h4 className="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">Etiketler:</h4>
                     <div className="flex flex-wrap gap-2">
                       {product.tags.map(tag => (
-                        <Badge key={tag} variant="secondary">
+                        <Badge key={tag} variant="secondary" className="text-xs">
                           {tag}
                         </Badge>
                       ))}
@@ -381,33 +469,27 @@ export function ProductDetail() {
               </div>
             </TabsContent>
             
-            <TabsContent value="specs" className="mt-6">
+            <TabsContent value="specs" className="mt-4 sm:mt-6">
               {product.features ? (
-                <div className="bg-gray-50 rounded-xl overflow-hidden">
-                  <table className="w-full">
-                    <tbody>
-                      {Object.entries(product.features).map(([key, value], index) => (
-                        <tr 
-                          key={key} 
-                          className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                        >
-                          <td className="px-6 py-4 font-medium text-gray-700 w-1/3">
-                            {key}
-                          </td>
-                          <td className="px-6 py-4 text-gray-600">
-                            {value}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="bg-muted rounded-xl overflow-hidden">
+                  <div className="divide-y">
+                    {Object.entries(product.features).map(([key, value], index) => (
+                      <div 
+                        key={key} 
+                        className={`flex flex-col sm:flex-row sm:items-center px-4 sm:px-6 py-3 sm:py-4 ${index % 2 === 0 ? 'bg-card' : 'bg-muted'}`}
+                      >
+                        <span className="font-medium text-foreground sm:w-1/3 text-sm sm:text-base mb-1 sm:mb-0">{key}</span>
+                        <span className="text-muted-foreground text-sm sm:text-base">{value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <p className="text-gray-500">Teknik özellikler bulunmuyor.</p>
+                <p className="text-muted-foreground text-sm sm:text-base">Teknik özellikler bulunmuyor.</p>
               )}
             </TabsContent>
             
-            <TabsContent value="reviews" className="mt-6">
+            <TabsContent value="reviews" className="mt-4 sm:mt-6">
               <ProductReviews 
                 reviews={product.reviews || []}
                 averageRating={product.rating}
@@ -419,9 +501,9 @@ export function ProductDetail() {
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (
-          <div className="mt-16">
-            <h2 className="text-2xl font-bold mb-6">Benzer Ürünler</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          <div className="mt-10 sm:mt-16">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Benzer Ürünler</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
               {relatedProducts.map(product => (
                 <ProductCard key={product.id} product={product} />
               ))}
@@ -434,6 +516,9 @@ export function ProductDetail() {
       <RecentlyViewed />
 
       <Footer />
+
+      {/* Spacer for mobile sticky actions */}
+      <div className="h-20 lg:hidden" />
     </div>
   );
 }

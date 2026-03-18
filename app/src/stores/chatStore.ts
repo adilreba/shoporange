@@ -24,7 +24,7 @@ interface ChatState {
 
 // Auto-responses for common questions
 const autoResponses: Record<string, string> = {
-  'merhaba': 'Merhaba! ShopOrange\'a hoş geldiniz. Size nasıl yardımcı olabilirim?',
+  'merhaba': 'Merhaba! AtusHome\'a hoş geldiniz. Size nasıl yardımcı olabilirim?',
   'selam': 'Selam! Size nasıl yardımcı olabilirim?',
   'sipariş': 'Siparişlerinizi "Hesabım > Siparişlerim" bölümünden takip edebilirsiniz. Yardımcı olmamı ister misiniz?',
   'kargo': '500₺ üzeri siparişlerinizde kargo ücretsizdir. Siparişleriniz 1-3 iş günü içinde kargoya verilir.',
@@ -41,7 +41,7 @@ export const useChatStore = create<ChatState>()(
       messages: [
         {
           id: 'welcome',
-          text: 'Merhaba! 👋 ShopOrange müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?',
+          text: 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?',
           sender: 'bot',
           timestamp: new Date().toISOString(),
           isRead: true,
@@ -119,7 +119,7 @@ export const useChatStore = create<ChatState>()(
           messages: [
             {
               id: 'welcome',
-              text: 'Merhaba! 👋 ShopOrange müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?',
+              text: 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?',
               sender: 'bot',
               timestamp: new Date().toISOString(),
               isRead: true,

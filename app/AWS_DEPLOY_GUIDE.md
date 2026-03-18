@@ -1,6 +1,6 @@
-# ShopOrange AWS Deployment Rehberi
+# AtusHome AWS Deployment Rehberi
 
-Bu rehber, ShopOrange e-ticaret platformunun AWS üzerine nasıl deploy edileceğini adım adım açıklar.
+Bu rehber, AtusHome e-ticaret platformunun AWS üzerine nasıl deploy edileceğini adım adım açıklar.
 
 ## İçindekiler
 
@@ -69,7 +69,7 @@ sam --version
 # AWS Console'dan IAM servisine gidin
 # Users > Add user
 
-# Kullanıcı adı: shoporange-deploy
+# Kullanıcı adı: atushome-deploy
 # Access type: Programmatic access
 # Permissions: AdministratorAccess (veya daha kısıtlı bir policy)
 ```
@@ -94,7 +94,7 @@ aws sts get-caller-identity
 # {
 #     "UserId": "AIDAXXXXXXXXXXXXXXXX",
 #     "Account": "123456789012",
-#     "Arn": "arn:aws:iam::123456789012:user/shoporange-deploy"
+#     "Arn": "arn:aws:iam::123456789012:user/atushome-deploy"
 # }
 ```
 
@@ -130,7 +130,7 @@ sam build
 sam deploy --guided
 
 # Parametreler:
-# Stack Name [sam-app]: shoporange-backend
+# Stack Name [sam-app]: atushome-backend
 # AWS Region [us-east-1]: eu-west-1
 # Confirm changes before deploy [y/N]: y
 # Allow SAM CLI IAM role creation [Y/n]: Y
@@ -145,14 +145,14 @@ sam deploy --guided
 ```bash
 # Stack durumunu kontrol et
 aws cloudformation describe-stacks \
-    --stack-name shoporange-backend \
+    --stack-name atushome-backend \
     --query 'Stacks[0].StackStatus'
 
 # Beklenen: CREATE_COMPLETE veya UPDATE_COMPLETE
 
 # API URL'sini al
 aws cloudformation describe-stacks \
-    --stack-name shoporange-backend \
+    --stack-name atushome-backend \
     --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
     --output text
 ```
@@ -162,7 +162,7 @@ aws cloudformation describe-stacks \
 ```bash
 # API URL'nizi kaydedin
 API_URL=$(aws cloudformation describe-stacks \
-    --stack-name shoporange-backend \
+    --stack-name atushome-backend \
     --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
     --output text)
 
@@ -202,15 +202,15 @@ cat seed_response.json
 ```bash
 # DynamoDB tablolarını kontrol et
 aws dynamodb scan \
-    --table-name ShopOrange-Categories \
+    --table-name AtusHome-Categories \
     --query 'Count'
 
 aws dynamodb scan \
-    --table-name ShopOrange-Products \
+    --table-name AtusHome-Products \
     --query 'Count'
 
 aws dynamodb scan \
-    --table-name ShopOrange-Users \
+    --table-name AtusHome-Users \
     --query 'Count'
 ```
 
@@ -246,10 +246,10 @@ npm run build
 
 ```bash
 # S3 bucket oluştur
-aws s3 mb s3://shoporange-frontend-$(aws sts get-caller-identity --query Account --output text)
+aws s3 mb s3://atushome-frontend-$(aws sts get-caller-identity --query Account --output text)
 
 # Static website hosting etkinleştir
-aws s3 website s3://shoporange-frontend-$(aws sts get-caller-identity --query Account --output text) \
+aws s3 website s3://atushome-frontend-$(aws sts get-caller-identity --query Account --output text) \
     --index-document index.html \
     --error-document index.html
 
@@ -263,22 +263,22 @@ cat > bucket-policy.json << EOF
             "Effect": "Allow",
             "Principal": "*",
             "Action": "s3:GetObject",
-            "Resource": "arn:aws:s3:::shoporange-frontend-$(aws sts get-caller-identity --query Account --output text)/*"
+            "Resource": "arn:aws:s3:::atushome-frontend-$(aws sts get-caller-identity --query Account --output text)/*"
         }
     ]
 }
 EOF
 
 aws s3api put-bucket-policy \
-    --bucket shoporange-frontend-$(aws sts get-caller-identity --query Account --output text) \
+    --bucket atushome-frontend-$(aws sts get-caller-identity --query Account --output text) \
     --policy file://bucket-policy.json
 
 # Build dosyalarını yükle
-aws s3 sync dist/ s3://shoporange-frontend-$(aws sts get-caller-identity --query Account --output text)/ \
+aws s3 sync dist/ s3://atushome-frontend-$(aws sts get-caller-identity --query Account --output text)/ \
     --delete
 
 # Website URL
-echo "Website URL: http://shoporange-frontend-$(aws sts get-caller-identity --query Account --output text).s3-website-$(aws configure get region).amazonaws.com"
+echo "Website URL: http://atushome-frontend-$(aws sts get-caller-identity --query Account --output text).s3-website-$(aws configure get region).amazonaws.com"
 ```
 
 ### 4. CloudFront CDN (İsteğe Bağlı)
@@ -288,7 +288,7 @@ Daha iyi performans için CloudFront CDN kurulumu önerilir:
 ```bash
 # CloudFront dağıtımı oluştur
 aws cloudfront create-distribution \
-    --origin-domain-name shoporange-frontend-$(aws sts get-caller-identity --query Account --output text).s3.amazonaws.com \
+    --origin-domain-name atushome-frontend-$(aws sts get-caller-identity --query Account --output text).s3.amazonaws.com \
     --default-root-object index.html
 ```
 
@@ -301,13 +301,13 @@ aws cloudfront create-distribution \
 ```bash
 # Hosted zone oluştur
 aws route53 create-hosted-zone \
-    --name shoporange.com \
+    --name atushome.com \
     --caller-reference $(date +%s)
 
 # ACM sertifikası oluştur
 aws acm request-certificate \
-    --domain-name shoporange.com \
-    --subject-alternative-names www.shoporange.com \
+    --domain-name atushome.com \
+    --subject-alternative-names www.atushome.com \
     --validation-method DNS
 ```
 
@@ -316,12 +316,12 @@ aws acm request-certificate \
 ```bash
 # Özel domain oluştur
 aws apigateway create-domain-name \
-    --domain-name api.shoporange.com \
+    --domain-name api.atushome.com \
     --certificate-arn [ACM_CERTIFICATE_ARN]
 
 # Base path mapping
 aws apigateway create-base-path-mapping \
-    --domain-name api.shoporange.com \
+    --domain-name api.atushome.com \
     --rest-api-id [API_ID] \
     --stage prod
 ```
@@ -359,11 +359,11 @@ aws budgets create-budget \
 ```bash
 # CloudFormation stack hatalarını görüntüle
 aws cloudformation describe-stack-events \
-    --stack-name shoporange-backend \
+    --stack-name atushome-backend \
     --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].[LogicalResourceId,ResourceStatusReason]'
 
 # Lambda loglarını görüntüle
-aws logs tail /aws/lambda/shoporange-backend --follow
+aws logs tail /aws/lambda/atushome-backend --follow
 ```
 
 ### CORS Hataları
@@ -380,7 +380,7 @@ aws apigateway get-rest-apis
 ```bash
 # Lambda timeout değerini artır
 aws lambda update-function-configuration \
-    --function-name shoporange-backend-GetProductsFunction \
+    --function-name atushome-backend-GetProductsFunction \
     --timeout 30
 ```
 
@@ -389,12 +389,12 @@ aws lambda update-function-configuration \
 ```bash
 # Tablo kapasitesini kontrol et
 aws dynamodb describe-table \
-    --table-name ShopOrange-Products \
+    --table-name AtusHome-Products \
     --query 'Table.ProvisionedThroughput'
 
 # On-demand moda geç (maliyetli olabilir)
 aws dynamodb update-table \
-    --table-name ShopOrange-Products \
+    --table-name AtusHome-Products \
     --billing-mode PAY_PER_REQUEST
 ```
 
