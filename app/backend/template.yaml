@@ -7,6 +7,9 @@ Globals:
     Timeout: 10
     MemorySize: 512
     Runtime: nodejs20.x
+    Architectures:
+      - x86_64
+    Handler: index.handler
     Environment:
       Variables:
         NODE_ENV: production
@@ -14,6 +17,9 @@ Globals:
         USERS_TABLE: !Ref UsersTable
         ORDERS_TABLE: !Ref OrdersTable
         CART_TABLE: !Ref CartTable
+        VERIFICATION_TABLE: !Ref VerificationTable
+        FROM_EMAIL: !Ref FromEmail
+        SMS_ORIGINATOR: 'AtusHome'
         COGNITO_USER_POOL_ID: !Ref UserPool
         COGNITO_CLIENT_ID: !Ref UserPoolClient
 
@@ -26,6 +32,10 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Stripe Webhook Secret
+  FromEmail:
+    Type: String
+    Default: 'noreply@atushome.com'
+    Description: Email address for sending verification emails
 
 Resources:
   # ============================================
@@ -121,6 +131,34 @@ Resources:
         - AttributeName: productId
           KeyType: RANGE
 
+  VerificationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Verifications
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: type
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: type
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expiryTime
+        Enabled: true
+
+  # ============================================
+  # SES Email Identity (for sending emails)
+  # ============================================
+  
+  SESIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref FromEmail
+
   # ============================================
   # Cognito User Pool
   # ============================================
@@ -192,7 +230,7 @@ Resources:
   GetProductsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/products
+      CodeUri: dist/handlers/products
       Handler: index.getProducts
       Events:
         ApiEvent:
@@ -207,7 +245,7 @@ Resources:
   GetProductFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/products
+      CodeUri: dist/handlers/products
       Handler: index.getProduct
       Events:
         ApiEvent:
@@ -222,7 +260,7 @@ Resources:
   SearchProductsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/products
+      CodeUri: dist/handlers/products
       Handler: index.searchProducts
       Events:
         ApiEvent:
@@ -238,7 +276,7 @@ Resources:
   GetUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/users
+      CodeUri: dist/handlers/users
       Handler: index.getUser
       Events:
         ApiEvent:
@@ -251,7 +289,7 @@ Resources:
   UpdateUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/users
+      CodeUri: dist/handlers/users
       Handler: index.updateUser
       Events:
         ApiEvent:
@@ -265,7 +303,7 @@ Resources:
   GetOrdersFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/orders
+      CodeUri: dist/handlers/orders
       Handler: index.getOrders
       Events:
         ApiEvent:
@@ -278,7 +316,7 @@ Resources:
   CreateOrderFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/orders
+      CodeUri: dist/handlers/orders
       Handler: index.createOrder
       Events:
         ApiEvent:
@@ -291,7 +329,7 @@ Resources:
   GetOrderFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/orders
+      CodeUri: dist/handlers/orders
       Handler: index.getOrder
       Events:
         ApiEvent:
@@ -305,7 +343,7 @@ Resources:
   GetCartFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/cart
+      CodeUri: dist/handlers/cart
       Handler: index.getCart
       Events:
         ApiEvent:
@@ -318,7 +356,7 @@ Resources:
   AddToCartFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/cart
+      CodeUri: dist/handlers/cart
       Handler: index.addToCart
       Events:
         ApiEvent:
@@ -331,7 +369,7 @@ Resources:
   UpdateCartItemFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/cart
+      CodeUri: dist/handlers/cart
       Handler: index.updateCartItem
       Events:
         ApiEvent:
@@ -344,7 +382,7 @@ Resources:
   RemoveFromCartFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/cart
+      CodeUri: dist/handlers/cart
       Handler: index.removeFromCart
       Events:
         ApiEvent:
@@ -357,7 +395,7 @@ Resources:
   ClearCartFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/cart
+      CodeUri: dist/handlers/cart
       Handler: index.clearCart
       Events:
         ApiEvent:
@@ -371,7 +409,7 @@ Resources:
   CreatePaymentIntentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/payments
+      CodeUri: dist/handlers/payments
       Handler: index.createPaymentIntent
       Environment:
         Variables:
@@ -387,7 +425,7 @@ Resources:
   StripeWebhookFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/payments
+      CodeUri: dist/handlers/payments
       Handler: index.webhook
       Environment:
         Variables:
@@ -407,7 +445,7 @@ Resources:
   SeedDataFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/handlers/admin
+      CodeUri: dist/handlers/admin
       Handler: index.seedData
       Events:
         ApiEvent:
@@ -416,6 +454,107 @@ Resources:
             Path: /admin/seed
             Method: post
             RestApiId: !Ref ApiGateway
+
+  # ============================================
+  # Verification Functions
+  # ============================================
+  
+  SendEmailVerificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/verification
+      Handler: index.sendEmailVerification
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VerificationTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+              Resource: '*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /verify/email/send
+            Method: post
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
+  VerifyEmailOTPFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/verification
+      Handler: index.verifyEmailOTP
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VerificationTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /verify/email/confirm
+            Method: post
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
+  SendPhoneVerificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/verification
+      Handler: index.sendPhoneVerification
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VerificationTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: '*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /verify/phone/send
+            Method: post
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
+  VerifyPhoneOTPFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/verification
+      Handler: index.verifyPhoneOTP
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VerificationTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /verify/phone/confirm
+            Method: post
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
+  ValidateAddressFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/verification
+      Handler: index.validateAddress
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /verify/address
+            Method: post
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
 # ============================================
 # Outputs

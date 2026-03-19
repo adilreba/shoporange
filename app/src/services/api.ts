@@ -118,3 +118,49 @@ export const paymentApi = {
       body: JSON.stringify({ amount, currency }),
     }),
 };
+
+// ====================
+// Verification API (Email, Phone, Address)
+// ====================
+export const verificationApi = {
+  // Email verification
+  sendEmailCode: (email: string, userId: string) =>
+    fetchApi('/verify/email/send', {
+      method: 'POST',
+      body: JSON.stringify({ email, userId }),
+    }),
+
+  verifyEmailCode: (userId: string, otp: string) =>
+    fetchApi('/verify/email/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ userId, otp }),
+    }),
+
+  // Phone verification
+  sendPhoneCode: (phone: string, userId: string) =>
+    fetchApi('/verify/phone/send', {
+      method: 'POST',
+      body: JSON.stringify({ phone, userId }),
+    }),
+
+  verifyPhoneCode: (userId: string, otp: string) =>
+    fetchApi('/verify/phone/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ userId, otp }),
+    }),
+
+  // Address validation
+  validateAddress: (address: {
+    fullName: string;
+    phone: string;
+    city: string;
+    district: string;
+    neighborhood: string;
+    addressLine: string;
+    zipCode: string;
+  }) =>
+    fetchApi('/verify/address', {
+      method: 'POST',
+      body: JSON.stringify(address),
+    }),
+};
