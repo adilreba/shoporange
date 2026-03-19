@@ -145,3 +145,19 @@ export const searchProducts = async (event: APIGatewayProxyEvent): Promise<APIGa
     };
   }
 };
+
+// Main handler - routes to specific functions and handles OPTIONS
+export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+  const path = event.path;
+  const method = event.httpMethod;
+  if (path.includes('/products/') && path.split('/products/')[1]) {
+    if (method === 'GET') return getProduct(event);
+  }
+  if (path === '/products' || path.endsWith('/products')) {
+    if (method === 'GET') return getProducts(event);
+  }
+  return { statusCode: 404, headers, body: JSON.stringify({ error: 'Not found' }) };
+};

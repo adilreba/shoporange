@@ -271,3 +271,36 @@ export const clearCart = async (event: APIGatewayProxyEvent): Promise<APIGateway
     };
   }
 };
+
+// Main handler - routes to specific functions and handles OPTIONS
+export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  // Handle OPTIONS (preflight) requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: '',
+    };
+  }
+
+  const path = event.path;
+  const method = event.httpMethod;
+
+  // Route to appropriate function
+  if (path === '/cart' || path.endsWith('/cart')) {
+    if (method === 'GET') return getCart(event);
+    if (method === 'POST') return addToCart(event);
+    if (method === 'DELETE') return clearCart(event);
+  }
+  
+  if (path.includes('/cart/') && path.split('/cart/')[1]) {
+    if (method === 'PUT') return updateCartItem(event);
+    if (method === 'DELETE') return removeFromCart(event);
+  }
+
+  return {
+    statusCode: 404,
+    headers,
+    body: JSON.stringify({ error: 'Not found' }),
+  };
+};

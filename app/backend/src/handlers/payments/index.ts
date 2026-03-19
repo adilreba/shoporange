@@ -62,3 +62,19 @@ export const stripeWebhook = async (event: APIGatewayProxyEvent): Promise<APIGat
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Internal server error' }) };
   }
 };
+
+// Main handler - routes to specific functions and handles OPTIONS
+export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+  const path = event.path;
+  const method = event.httpMethod;
+  if (path === '/payments/intent' || path.endsWith('/payments/intent')) {
+    if (method === 'POST') return createPaymentIntent(event);
+  }
+  if (path === '/payments/webhook' || path.endsWith('/payments/webhook')) {
+    if (method === 'POST') return stripeWebhook(event);
+  }
+  return { statusCode: 404, headers, body: JSON.stringify({ error: 'Not found' }) };
+};

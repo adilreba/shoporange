@@ -318,3 +318,28 @@ export const validateAddress = async (event: APIGatewayProxyEvent): Promise<APIG
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to validate address' }) };
   }
 };
+
+// Main handler - routes to specific functions and handles OPTIONS
+export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+  const path = event.path;
+  const method = event.httpMethod;
+  if (path === '/verify/email/send' || path.endsWith('/verify/email/send')) {
+    if (method === 'POST') return sendEmailVerification(event);
+  }
+  if (path === '/verify/email/verify' || path.endsWith('/verify/email/verify')) {
+    if (method === 'POST') return verifyEmailOTP(event);
+  }
+  if (path === '/verify/phone/send' || path.endsWith('/verify/phone/send')) {
+    if (method === 'POST') return sendPhoneVerification(event);
+  }
+  if (path === '/verify/phone/verify' || path.endsWith('/verify/phone/verify')) {
+    if (method === 'POST') return verifyPhoneOTP(event);
+  }
+  if (path === '/verify/address' || path.endsWith('/verify/address')) {
+    if (method === 'POST') return validateAddress(event);
+  }
+  return { statusCode: 404, headers, body: JSON.stringify({ error: 'Not found' }) };
+};
