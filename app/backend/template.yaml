@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: AtusHome E-Ticaret Backend
+Description: AtusHome E-Ticaret Backend - CORS Enabled
 
 Globals:
   Function:
@@ -27,21 +27,17 @@ Parameters:
   StripeSecretKey:
     Type: String
     NoEcho: true
-    Description: Stripe Secret Key
+    Default: 'sk_test_placeholder'
   StripeWebhookSecret:
     Type: String
     NoEcho: true
-    Description: Stripe Webhook Secret
+    Default: 'whsec_test_placeholder'
   FromEmail:
     Type: String
     Default: 'noreply@atushome.com'
-    Description: Email address for sending verification emails
 
 Resources:
-  # ============================================
   # DynamoDB Tables
-  # ============================================
-  
   ProductsTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -52,8 +48,6 @@ Resources:
           AttributeType: S
         - AttributeName: category
           AttributeType: S
-        - AttributeName: createdAt
-          AttributeType: S
       KeySchema:
         - AttributeName: id
           KeyType: HASH
@@ -62,12 +56,8 @@ Resources:
           KeySchema:
             - AttributeName: category
               KeyType: HASH
-            - AttributeName: createdAt
-              KeyType: RANGE
           Projection:
             ProjectionType: ALL
-      StreamSpecification:
-        StreamViewType: NEW_AND_OLD_IMAGES
 
   UsersTable:
     Type: AWS::DynamoDB::Table
@@ -77,18 +67,9 @@ Resources:
       AttributeDefinitions:
         - AttributeName: id
           AttributeType: S
-        - AttributeName: email
-          AttributeType: S
       KeySchema:
         - AttributeName: id
           KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: EmailIndex
-          KeySchema:
-            - AttributeName: email
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
 
   OrdersTable:
     Type: AWS::DynamoDB::Table
@@ -100,18 +81,14 @@ Resources:
           AttributeType: S
         - AttributeName: userId
           AttributeType: S
-        - AttributeName: createdAt
-          AttributeType: S
       KeySchema:
         - AttributeName: id
           KeyType: HASH
       GlobalSecondaryIndexes:
-        - IndexName: UserOrdersIndex
+        - IndexName: UserIdIndex
           KeySchema:
             - AttributeName: userId
               KeyType: HASH
-            - AttributeName: createdAt
-              KeyType: RANGE
           Projection:
             ProjectionType: ALL
 
@@ -134,15 +111,15 @@ Resources:
   VerificationTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: AtusHome-Verifications
+      TableName: AtusHome-Verification
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: id
+        - AttributeName: userId
           AttributeType: S
         - AttributeName: type
           AttributeType: S
       KeySchema:
-        - AttributeName: id
+        - AttributeName: userId
           KeyType: HASH
         - AttributeName: type
           KeyType: RANGE
@@ -150,26 +127,13 @@ Resources:
         AttributeName: expiryTime
         Enabled: true
 
-  # ============================================
-  # SES Email Identity (for sending emails)
-  # ============================================
-  
-  SESIdentity:
-    Type: AWS::SES::EmailIdentity
-    Properties:
-      EmailIdentity: !Ref FromEmail
-
-  # ============================================
-  # Cognito User Pool
-  # ============================================
-  
+  # Cognito
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: AtusHome-UserPool
       AutoVerifiedAttributes:
         - email
-      MfaConfiguration: 'OFF'
       Policies:
         PasswordPolicy:
           MinimumLength: 8
@@ -177,16 +141,6 @@ Resources:
           RequireLowercase: true
           RequireNumbers: true
           RequireSymbols: false
-      Schema:
-        - Name: email
-          Required: true
-          Mutable: true
-        - Name: name
-          Required: true
-          Mutable: true
-        - Name: phone_number
-          Required: false
-          Mutable: true
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -198,30 +152,24 @@ Resources:
         - ALLOW_USER_SRP_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
         - ALLOW_USER_PASSWORD_AUTH
-      PreventUserExistenceErrors: ENABLED
 
-  # ============================================
-  # API Gateway
-  # ============================================
-  
+  SESIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref FromEmail
+
+  # API Gateway - CORS ENABLED
   ApiGateway:
     Type: AWS::Serverless::Api
     Properties:
       StageName: prod
-      Auth:
-        DefaultAuthorizer: CognitoAuthorizer
-        Authorizers:
-          CognitoAuthorizer:
-            UserPoolArn: !GetAtt UserPool.Arn
-            Identity:
-              Header: Authorization
-              ValidationExpression: ^Bearer [-0-9a-zA-Z\._]*$
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+        MaxAge: "'600'"
 
-  # ============================================
   # Lambda Functions
-  # ============================================
-  
-  # Products Functions
   GetProductsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -234,8 +182,6 @@ Resources:
             Path: /products
             Method: get
             RestApiId: !Ref ApiGateway
-            Auth:
-              Authorizer: NONE
 
   GetProductFunction:
     Type: AWS::Serverless::Function
@@ -249,8 +195,6 @@ Resources:
             Path: /products/{id}
             Method: get
             RestApiId: !Ref ApiGateway
-            Auth:
-              Authorizer: NONE
 
   SearchProductsFunction:
     Type: AWS::Serverless::Function
@@ -264,10 +208,7 @@ Resources:
             Path: /products/search
             Method: get
             RestApiId: !Ref ApiGateway
-            Auth:
-              Authorizer: NONE
 
-  # Users Functions
   GetUserFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -277,7 +218,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /users/me
+            Path: /users/{id}
             Method: get
             RestApiId: !Ref ApiGateway
 
@@ -290,11 +231,10 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /users/me
+            Path: /users/{id}
             Method: put
             RestApiId: !Ref ApiGateway
 
-  # Orders Functions
   GetOrdersFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -305,6 +245,19 @@ Resources:
           Type: Api
           Properties:
             Path: /orders
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  GetOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/orders
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /orders/{id}
             Method: get
             RestApiId: !Ref ApiGateway
 
@@ -321,20 +274,6 @@ Resources:
             Method: post
             RestApiId: !Ref ApiGateway
 
-  GetOrderFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: dist/handlers/orders
-      Handler: index.handler
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            Path: /orders/{id}
-            Method: get
-            RestApiId: !Ref ApiGateway
-
-  # Cart Functions
   GetCartFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -400,7 +339,6 @@ Resources:
             Method: delete
             RestApiId: !Ref ApiGateway
 
-  # Payment Functions
   CreatePaymentIntentFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -413,7 +351,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /payments/create-intent
+            Path: /payments/intent
             Method: post
             RestApiId: !Ref ApiGateway
 
@@ -433,10 +371,7 @@ Resources:
             Path: /payments/webhook
             Method: post
             RestApiId: !Ref ApiGateway
-            Auth:
-              Authorizer: NONE
 
-  # Seed Data Function
   SeedDataFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -450,23 +385,11 @@ Resources:
             Method: post
             RestApiId: !Ref ApiGateway
 
-  # ============================================
-  # Verification Functions
-  # ============================================
-  
   SendEmailVerificationFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: dist/handlers/verification
       Handler: index.handler
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref VerificationTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - ses:SendEmail
-              Resource: '*'
       Events:
         ApiEvent:
           Type: Api
@@ -474,40 +397,25 @@ Resources:
             Path: /verify/email/send
             Method: post
             RestApiId: !Ref ApiGateway
-            Auth:
-              Authorizer: NONE
 
   VerifyEmailOTPFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: dist/handlers/verification
       Handler: index.handler
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref VerificationTable
       Events:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /verify/email/confirm
+            Path: /verify/email/verify
             Method: post
             RestApiId: !Ref ApiGateway
-            Auth:
-              Authorizer: NONE
 
   SendPhoneVerificationFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: dist/handlers/verification
       Handler: index.handler
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref VerificationTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - sns:Publish
-              Resource: '*'
       Events:
         ApiEvent:
           Type: Api
@@ -515,26 +423,19 @@ Resources:
             Path: /verify/phone/send
             Method: post
             RestApiId: !Ref ApiGateway
-            Auth:
-              Authorizer: NONE
 
   VerifyPhoneOTPFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: dist/handlers/verification
       Handler: index.handler
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref VerificationTable
       Events:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /verify/phone/confirm
+            Path: /verify/phone/verify
             Method: post
             RestApiId: !Ref ApiGateway
-            Auth:
-              Authorizer: NONE
 
   ValidateAddressFunction:
     Type: AWS::Serverless::Function
@@ -548,50 +449,17 @@ Resources:
             Path: /verify/address
             Method: post
             RestApiId: !Ref ApiGateway
-            Auth:
-              Authorizer: NONE
-
-# ============================================
-# CORS Gateway Responses
-# ============================================
-
-  GatewayResponseDefault4XX:
-    Type: AWS::ApiGateway::GatewayResponse
-    Properties:
-      RestApiId: !Ref ApiGateway
-      ResponseType: DEFAULT_4XX
-      ResponseParameters:
-        gatewayresponse.header.Access-Control-Allow-Origin: "'https://atushome.vercel.app'"
-        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-
-  GatewayResponseDefault5XX:
-    Type: AWS::ApiGateway::GatewayResponse
-    Properties:
-      RestApiId: !Ref ApiGateway
-      ResponseType: DEFAULT_5XX
-      ResponseParameters:
-        gatewayresponse.header.Access-Control-Allow-Origin: "'https://atushome.vercel.app'"
-        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-
-# ============================================
-# Outputs
-# ============================================
 
 Outputs:
   ApiUrl:
     Description: API Gateway Endpoint URL
     Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
-  
   UserPoolId:
     Description: Cognito User Pool ID
     Value: !Ref UserPool
-  
   UserPoolClientId:
     Description: Cognito User Pool Client ID
     Value: !Ref UserPoolClient
-  
   CognitoDomain:
     Description: Cognito Domain
     Value: !Sub '${UserPool}.auth.${AWS::Region}.amazoncognito.com'
