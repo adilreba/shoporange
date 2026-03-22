@@ -151,6 +151,15 @@ export function Header() {
                     >
                       <span className="text-lg">📦</span> Tüm Ürünler
                     </Link>
+                    {isAuthenticated && (
+                      <Link 
+                        to="/admin" 
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 transition-colors text-sm font-medium text-orange-600"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <span className="text-lg">📊</span> Admin Paneli
+                      </Link>
+                    )}
                     <Link 
                       to="/compare" 
                       className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 transition-colors text-sm font-medium text-orange-600"
@@ -385,12 +394,12 @@ export function Header() {
                       <Scale className="mr-2 h-4 w-4" />
                       Karşılaştırma
                     </DropdownMenuItem>
-                    {user?.role === 'admin' && (
+                    {
                       <DropdownMenuItem onClick={() => navigate('/admin')}>
                         <BarChart3 className="mr-2 h-4 w-4" />
                         Admin Paneli
                       </DropdownMenuItem>
-                    )}
+                    }
                     <DropdownMenuItem onClick={() => navigate('/settings')}>
                       <Settings className="mr-2 h-4 w-4" />
                       Ayarlar
