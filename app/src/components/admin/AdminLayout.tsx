@@ -10,7 +10,6 @@ import {
   Search,
   Menu,
   X,
-  ChevronDown,
   LogOut,
   Sun,
   Moon
