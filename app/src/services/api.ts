@@ -2,7 +2,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://your-api-gateway-url.execute-api.eu-west-1.amazonaws.com/prod';
 
 // Helper function for API calls
-async function fetchApi(endpoint: string, options: RequestInit = {}) {
+export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const token = localStorage.getItem('auth_token');
   
   const headers: Record<string, string> = {
@@ -163,4 +163,22 @@ export const verificationApi = {
       method: 'POST',
       body: JSON.stringify(address),
     }),
+};
+
+// ====================
+// Generic API (for admin pages)
+// ====================
+export const api = {
+  get: (endpoint: string) => fetchApi(endpoint),
+  post: (endpoint: string, data: any) => fetchApi(endpoint, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  put: (endpoint: string, data: any) => fetchApi(endpoint, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  delete: (endpoint: string) => fetchApi(endpoint, {
+    method: 'DELETE',
+  }),
 };

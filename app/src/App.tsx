@@ -30,10 +30,10 @@ import { Contact } from '@/pages/Contact';
 import { NotFound } from '@/pages/NotFound';
 
 // Admin Pages
-import { AdminDashboard } from '@/pages/admin/AdminDashboard';
-import { AdminProducts } from '@/pages/admin/AdminProducts';
-import { AdminOrders } from '@/pages/admin/AdminOrders';
-import { AdminUsers } from '@/pages/admin/AdminUsers';
+import { AdminDashboard } from '@/pages/Admin/AdminDashboard';
+import { AdminProducts } from '@/pages/Admin/AdminProducts';
+import { AdminOrders } from '@/pages/Admin/AdminOrders';
+import { AdminUsers } from '@/pages/Admin/AdminUsers';
 
 // Protected Route Component
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {

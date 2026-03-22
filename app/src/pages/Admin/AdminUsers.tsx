@@ -36,7 +36,7 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [, setSelectedUser] = useState<User | null>(null);
 
   useEffect(() => {
     fetchUsers();

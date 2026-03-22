@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, ShoppingCart, Users, TrendingUp, DollarSign } from 'lucide-react';
+import { Package, ShoppingCart, Users, DollarSign } from 'lucide-react';
 import { api } from '@/services/api';
 
 interface DashboardStats {

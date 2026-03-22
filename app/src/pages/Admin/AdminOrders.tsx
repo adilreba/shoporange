@@ -50,7 +50,7 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [, setSelectedOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     fetchOrders();
