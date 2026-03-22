@@ -77,30 +77,34 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      // API'den veri çek
-      const [productsRes, ordersRes, usersRes] = await Promise.all([
-        api.get('/admin/products').catch(() => ({ data: [] })),
-        api.get('/admin/orders').catch(() => ({ data: [] })),
-        api.get('/admin/users').catch(() => ({ data: [] }))
-      ]);
+      // MOCK DATA - Backend hazır olana kadar
+      const mockProducts = [
+        { id: '1', name: 'Koltuk' },
+        { id: '2', name: 'Masa' },
+        { id: '3', name: 'Sandalye' },
+      ];
+      const mockOrders = [
+        { id: 'ORD-001', userId: 'user1', total: 15000, status: 'delivered', createdAt: new Date().toISOString() },
+        { id: 'ORD-002', userId: 'user2', total: 8500, status: 'processing', createdAt: new Date().toISOString() },
+      ];
+      const mockUsers = [
+        { id: 'user1', name: 'Ahmet' },
+        { id: 'user2', name: 'Mehmet' },
+      ];
 
-      const products = productsRes.data || [];
-      const orders = ordersRes.data || [];
-      const users = usersRes.data || [];
+      const products = mockProducts;
+      const orders = mockOrders;
+      const users = mockUsers;
 
       const revenue = orders.reduce((sum: number, order: any) => sum + (order.total || 0), 0);
 
-      // Son 5 siparişi al
-      const recent = orders
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 5)
-        .map((order: any) => ({
-          id: order.id,
-          customer: order.userId?.substring(0, 8) || 'Misafir',
-          total: order.total,
-          status: order.status,
-          date: new Date(order.createdAt).toLocaleDateString('tr-TR')
-        }));
+      const recent = orders.map((order: any) => ({
+        id: order.id,
+        customer: order.userId?.substring(0, 8) || 'Misafir',
+        total: order.total,
+        status: order.status,
+        date: new Date(order.createdAt).toLocaleDateString('tr-TR')
+      }));
 
       setStats(prev => ({
         ...prev,

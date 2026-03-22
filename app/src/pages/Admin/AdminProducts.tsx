@@ -99,8 +99,12 @@ export default function AdminProducts() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/admin/products');
-      setProducts(response.data || []);
+      // MOCK DATA
+      setProducts([
+        { id: 'PROD-001', name: 'Modern Koltuk Takımı', description: 'Lüks koltuk', price: 15000, category: 'living-room', stock: 10, images: ['https://via.placeholder.com/150'], createdAt: new Date().toISOString() },
+        { id: 'PROD-002', name: 'Yemek Masası', description: 'Ahşap masa', price: 8500, category: 'dining-room', stock: 5, images: ['https://via.placeholder.com/150'], createdAt: new Date().toISOString() },
+        { id: 'PROD-003', name: 'Çalışma Sandalyesi', description: 'Ergonomik', price: 3500, category: 'office', stock: 15, images: [], createdAt: new Date().toISOString() },
+      ]);
     } catch (error) {
       console.error('Error fetching products:', error);
       toast.error('Ürünler yüklenirken hata oluştu');
