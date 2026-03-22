@@ -394,12 +394,12 @@ export function Header() {
                       <Scale className="mr-2 h-4 w-4" />
                       Karşılaştırma
                     </DropdownMenuItem>
-                    {
-                      <DropdownMenuItem onClick={() => navigate('/admin')}>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin" className="flex items-center cursor-pointer">
                         <BarChart3 className="mr-2 h-4 w-4" />
                         Admin Paneli
-                      </DropdownMenuItem>
-                    }
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/settings')}>
                       <Settings className="mr-2 h-4 w-4" />
                       Ayarlar
