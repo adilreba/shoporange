@@ -29,8 +29,9 @@ import { FAQ } from '@/pages/FAQ';
 import { Contact } from '@/pages/Contact';
 import { NotFound } from '@/pages/NotFound';
 
-// Admin Pages
-import AdminDashboard from '@/pages/Admin/AdminDashboard';
+// Admin Layout & Pages
+import AdminLayout from '@/components/admin/AdminLayout';
+import AdminDashboard from '@/pages/Admin/Dashboard';
 import AdminProducts from '@/pages/Admin/AdminProducts';
 import AdminOrders from '@/pages/Admin/AdminOrders';
 import AdminUsers from '@/pages/Admin/AdminUsers';
@@ -133,39 +134,13 @@ function App() {
           } 
         />
         
-        {/* Admin Routes */}
-        <Route 
-          path="/admin" 
-          element={
-            <ProtectedRoute>
-              <AdminDashboard />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/admin/products" 
-          element={
-            <ProtectedRoute>
-              <AdminProducts />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/admin/orders" 
-          element={
-            <ProtectedRoute>
-              <AdminOrders />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/admin/users" 
-          element={
-            <ProtectedRoute>
-              <AdminUsers />
-            </ProtectedRoute>
-          } 
-        />
+        {/* Admin Routes with Layout */}
+        <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="products" element={<AdminProducts />} />
+          <Route path="orders" element={<AdminOrders />} />
+          <Route path="users" element={<AdminUsers />} />
+        </Route>
         
         {/* 404 Page */}
         <Route path="*" element={<NotFound />} />

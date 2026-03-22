@@ -1,43 +1,61 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
   Package, 
   ShoppingCart, 
   Users, 
   DollarSign,
+  TrendingUp,
+  TrendingDown,
   ArrowUpRight,
-  ArrowDownRight,
-  AlertTriangle,
-  Box,
-  Search,
-  RefreshCw,
-  Download,
-  Eye,
-  Edit,
-  Trash2,
-  CheckCircle,
-  Clock,
-  Truck,
-  XCircle,
-  Menu
+  MoreHorizontal
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useAuthStore } from '@/stores/authStore';
-import { products, adminMockOrders, mockUsers } from '@/data/mockData';
-import { toast } from 'sonner';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from 'recharts';
 
-// Stats data
+// Mock Data
+const salesData = [
+  { name: 'Pzt', sales: 4000, orders: 24 },
+  { name: 'Sal', sales: 3000, orders: 18 },
+  { name: 'Çar', sales: 5000, orders: 32 },
+  { name: 'Per', sales: 4500, orders: 28 },
+  { name: 'Cum', sales: 6000, orders: 42 },
+  { name: 'Cmt', sales: 7500, orders: 55 },
+  { name: 'Paz', sales: 8000, orders: 62 },
+];
+
+const recentOrders = [
+  { id: '#ORD-001', customer: 'Ahmet Yılmaz', product: 'Modern Koltuk', total: 12500, status: 'delivered', date: '2024-03-20' },
+  { id: '#ORD-002', customer: 'Ayşe Kaya', product: 'Yemek Masası', total: 8500, status: 'processing', date: '2024-03-20' },
+  { id: '#ORD-003', customer: 'Mehmet Demir', product: 'TV Ünitesi', total: 6200, status: 'pending', date: '2024-03-19' },
+  { id: '#ORD-004', customer: 'Fatma Şahin', product: 'Kitaplık', total: 3400, status: 'delivered', date: '2024-03-19' },
+  { id: '#ORD-005', customer: 'Ali Yıldız', product: 'Orta Sehpa', total: 2100, status: 'cancelled', date: '2024-03-18' },
+];
+
+const topProducts = [
+  { name: 'Modern Koltuk Takımı', sales: 48, revenue: 720000, trend: 'up' },
+  { name: 'Yemek Masası Seti', sales: 36, revenue: 306000, trend: 'up' },
+  { name: 'Çift Kişilik Yatak', sales: 29, revenue: 348000, trend: 'down' },
+  { name: 'TV Ünitesi', sales: 24, revenue: 144000, trend: 'up' },
+  { name: 'Kitaplık', sales: 21, revenue: 73500, trend: 'down' },
+];
+
 const stats = [
   {
-    title: 'Toplam Satış',
-    value: '₺1,245,890',
+    title: 'Toplam Gelir',
+    value: '₺1,592,500',
     change: '+12.5%',
     trend: 'up',
     icon: DollarSign,
@@ -45,7 +63,7 @@ const stats = [
   },
   {
     title: 'Toplam Sipariş',
-    value: '3,456',
+    value: '1,429',
     change: '+8.2%',
     trend: 'up',
     icon: ShoppingCart,
@@ -53,1103 +71,218 @@ const stats = [
   },
   {
     title: 'Toplam Ürün',
-    value: '15,234',
-    change: '+23',
+    value: '386',
+    change: '+24',
     trend: 'up',
     icon: Package,
-    color: 'bg-orange-500'
+    color: 'bg-purple-500'
   },
   {
-    title: 'Toplam Müşteri',
-    value: '45,678',
-    change: '+5.4%',
-    trend: 'up',
+    title: 'Aktif Kullanıcı',
+    value: '2,847',
+    change: '-2.1%',
+    trend: 'down',
     icon: Users,
-    color: 'bg-purple-500'
-  }
+    color: 'bg-orange-500'
+  },
 ];
 
-// Low stock products
-const lowStockProducts = products.filter(p => p.stock < 10).slice(0, 5);
+const getStatusBadge = (status: string) => {
+  const styles: Record<string, string> = {
+    delivered: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    processing: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  };
+  const labels: Record<string, string> = {
+    delivered: 'Teslim Edildi',
+    processing: 'İşleniyor',
+    pending: 'Beklemede',
+    cancelled: 'İptal',
+  };
+  return (
+    <Badge className={`${styles[status]} border-0 font-medium`}>
+      {labels[status]}
+    </Badge>
+  );
+};
 
-// Recent orders
-const recentOrders = adminMockOrders.slice(0, 5);
+export default function Dashboard() {
+  const [loading, setLoading] = useState(true);
 
-// Top products
-const topProducts = [...products]
-  .sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
-  .slice(0, 5);
+  useEffect(() => {
+    setTimeout(() => setLoading(false), 1000);
+  }, []);
 
-export function AdminDashboard() {
-  const navigate = useNavigate();
-  const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [refreshing, setRefreshing] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Check if user is admin
-  if (user?.role !== 'admin') {
-    toast.error('Bu sayfaya erişim yetkiniz yok!');
-    navigate('/');
-    return null;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500" />
+      </div>
+    );
   }
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-      toast.success('Veriler güncellendi');
-    }, 1000);
-  };
-
-  const handleExport = () => {
-    toast.success('Rapor indiriliyor...');
-  };
-
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      'completed': 'bg-green-100 text-green-700',
-      'processing': 'bg-blue-100 text-blue-700',
-      'shipped': 'bg-purple-100 text-purple-700',
-      'pending': 'bg-amber-100 text-amber-700',
-      'cancelled': 'bg-red-100 text-red-700'
-    };
-    const labels: Record<string, string> = {
-      'completed': 'Tamamlandı',
-      'processing': 'İşleniyor',
-      'shipped': 'Kargoda',
-      'pending': 'Beklemede',
-      'cancelled': 'İptal'
-    };
-    return (
-      <Badge className={`${styles[status] || 'bg-muted text-foreground'} text-xs`}>
-        {labels[status] || status}
-      </Badge>
-    );
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'processing': return <Clock className="w-4 h-4 text-blue-500" />;
-      case 'shipped': return <Truck className="w-4 h-4 text-purple-500" />;
-      case 'cancelled': return <XCircle className="w-4 h-4 text-red-500" />;
-      default: return <Clock className="w-4 h-4 text-amber-500" />;
-    }
-  };
-
-  const SidebarContent = () => (
-    <nav className="p-4 space-y-1">
-      <Button 
-        variant={activeTab === 'overview' ? 'default' : 'ghost'}
-        className="w-full justify-start"
-        onClick={() => {
-          setActiveTab('overview');
-          setSidebarOpen(false);
-        }}
-      >
-        <LayoutDashboard className="h-4 w-4 mr-3" />
-        Dashboard
-      </Button>
-      <Button 
-        variant={activeTab === 'orders' ? 'default' : 'ghost'}
-        className="w-full justify-start"
-        onClick={() => {
-          setActiveTab('orders');
-          setSidebarOpen(false);
-        }}
-      >
-        <ShoppingCart className="h-4 w-4 mr-3" />
-        Siparişler
-        <Badge className="ml-auto bg-red-500 text-xs">{adminMockOrders.filter(o => o.status === 'pending').length}</Badge>
-      </Button>
-      <Button 
-        variant={activeTab === 'products' ? 'default' : 'ghost'}
-        className="w-full justify-start"
-        onClick={() => {
-          setActiveTab('products');
-          setSidebarOpen(false);
-        }}
-      >
-        <Package className="h-4 w-4 mr-3" />
-        Ürünler
-      </Button>
-      <Button 
-        variant={activeTab === 'stock' ? 'default' : 'ghost'}
-        className="w-full justify-start"
-        onClick={() => {
-          setActiveTab('stock');
-          setSidebarOpen(false);
-        }}
-      >
-        <Box className="h-4 w-4 mr-3" />
-        Stok Takibi
-        {lowStockProducts.length > 0 && (
-          <Badge className="ml-auto bg-amber-500 text-xs">{lowStockProducts.length}</Badge>
-        )}
-      </Button>
-      <Button 
-        variant={activeTab === 'users' ? 'default' : 'ghost'}
-        className="w-full justify-start"
-        onClick={() => {
-          setActiveTab('users');
-          setSidebarOpen(false);
-        }}
-      >
-        <Users className="h-4 w-4 mr-3" />
-        Müşteriler
-      </Button>
-    </nav>
-  );
-
   return (
-    <div className="min-h-screen bg-muted">
-      {/* Admin Header */}
-      <header className="bg-card border-b sticky top-0 z-40">
-        <div className="px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {/* Mobile Menu Button */}
-              <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="lg:hidden">
-                    <Menu className="h-6 w-6" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-64 p-0">
-                  <div className="flex items-center justify-between p-4 border-b">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-                        <LayoutDashboard className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <h1 className="text-lg font-bold">Admin Panel</h1>
-                      </div>
-                    </div>
-                  </div>
-                  <SidebarContent />
-                </SheetContent>
-              </Sheet>
-
-              <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-                <LayoutDashboard className="h-6 w-6 text-white" />
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-xl sm:text-2xl font-bold">Admin Panel</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground">Hoş geldin, {user?.name}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="hidden sm:flex"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                Yenile
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleExport}
-                className="hidden sm:flex"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Rapor
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-                <span className="hidden sm:inline">Siteye Dön</span>
-                <span className="sm:hidden">Site</span>
-              </Button>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-1">Hoş geldiniz! İşte bugünkü özet.</p>
         </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar - Desktop */}
-        <aside className="hidden lg:block w-64 bg-card border-r min-h-[calc(100vh-73px)] sticky top-[73px]">
-          <SidebarContent />
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 p-4 sm:p-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsContent value="overview" className="space-y-4 sm:space-y-6 m-0">
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                {stats.map((stat) => (
-                  <Card key={stat.title} className="hover:shadow-lg transition-shadow cursor-pointer">
-                    <CardContent className="p-3 sm:p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0">
-                          <p className="text-xs sm:text-sm text-muted-foreground truncate">{stat.title}</p>
-                          <p className="text-lg sm:text-2xl font-bold mt-1">{stat.value}</p>
-                          <div className={`flex items-center gap-1 mt-1 sm:mt-2 text-xs ${
-                            stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {stat.trend === 'up' ? (
-                              <ArrowUpRight className="h-3 w-3" />
-                            ) : (
-                              <ArrowDownRight className="h-3 w-3" />
-                            )}
-                            <span>{stat.change}</span>
-                            <span className="text-muted-foreground hidden sm:inline">vs geçen ay</span>
-                          </div>
-                        </div>
-                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${stat.color} flex items-center justify-center flex-shrink-0`}>
-                          <stat.icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Alerts Section */}
-              {lowStockProducts.length > 0 && (
-                <Card className="border-amber-200 bg-amber-50">
-                  <CardHeader className="pb-3 px-4 sm:px-6">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-amber-600" />
-                      <CardTitle className="text-amber-800 text-base sm:text-lg">Stok Uyarıları</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-4 sm:px-6">
-                    <div className="space-y-2">
-                      {lowStockProducts.map((product) => (
-                        <div key={product.id} className="flex items-center justify-between p-2 sm:p-3 bg-card rounded-lg">
-                          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                            <img src={product.images[0]} alt={product.name} className="w-8 h-8 sm:w-10 sm:h-10 object-cover rounded flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm truncate">{product.name}</p>
-                              <p className="text-xs text-muted-foreground">{product.brand}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-                            <div className="text-right">
-                              <p className={`font-bold text-sm ${product.stock === 0 ? 'text-red-600' : 'text-amber-600'}`}>
-                                {product.stock}
-                              </p>
-                              <p className="text-xs text-muted-foreground">adet</p>
-                            </div>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              className="hidden sm:flex"
-                              onClick={() => navigate(`/admin/products/edit/${product.id}`)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Charts & Tables */}
-              <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
-                {/* Recent Orders */}
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between px-4 sm:px-6">
-                    <div>
-                      <CardTitle className="text-base sm:text-lg">Son Siparişler</CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">Son 5 sipariş</CardDescription>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => setActiveTab('orders')}
-                      className="text-xs sm:text-sm"
-                    >
-                      Tümü
-                    </Button>
-                  </CardHeader>
-                  <CardContent className="px-2 sm:px-6">
-                    {/* Mobile View */}
-                    <div className="lg:hidden space-y-3">
-                      {recentOrders.map((order) => (
-                        <div 
-                          key={order.id} 
-                          className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            {getStatusIcon(order.status)}
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm truncate">{order.id}</p>
-                              <p className="text-xs text-muted-foreground truncate">{order.customer}</p>
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="font-medium text-sm">₺{order.total.toLocaleString()}</p>
-                            {getStatusBadge(order.status)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Desktop Table */}
-                    <div className="hidden lg:block overflow-x-auto">
-                      <table className="w-full">
-                        <tbody className="space-y-3">
-                          {recentOrders.map((order) => (
-                            <tr 
-                              key={order.id} 
-                              className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                            >
-                              <td className="flex items-center gap-3">
-                                {getStatusIcon(order.status)}
-                                <div>
-                                  <p className="font-medium text-sm">{order.id}</p>
-                                  <p className="text-xs text-muted-foreground">{order.customer}</p>
-                                </div>
-                              </td>
-                              <td className="text-right">
-                                <p className="font-medium text-sm">₺{order.total.toLocaleString()}</p>
-                                {getStatusBadge(order.status)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Top Products */}
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between px-4 sm:px-6">
-                    <div>
-                      <CardTitle className="text-base sm:text-lg">Çok Satan Ürünler</CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">Bu ayın en çok satanları</CardDescription>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => setActiveTab('products')}
-                      className="text-xs sm:text-sm"
-                    >
-                      Tümü
-                    </Button>
-                  </CardHeader>
-                  <CardContent className="px-2 sm:px-6">
-                    {/* Mobile View */}
-                    <div className="lg:hidden space-y-3">
-                      {topProducts.map((product, index) => (
-                        <div 
-                          key={product.id} 
-                          className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${
-                              index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                              index === 1 ? 'bg-muted text-foreground' :
-                              index === 2 ? 'bg-orange-100 text-orange-700' :
-                              'bg-muted text-muted-foreground'
-                            }`}>
-                              {index + 1}
-                            </span>
-                            <img src={product.images[0]} alt={product.name} className="w-6 h-6 sm:w-8 sm:h-8 object-cover rounded flex-shrink-0" />
-                            <p className="font-medium text-sm truncate">{product.name}</p>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="font-medium text-sm">₺{(product.salesCount || 0) * product.price}</p>
-                            <p className="text-xs text-muted-foreground">{product.salesCount || 0} satış</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Desktop Table */}
-                    <div className="hidden lg:block overflow-x-auto">
-                      <table className="w-full">
-                        <tbody className="space-y-3">
-                          {topProducts.map((product, index) => (
-                            <tr 
-                              key={product.id} 
-                              className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                            >
-                              <td className="flex items-center gap-3">
-                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium ${
-                                  index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                                  index === 1 ? 'bg-muted text-foreground' :
-                                  index === 2 ? 'bg-orange-100 text-orange-700' :
-                                  'bg-muted text-muted-foreground'
-                                }`}>
-                                  {index + 1}
-                                </span>
-                                <img src={product.images[0]} alt={product.name} className="w-8 h-8 object-cover rounded" />
-                                <p className="font-medium text-sm truncate max-w-[150px]">{product.name}</p>
-                              </td>
-                              <td className="text-right">
-                                <p className="font-medium text-sm">₺{(product.salesCount || 0) * product.price}</p>
-                                <p className="text-xs text-muted-foreground">{product.salesCount || 0} satış</p>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Quick Actions */}
-              <Card>
-                <CardHeader className="px-4 sm:px-6">
-                  <CardTitle className="text-base sm:text-lg">Hızlı İşlemler</CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 sm:px-6">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <Button 
-                      className="gradient-orange h-12 sm:h-16 text-xs sm:text-sm"
-                      onClick={() => navigate('/admin/products/new')}
-                    >
-                      <Package className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-                      <span className="truncate">Yeni Ürün</span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="h-12 sm:h-16 text-xs sm:text-sm"
-                      onClick={() => setActiveTab('orders')}
-                    >
-                      <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-                      <span className="truncate">Siparişler</span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="h-12 sm:h-16 text-xs sm:text-sm"
-                      onClick={() => setActiveTab('stock')}
-                    >
-                      <Box className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-                      <span className="truncate">Stok</span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="h-12 sm:h-16 text-xs sm:text-sm"
-                      onClick={() => setActiveTab('users')}
-                    >
-                      <Users className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-                      <span className="truncate">Müşteriler</span>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Orders Tab */}
-            <TabsContent value="orders" className="m-0">
-              <OrdersManagement />
-            </TabsContent>
-
-            {/* Products Tab */}
-            <TabsContent value="products" className="m-0">
-              <ProductsManagement />
-            </TabsContent>
-
-            {/* Stock Tab */}
-            <TabsContent value="stock" className="m-0">
-              <StockManagement />
-            </TabsContent>
-
-            {/* Users Tab */}
-            <TabsContent value="users" className="m-0">
-              <UsersManagement />
-            </TabsContent>
-          </Tabs>
-        </main>
-      </div>
-    </div>
-  );
-}
-
-// Orders Management Component
-function OrdersManagement() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [orders, setOrders] = useState(adminMockOrders);
-
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customer.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const updateOrderStatus = (orderId: string, newStatus: string) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus as any } : o));
-    toast.success(`Sipariş ${orderId} durumu güncellendi`);
-  };
-
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      'completed': 'bg-green-100 text-green-700',
-      'processing': 'bg-blue-100 text-blue-700',
-      'shipped': 'bg-purple-100 text-purple-700',
-      'pending': 'bg-amber-100 text-amber-700',
-      'cancelled': 'bg-red-100 text-red-700'
-    };
-    const labels: Record<string, string> = {
-      'completed': 'Tamamlandı',
-      'processing': 'İşleniyor',
-      'shipped': 'Kargoda',
-      'pending': 'Beklemede',
-      'cancelled': 'İptal'
-    };
-    return (
-      <Badge className={`${styles[status] || 'bg-muted text-foreground'} text-xs`}>
-        {labels[status] || status}
-      </Badge>
-    );
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-lg sm:text-2xl font-bold">Sipariş Yönetimi</h2>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Ara..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full sm:w-64"
-            />
-          </div>
-          <select 
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border rounded-md px-3 py-2 text-sm"
-          >
-            <option value="all">Tümü</option>
-            <option value="pending">Beklemede</option>
-            <option value="processing">İşleniyor</option>
-            <option value="shipped">Kargoda</option>
-            <option value="completed">Tamamlandı</option>
-            <option value="cancelled">İptal</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Mobile Cards */}
-      <div className="lg:hidden space-y-3">
-        {filteredOrders.map((order) => (
-          <Card key={order.id} className="p-4">
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <p className="font-semibold text-sm">{order.id}</p>
-                <p className="text-xs text-muted-foreground">{order.customer}</p>
-              </div>
-              {getStatusBadge(order.status)}
-            </div>
-            <div className="flex items-center justify-between text-sm mb-3">
-              <span className="text-muted-foreground">{order.date}</span>
-              <span className="font-bold">₺{order.total.toLocaleString()}</span>
-            </div>
-            <select 
-              value={order.status}
-              onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-              className="w-full text-sm border rounded-lg px-3 py-2"
-            >
-              <option value="pending">Beklemede</option>
-              <option value="processing">İşleniyor</option>
-              <option value="shipped">Kargoda</option>
-              <option value="completed">Tamamlandı</option>
-              <option value="cancelled">İptal</option>
-            </select>
-          </Card>
-        ))}
-      </div>
-
-      {/* Desktop Table */}
-      <Card className="hidden lg:block">
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full min-w-[700px]">
-            <thead className="bg-muted border-b">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Sipariş No</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Müşteri</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Tarih</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Tutar</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Durum</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredOrders.map((order) => (
-                <tr key={order.id} className="border-b hover:bg-muted">
-                  <td className="px-4 py-3 font-medium">{order.id}</td>
-                  <td className="px-4 py-3">{order.customer}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{order.date}</td>
-                  <td className="px-4 py-3 font-medium">₺{order.total.toLocaleString()}</td>
-                  <td className="px-4 py-3">{getStatusBadge(order.status)}</td>
-                  <td className="px-4 py-3">
-                    <select 
-                      value={order.status}
-                      onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                      className="text-sm border rounded px-2 py-1"
-                    >
-                      <option value="pending">Beklemede</option>
-                      <option value="processing">İşleniyor</option>
-                      <option value="shipped">Kargoda</option>
-                      <option value="completed">Tamamlandı</option>
-                      <option value="cancelled">İptal</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// Products Management Component
-function ProductsManagement() {
-  const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.brand.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
-
-  const handleDelete = (_productId: string) => {
-    if (confirm('Bu ürünü silmek istediğinize emin misiniz?')) {
-      toast.success('Ürün silindi');
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-lg sm:text-2xl font-bold">Ürün Yönetimi</h2>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Ürün ara..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full sm:w-64"
-            />
-          </div>
-          <select 
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="border rounded-md px-3 py-2 text-sm"
-          >
-            <option value="all">Tüm Kategoriler</option>
-            <option value="Elektronik">Elektronik</option>
-            <option value="Moda">Moda</option>
-            <option value="Ev & Yaşam">Ev & Yaşam</option>
-            <option value="Kozmetik">Kozmetik</option>
-          </select>
-          <Button className="gradient-orange" onClick={() => navigate('/admin/products/new')}>
-            <Package className="h-4 w-4 mr-2" />
-            Yeni
+        <div className="flex gap-3">
+          <Button variant="outline" size="sm">
+            Rapor İndir
           </Button>
+          <Link to="/admin/products/new">
+            <Button size="sm" className="bg-orange-500 hover:bg-orange-600">
+              <Package className="w-4 h-4 mr-2" />
+              Yeni Ürün
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* Mobile Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:hidden">
-        {filteredProducts.slice(0, 10).map((product) => (
-          <Card key={product.id} className="p-4">
-            <div className="flex gap-3">
-              <img src={product.images[0]} alt={product.name} className="w-16 h-16 object-cover rounded-lg flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{product.name}</p>
-                <p className="text-xs text-muted-foreground">{product.brand}</p>
-                <p className="text-sm text-orange-600 font-bold mt-1">₺{product.price.toLocaleString()}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className={`text-xs ${product.stock < 10 ? 'text-red-600' : 'text-green-600'}`}>
-                    Stok: {product.stock}
-                  </span>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat, index) => (
+          <Card key={index} className="hover:shadow-md transition-shadow">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className={`p-2.5 rounded-lg ${stat.color}`}>
+                  <stat.icon className="w-5 h-5 text-white" />
+                </div>
+                <div className={`flex items-center gap-1 text-sm ${
+                  stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {stat.trend === 'up' ? (
+                    <TrendingUp className="w-4 h-4" />
+                  ) : (
+                    <TrendingDown className="w-4 h-4" />
+                  )}
+                  {stat.change}
                 </div>
               </div>
-            </div>
-            <div className="flex gap-2 mt-3">
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="flex-1"
-                onClick={() => navigate(`/admin/products/edit/${product.id}`)}
-              >
-                <Edit className="h-4 w-4 mr-1" />
-                Düzenle
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="text-red-500"
-                onClick={() => handleDelete(product.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
+              <div className="mt-4">
+                <p className="text-sm text-gray-500">{stat.title}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+              </div>
+            </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Desktop Table */}
-      <Card className="hidden lg:block">
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full min-w-[700px]">
-            <thead className="bg-muted border-b">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Ürün</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Kategori</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Fiyat</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Stok</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Satış</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProducts.map((product) => (
-                <tr key={product.id} className="border-b hover:bg-muted">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <img src={product.images[0]} alt={product.name} className="w-10 h-10 object-cover rounded" />
-                      <div>
-                        <p className="font-medium text-sm">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">{product.brand}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm">{product.category}</td>
-                  <td className="px-4 py-3 font-medium">₺{product.price.toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    <span className={`font-medium ${product.stock < 10 ? 'text-red-600' : 'text-green-600'}`}>
-                      {product.stock}
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Sales Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg">Satış Grafiği</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">Haftalık</Button>
+              <Button variant="ghost" size="sm">Aylık</Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={salesData}>
+                <defs>
+                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `₺${value}`} />
+                <Tooltip 
+                  formatter={(value: number) => [`₺${value.toLocaleString()}`, 'Satış']}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="sales" 
+                  stroke="#f97316" 
+                  strokeWidth={2}
+                  fillOpacity={1} 
+                  fill="url(#colorSales)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Top Products */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">En Çok Satanlar</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {topProducts.map((product, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-sm font-medium text-gray-600">
+                      {index + 1}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">{product.salesCount || 0}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        onClick={() => navigate(`/admin/products/edit/${product.id}`)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        className="text-red-500 hover:text-red-700"
-                        onClick={() => handleDelete(product.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// Stock Management Component
-function StockManagement() {
-  const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const lowStock = products.filter(p => p.stock < 20);
-  const outOfStock = products.filter(p => p.stock === 0);
-
-  const filteredProducts = products.filter(product => 
-    product.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getStockStatus = (stock: number) => {
-    if (stock === 0) return { label: 'Stok Yok', color: 'bg-red-100 text-red-700' };
-    if (stock < 10) return { label: 'Kritik', color: 'bg-red-100 text-red-700' };
-    if (stock < 20) return { label: 'Düşük', color: 'bg-amber-100 text-amber-700' };
-    return { label: 'Yeterli', color: 'bg-green-100 text-green-700' };
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-lg sm:text-2xl font-bold">Stok Takibi</h2>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Ürün ara..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full sm:w-64"
-          />
-        </div>
-      </div>
-
-      {/* Stock Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="bg-red-50 border-red-200">
-          <CardContent className="p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-red-600">Stok Yok</p>
-            <p className="text-xl sm:text-2xl font-bold text-red-700">{outOfStock.length}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-amber-50 border-amber-200">
-          <CardContent className="p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-amber-600">Kritik Stok</p>
-            <p className="text-xl sm:text-2xl font-bold text-amber-700">{lowStock.filter(p => p.stock > 0 && p.stock < 10).length}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-blue-600">Düşük Stok</p>
-            <p className="text-xl sm:text-2xl font-bold text-blue-700">{lowStock.filter(p => p.stock >= 10).length}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-green-50 border-green-200">
-          <CardContent className="p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-green-600">Yeterli Stok</p>
-            <p className="text-xl sm:text-2xl font-bold text-green-700">{products.filter(p => p.stock >= 20).length}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Mobile Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:hidden">
-        {filteredProducts.slice(0, 10).map((product) => {
-          const status = getStockStatus(product.stock);
-          return (
-            <Card key={product.id} className="p-4">
-              <div className="flex gap-3">
-                <img src={product.images[0]} alt={product.name} className="w-16 h-16 object-cover rounded-lg flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{product.name}</p>
-                  <p className="text-xs text-muted-foreground">{product.brand}</p>
-                  <Badge className={`${status.color} mt-2 text-xs`}>{status.label}</Badge>
-                  <div className="mt-2">
-                    <div className="flex items-center gap-2">
-                      <Progress value={Math.min((product.stock / 100) * 100, 100)} className="flex-1 h-2" />
-                      <span className="text-sm font-medium w-12 text-right">{product.stock}</span>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-1">{product.name}</p>
+                      <p className="text-xs text-gray-500">{product.sales} satış</p>
                     </div>
                   </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium">₺{(product.revenue / 1000).toFixed(0)}k</p>
+                    {product.trend === 'up' ? (
+                      <TrendingUp className="w-3 h-3 text-green-500 inline ml-1" />
+                    ) : (
+                      <TrendingDown className="w-3 h-3 text-red-500 inline ml-1" />
+                    )}
+                  </div>
                 </div>
-              </div>
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="w-full mt-3"
-                onClick={() => navigate(`/admin/products/edit/${product.id}`)}
-              >
-                Stok Güncelle
-              </Button>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Desktop Table */}
-      <Card className="hidden lg:block">
-        <CardHeader>
-          <CardTitle className="text-lg">Stok Durumu</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full min-w-[700px]">
-            <thead className="bg-muted border-b">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Ürün</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Mevcut Stok</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Durum</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProducts.map((product) => {
-                const status = getStockStatus(product.stock);
-                return (
-                  <tr key={product.id} className="border-b hover:bg-muted">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <img src={product.images[0]} alt={product.name} className="w-10 h-10 object-cover rounded" />
-                        <div>
-                          <p className="font-medium text-sm">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">{product.brand}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className="font-medium">{product.stock}</span>
-                        <Progress value={Math.min((product.stock / 100) * 100, 100)} className="w-24 h-2" />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge className={status.color}>{status.label}</Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => navigate(`/admin/products/edit/${product.id}`)}
-                      >
-                        Stok Güncelle
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// Users Management Component
-function UsersManagement() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-
-  const filteredUsers = mockUsers.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-lg sm:text-2xl font-bold">Müşteri Yönetimi</h2>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Müşteri ara..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full sm:w-64"
-            />
-          </div>
-          <select 
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="border rounded-md px-3 py-2 text-sm"
-          >
-            <option value="all">Tüm Roller</option>
-            <option value="user">Kullanıcı</option>
-            <option value="admin">Admin</option>
-          </select>
-        </div>
-      </div>
-
-      {/* User Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        <Card>
-          <CardContent className="p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-muted-foreground">Toplam Müşteri</p>
-            <p className="text-xl sm:text-2xl font-bold">{mockUsers.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-muted-foreground">Yeni Müşteri (Bu Ay)</p>
-            <p className="text-xl sm:text-2xl font-bold">+24</p>
-          </CardContent>
-        </Card>
-        <Card className="col-span-2 lg:col-span-1">
-          <CardContent className="p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-muted-foreground">Aktif Müşteri</p>
-            <p className="text-xl sm:text-2xl font-bold">{mockUsers.filter(u => u.role === 'user').length}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Mobile Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:hidden">
-        {filteredUsers.map((user) => (
-          <Card key={user.id} className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="font-medium text-orange-600 text-lg">{user.name.charAt(0)}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{user.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                <Badge className={`mt-1 text-xs ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                  {user.role === 'admin' ? 'Admin' : 'Kullanıcı'}
-                </Badge>
-              </div>
-            </div>
-            <div className="flex gap-2 mt-3">
-              <Button size="sm" variant="outline" className="flex-1">
-                <Eye className="h-4 w-4 mr-1" />
-                Görüntüle
-              </Button>
-              <Button size="sm" variant="outline">
-                <Edit className="h-4 w-4" />
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      {/* Desktop Table */}
-      <Card className="hidden lg:block">
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full min-w-[700px]">
-            <thead className="bg-muted border-b">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Müşteri</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">E-posta</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Telefon</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Rol</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className="border-b hover:bg-muted">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                        <span className="font-medium text-orange-600">{user.name.charAt(0)}</span>
-                      </div>
-                      <p className="font-medium text-sm">{user.name}</p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm">{user.email}</td>
-                  <td className="px-4 py-3 text-sm">{user.phone || '-'}</td>
-                  <td className="px-4 py-3">
-                    <Badge className={user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}>
-                      {user.role === 'admin' ? 'Admin' : 'Kullanıcı'}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" variant="ghost">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Orders */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-lg">Son Siparişler</CardTitle>
+          <Link to="/admin/orders">
+            <Button variant="ghost" size="sm" className="text-orange-500">
+              Tümünü Gör
+              <ArrowUpRight className="w-4 h-4 ml-1" />
+            </Button>
+          </Link>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Sipariş ID</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Müşteri</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Ürün</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Tutar</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Durum</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Tarih</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentOrders.map((order) => (
+                  <tr key={order.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">{order.id}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{order.customer}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{order.product}</td>
+                    <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">₺{order.total.toLocaleString()}</td>
+                    <td className="py-3 px-4">{getStatusBadge(order.status)}</td>
+                    <td className="py-3 px-4 text-sm text-gray-500">{order.date}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
     </div>
