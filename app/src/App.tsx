@@ -30,9 +30,10 @@ import { Contact } from '@/pages/Contact';
 import { NotFound } from '@/pages/NotFound';
 
 // Admin Pages
-import { AdminDashboard } from '@/pages/Admin/Dashboard';
-import { AdminProducts } from '@/pages/Admin/Products';
-import { ProductForm } from '@/pages/Admin/ProductForm';
+import { AdminDashboard } from '@/pages/admin/AdminDashboard';
+import { AdminProducts } from '@/pages/admin/AdminProducts';
+import { AdminOrders } from '@/pages/admin/AdminOrders';
+import { AdminUsers } from '@/pages/admin/AdminUsers';
 
 // Protected Route Component
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
@@ -150,18 +151,18 @@ function App() {
           } 
         />
         <Route 
-          path="/admin/products/new" 
+          path="/admin/orders" 
           element={
             <ProtectedRoute requireAdmin>
-              <ProductForm />
+              <AdminOrders />
             </ProtectedRoute>
           } 
         />
         <Route 
-          path="/admin/products/edit/:id" 
+          path="/admin/users" 
           element={
             <ProtectedRoute requireAdmin>
-              <ProductForm />
+              <AdminUsers />
             </ProtectedRoute>
           } 
         />

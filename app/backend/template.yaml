@@ -451,43 +451,122 @@ Resources:
             RestApiId: !Ref ApiGateway
 
 Outputs:
+
+  # Admin - Get All Products
+  AdminGetProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/products
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  # Admin - Create Product
+  AdminCreateProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/products
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  # Admin - Update Product
+  AdminUpdateProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/products/{id}
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  # Admin - Delete Product
+  AdminDeleteProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/products/{id}
+            Method: delete
+            RestApiId: !Ref ApiGateway
+
+  # Admin - Get All Orders
+  AdminGetOrdersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/orders
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  # Admin - Update Order Status
+  AdminUpdateOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/orders/{id}
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  # Admin - Get All Users
+  AdminGetUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/users
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+# ============================================
+# Outputs
+# ============================================
+
+Outputs:
   ApiUrl:
     Description: API Gateway Endpoint URL
     Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
+  
   UserPoolId:
     Description: Cognito User Pool ID
     Value: !Ref UserPool
+  
   UserPoolClientId:
     Description: Cognito User Pool Client ID
     Value: !Ref UserPoolClient
+  
   CognitoDomain:
     Description: Cognito Domain
     Value: !Sub '${UserPool}.auth.${AWS::Region}.amazoncognito.com'
-
-  # IAM Roles
-  DynamoDBPolicy:
-    Type: AWS::IAM::ManagedPolicy
-    Properties:
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Action:
-              - dynamodb:GetItem
-              - dynamodb:PutItem
-              - dynamodb:UpdateItem
-              - dynamodb:DeleteItem
-              - dynamodb:Query
-              - dynamodb:Scan
-              - dynamodb:BatchWriteItem
-            Resource:
-              - !GetAtt ProductsTable.Arn
-              - !GetAtt UsersTable.Arn
-              - !GetAtt OrdersTable.Arn
-              - !GetAtt CartTable.Arn
-              - !GetAtt VerificationTable.Arn
-          - Effect: Allow
-            Action:
-              - ses:SendEmail
-              - sns:Publish
-            Resource: '*'
