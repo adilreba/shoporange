@@ -6,15 +6,11 @@ import {
   Users, 
   DollarSign, 
   TrendingUp, 
-  TrendingDown,
-  Calendar,
-  ArrowUpRight,
-  ArrowDownRight,
-  MoreHorizontal
+  TrendingDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { api } from '@/services/api';
+// import { api } from '@/services/api';
 import { 
   LineChart, 
   Line, 
@@ -22,9 +18,7 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer,
-  BarChart,
-  Bar
+  ResponsiveContainer
 } from 'recharts';
 
 interface DashboardStats {

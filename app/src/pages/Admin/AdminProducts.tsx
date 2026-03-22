@@ -4,8 +4,7 @@ import {
   Plus, 
   Pencil, 
   Trash2, 
-  Search, 
-  Filter,
+  Search,
   MoreHorizontal,
   Image as ImageIcon,
   Package,
@@ -44,7 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface Product {
   id: string;
@@ -205,9 +204,9 @@ export default function AdminProducts() {
     });
 
   const getStockBadge = (stock: number) => {
-    if (stock === 0) return <Badge variant="destructive">Tükendi</Badge>;
-    if (stock < 10) return <Badge variant="warning" className="bg-yellow-500">Az Stok</Badge>;
-    return <Badge variant="success" className="bg-green-500">Stokta</Badge>;
+    if (stock === 0) return <Badge className="bg-red-500">Tükendi</Badge>;
+    if (stock < 10) return <Badge className="bg-yellow-500">Az Stok</Badge>;
+    return <Badge className="bg-green-500">Stokta</Badge>;
   };
 
   return (
