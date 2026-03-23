@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Header } from '@/components/common/Header';
+import { Footer } from '@/components/common/Footer';
 import { toast } from 'sonner';
 
 interface Review {
@@ -109,7 +111,9 @@ export function Reviews() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Header />
+      <div className="py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
@@ -297,6 +301,8 @@ export function Reviews() {
           </div>
         )}
       </div>
+      </div>
+      <Footer />
     </div>
   );
 }

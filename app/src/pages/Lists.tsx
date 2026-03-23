@@ -11,7 +11,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
+import { Header } from '@/components/common/Header';
+import { Footer } from '@/components/common/Footer';
 import { toast } from 'sonner';
 
 interface ListItem {
@@ -125,7 +126,9 @@ export function Lists() {
   const totalValue = (list: Wishlist) => list.items.reduce((sum, item) => sum + item.price, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Header />
+      <div className="py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -329,6 +332,8 @@ export function Lists() {
           </div>
         )}
       </div>
+      </div>
+      <Footer />
     </div>
   );
 }
