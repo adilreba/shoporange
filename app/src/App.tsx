@@ -41,6 +41,8 @@ import AdminOrders from '@/pages/Admin/AdminOrders';
 import AdminUsers from '@/pages/Admin/AdminUsers';
 import AdminSettings from '@/pages/Admin/Settings';
 import ProductForm from '@/pages/Admin/ProductForm';
+import AdminCoupons from '@/pages/Admin/Coupons';
+import AdminCampaigns from '@/pages/Admin/Campaigns';
 
 // Protected Route Component
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
@@ -180,6 +182,8 @@ function App() {
           <Route path="products/:id/edit" element={<ProductForm />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="coupons" element={<AdminCoupons />} />
+          <Route path="campaigns" element={<AdminCampaigns />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
         

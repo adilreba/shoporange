@@ -1,239 +1,410 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  Package, 
+  DollarSign, 
   ShoppingCart, 
+  Package, 
   Users, 
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  ArrowUpRight
+  TrendingUp, 
+  TrendingDown, 
+  Target,
+  Activity,
+  CreditCard,
+  AlertCircle,
+  Download,
+  RefreshCw
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
+import { Progress } from '@/components/ui/progress';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
   ResponsiveContainer,
-  AreaChart,
-  Area
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell
 } from 'recharts';
+import { toast } from 'sonner';
 
-// Mock Data
+// Mock data - Gerçek API'den gelecek
 const salesData = [
-  { name: 'Pzt', sales: 4000, orders: 24 },
-  { name: 'Sal', sales: 3000, orders: 18 },
-  { name: 'Çar', sales: 5000, orders: 32 },
-  { name: 'Per', sales: 4500, orders: 28 },
-  { name: 'Cum', sales: 6000, orders: 42 },
-  { name: 'Cmt', sales: 7500, orders: 55 },
-  { name: 'Paz', sales: 8000, orders: 62 },
+  { name: 'Pzt', revenue: 12500, orders: 45, visitors: 320 },
+  { name: 'Sal', revenue: 18200, orders: 62, visitors: 450 },
+  { name: 'Çar', revenue: 15800, orders: 55, visitors: 380 },
+  { name: 'Per', revenue: 24100, orders: 78, visitors: 520 },
+  { name: 'Cum', revenue: 28900, orders: 95, visitors: 680 },
+  { name: 'Cmt', revenue: 35200, orders: 112, visitors: 750 },
+  { name: 'Paz', revenue: 29800, orders: 98, visitors: 620 },
 ];
 
-const recentOrders = [
-  { id: '#ORD-001', customer: 'Ahmet Yılmaz', product: 'Modern Koltuk', total: 12500, status: 'delivered', date: '2024-03-20' },
-  { id: '#ORD-002', customer: 'Ayşe Kaya', product: 'Yemek Masası', total: 8500, status: 'processing', date: '2024-03-20' },
-  { id: '#ORD-003', customer: 'Mehmet Demir', product: 'TV Ünitesi', total: 6200, status: 'pending', date: '2024-03-19' },
-  { id: '#ORD-004', customer: 'Fatma Şahin', product: 'Kitaplık', total: 3400, status: 'delivered', date: '2024-03-19' },
-  { id: '#ORD-005', customer: 'Ali Yıldız', product: 'Orta Sehpa', total: 2100, status: 'cancelled', date: '2024-03-18' },
+const categoryData = [
+  { name: 'Oturma Odası', value: 35, color: '#f97316' },
+  { name: 'Yatak Odası', value: 25, color: '#3b82f6' },
+  { name: 'Mutfak', value: 20, color: '#10b981' },
+  { name: 'Ofis', value: 15, color: '#8b5cf6' },
+  { name: 'Diğer', value: 5, color: '#6b7280' },
 ];
 
 const topProducts = [
-  { name: 'Modern Koltuk Takımı', sales: 48, revenue: 720000, trend: 'up' },
-  { name: 'Yemek Masası Seti', sales: 36, revenue: 306000, trend: 'up' },
-  { name: 'Çift Kişilik Yatak', sales: 29, revenue: 348000, trend: 'down' },
-  { name: 'TV Ünitesi', sales: 24, revenue: 144000, trend: 'up' },
-  { name: 'Kitaplık', sales: 21, revenue: 73500, trend: 'down' },
+  { id: 1, name: 'Modern Koltuk Takımı', sales: 145, revenue: 2175000, stock: 12, trend: '+15%' },
+  { id: 2, name: 'Yemek Masası Seti', sales: 98, revenue: 833000, stock: 8, trend: '+8%' },
+  { id: 3, name: 'Çalışma Sandalyesi', sales: 87, revenue: 304500, stock: 25, trend: '-3%' },
+  { id: 4, name: 'Kitaplık', sales: 76, revenue: 342000, stock: 5, trend: '+12%' },
+  { id: 5, name: 'Avize', sales: 65, revenue: 182000, stock: 18, trend: '+5%' },
 ];
 
-const stats = [
-  {
-    title: 'Toplam Gelir',
-    value: '₺1,592,500',
-    change: '+12.5%',
-    trend: 'up',
-    icon: DollarSign,
-    color: 'bg-green-500'
-  },
-  {
-    title: 'Toplam Sipariş',
-    value: '1,429',
-    change: '+8.2%',
-    trend: 'up',
-    icon: ShoppingCart,
-    color: 'bg-blue-500'
-  },
-  {
-    title: 'Toplam Ürün',
-    value: '386',
-    change: '+24',
-    trend: 'up',
-    icon: Package,
-    color: 'bg-purple-500'
-  },
-  {
-    title: 'Aktif Kullanıcı',
-    value: '2,847',
-    change: '-2.1%',
-    trend: 'down',
-    icon: Users,
-    color: 'bg-orange-500'
-  },
+const recentOrders = [
+  { id: 'ORD-001', customer: 'Ahmet Yılmaz', total: 15750, status: 'completed', date: '2024-03-23 14:30', items: 3 },
+  { id: 'ORD-002', customer: 'Ayşe Demir', total: 8900, status: 'processing', date: '2024-03-23 12:15', items: 2 },
+  { id: 'ORD-003', customer: 'Mehmet Kaya', total: 23400, status: 'shipped', date: '2024-03-23 10:45', items: 5 },
+  { id: 'ORD-004', customer: 'Fatma Şahin', total: 5600, status: 'pending', date: '2024-03-23 09:20', items: 1 },
+  { id: 'ORD-005', customer: 'Ali Yıldız', total: 18900, status: 'completed', date: '2024-03-22 16:50', items: 4 },
 ];
 
-const getStatusBadge = (status: string) => {
-  const styles: Record<string, string> = {
-    delivered: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    processing: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  };
-  const labels: Record<string, string> = {
-    delivered: 'Teslim Edildi',
-    processing: 'İşleniyor',
-    pending: 'Beklemede',
-    cancelled: 'İptal',
-  };
-  return (
-    <Badge className={`${styles[status]} border-0 font-medium`}>
-      {labels[status]}
-    </Badge>
-  );
-};
+const lowStockProducts = [
+  { id: 1, name: 'Modern Koltuk Takımı', stock: 3, minStock: 10 },
+  { id: 2, name: 'Yemek Masası', stock: 2, minStock: 8 },
+  { id: 3, name: 'Kitaplık', stock: 5, minStock: 15 },
+];
 
-export default function Dashboard() {
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setTimeout(() => setLoading(false), 1000);
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500" />
+const StatCard = ({ 
+  title, 
+  value, 
+  change, 
+  trend, 
+  icon: Icon, 
+  color 
+}: { 
+  title: string; 
+  value: string; 
+  change?: string; 
+  trend?: 'up' | 'down';
+  icon: any;
+  color: string;
+}) => (
+  <Card>
+    <CardContent className="p-6">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{value}</h3>
+          {change && (
+            <div className={`flex items-center gap-1 mt-2 text-sm ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+              {trend === 'up' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+              <span>{change}</span>
+              <span className="text-gray-400">vs geçen hafta</span>
+            </div>
+          )}
+        </div>
+        <div className={`w-12 h-12 rounded-lg ${color} flex items-center justify-center`}>
+          <Icon className="w-6 h-6 text-white" />
+        </div>
       </div>
-    );
-  }
+    </CardContent>
+  </Card>
+);
+
+export default function AdminDashboard() {
+  const [dateRange, setDateRange] = useState('7days');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      toast.success('Veriler güncellendi');
+    }, 1000);
+  };
+
+  const totalRevenue = salesData.reduce((acc, day) => acc + day.revenue, 0);
+  const totalOrders = salesData.reduce((acc, day) => acc + day.orders, 0);
+  const avgOrderValue = totalRevenue / totalOrders;
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">Hoş geldiniz! İşte bugünkü özet.</p>
+          <p className="text-sm text-gray-500 mt-1">İşletmenizin performansına genel bakış</p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" size="sm">
+        <div className="flex items-center gap-3">
+          <select 
+            value={dateRange} 
+            onChange={(e) => setDateRange(e.target.value)}
+            className="px-3 py-2 border rounded-md bg-white dark:bg-gray-800 text-sm"
+          >
+            <option value="today">Bugün</option>
+            <option value="7days">Son 7 Gün</option>
+            <option value="30days">Son 30 Gün</option>
+            <option value="90days">Son 3 Ay</option>
+          </select>
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={refreshing}>
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button variant="outline">
+            <Download className="w-4 h-4 mr-2" />
             Rapor İndir
           </Button>
-          <Link to="/admin/products/new">
-            <Button size="sm" className="bg-orange-500 hover:bg-orange-600">
-              <Package className="w-4 h-4 mr-2" />
-              Yeni Ürün
-            </Button>
-          </Link>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, index) => (
-          <Card key={index} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div className={`p-2.5 rounded-lg ${stat.color}`}>
-                  <stat.icon className="w-5 h-5 text-white" />
-                </div>
-                <div className={`flex items-center gap-1 text-sm ${
-                  stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {stat.trend === 'up' ? (
-                    <TrendingUp className="w-4 h-4" />
-                  ) : (
-                    <TrendingDown className="w-4 h-4" />
-                  )}
-                  {stat.change}
-                </div>
-              </div>
-              <div className="mt-4">
-                <p className="text-sm text-gray-500">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard 
+          title="Toplam Gelir" 
+          value={`₺${totalRevenue.toLocaleString()}`} 
+          change="+12.5%" 
+          trend="up" 
+          icon={DollarSign} 
+          color="bg-green-500" 
+        />
+        <StatCard 
+          title="Toplam Sipariş" 
+          value={totalOrders.toString()} 
+          change="+8.2%" 
+          trend="up" 
+          icon={ShoppingCart} 
+          color="bg-blue-500" 
+        />
+        <StatCard 
+          title="Ortalama Sipariş" 
+          value={`₺${Math.round(avgOrderValue).toLocaleString()}`} 
+          change="-2.1%" 
+          trend="down" 
+          icon={CreditCard} 
+          color="bg-purple-500" 
+        />
+        <StatCard 
+          title="Ziyaretçi" 
+          value="3,847" 
+          change="+18.7%" 
+          trend="up" 
+          icon={Users} 
+          color="bg-orange-500" 
+        />
       </div>
 
-      {/* Charts Row */}
+      {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sales Chart */}
+        {/* Revenue Chart */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg">Satış Grafiği</CardTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">Haftalık</Button>
-              <Button variant="ghost" size="sm">Aylık</Button>
+            <div>
+              <CardTitle>Gelir Trendi</CardTitle>
+              <CardDescription>Son 7 günlük gelir performansı</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="bg-green-100 text-green-700">
+                +₺45,200
+              </Badge>
             </div>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={salesData}>
                 <defs>
-                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
                     <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `₺${value}`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} />
+                <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(value) => `₺${value/1000}K`} />
                 <Tooltip 
-                  formatter={(value: number) => [`₺${value.toLocaleString()}`, 'Satış']}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  formatter={(value: number) => [`₺${value.toLocaleString()}`, 'Gelir']}
+                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb' }}
                 />
                 <Area 
                   type="monotone" 
-                  dataKey="sales" 
+                  dataKey="revenue" 
                   stroke="#f97316" 
                   strokeWidth={2}
                   fillOpacity={1} 
-                  fill="url(#colorSales)" 
+                  fill="url(#colorRevenue)" 
                 />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Top Products */}
+        {/* Category Distribution */}
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">En Çok Satanlar</CardTitle>
+          <CardHeader>
+            <CardTitle>Kategori Dağılımı</CardTitle>
+            <CardDescription>Satışlara göre kategori performansı</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={categoryData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {categoryData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="space-y-2 mt-4">
+              {categoryData.map((cat) => (
+                <div key={cat.name} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
+                    <span>{cat.name}</span>
+                  </div>
+                  <span className="font-medium">%{cat.value}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Row 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Orders & Visitors */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Sipariş ve Ziyaretçi</CardTitle>
+            <CardDescription>Günlük sipariş ve ziyaretçi sayıları</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={salesData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} />
+                <YAxis stroke="#9ca3af" fontSize={12} />
+                <Tooltip contentStyle={{ backgroundColor: '#fff', borderRadius: '8px' }} />
+                <Bar dataKey="orders" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Sipariş" />
+                <Bar dataKey="visitors" fill="#e5e7eb" radius={[4, 4, 0, 0]} name="Ziyaretçi" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Low Stock Alert */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                Düşük Stok Uyarısı
+              </CardTitle>
+              <CardDescription>Stok seviyesi kritik olan ürünler</CardDescription>
+            </div>
+            <Badge variant="destructive">{lowStockProducts.length} Ürün</Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {lowStockProducts.map((product) => (
+                <div key={product.id} className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{product.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Progress value={(product.stock / product.minStock) * 100} className="w-24 h-2" />
+                      <span className="text-xs text-gray-500">{product.stock} adet</span>
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link to="/admin/products">Stok Ekle</Link>
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Top Products */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>En Çok Satan Ürünler</CardTitle>
+              <CardDescription>Satış performansına göre ilk 5 ürün</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/admin/products">Tümünü Gör</Link>
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {topProducts.map((product, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-sm font-medium text-gray-600">
+                <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <span className="w-8 h-8 flex items-center justify-center bg-orange-100 text-orange-600 rounded-full font-bold text-sm">
                       {index + 1}
                     </span>
                     <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-1">{product.name}</p>
-                      <p className="text-xs text-gray-500">{product.sales} satış</p>
+                      <p className="font-medium">{product.name}</p>
+                      <p className="text-sm text-gray-500">{product.sales} satış • Stok: {product.stock}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium">₺{(product.revenue / 1000).toFixed(0)}k</p>
-                    {product.trend === 'up' ? (
-                      <TrendingUp className="w-3 h-3 text-green-500 inline ml-1" />
-                    ) : (
-                      <TrendingDown className="w-3 h-3 text-red-500 inline ml-1" />
-                    )}
+                    <p className="font-bold">₺{product.revenue.toLocaleString()}</p>
+                    <p className={`text-sm ${product.trend.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
+                      {product.trend}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Orders */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Son Siparişler</CardTitle>
+              <CardDescription>En son gelen siparişler</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/admin/orders">Tümü</Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">{order.id}</p>
+                    <p className="text-xs text-gray-500">{order.customer}</p>
+                    <p className="text-xs text-gray-400">{order.date}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-sm">₺{order.total.toLocaleString()}</p>
+                    <Badge 
+                      variant="secondary" 
+                      className={
+                        order.status === 'completed' ? 'bg-green-100 text-green-700' :
+                        order.status === 'processing' ? 'bg-blue-100 text-blue-700' :
+                        order.status === 'shipped' ? 'bg-purple-100 text-purple-700' :
+                        'bg-amber-100 text-amber-700'
+                      }
+                    >
+                      {order.status === 'completed' ? 'Tamamlandı' :
+                       order.status === 'processing' ? 'İşleniyor' :
+                       order.status === 'shipped' ? 'Kargoda' : 'Beklemede'}
+                    </Badge>
                   </div>
                 </div>
               ))}
@@ -242,43 +413,37 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Recent Orders */}
+      {/* Quick Actions */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-lg">Son Siparişler</CardTitle>
-          <Link to="/admin/orders">
-            <Button variant="ghost" size="sm" className="text-orange-500">
-              Tümünü Gör
-              <ArrowUpRight className="w-4 h-4 ml-1" />
-            </Button>
-          </Link>
+        <CardHeader>
+          <CardTitle>Hızlı İşlemler</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Sipariş ID</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Müşteri</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Ürün</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Tutar</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Durum</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Tarih</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentOrders.map((order) => (
-                  <tr key={order.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">{order.id}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{order.customer}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{order.product}</td>
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">₺{order.total.toLocaleString()}</td>
-                    <td className="py-3 px-4">{getStatusBadge(order.status)}</td>
-                    <td className="py-3 px-4 text-sm text-gray-500">{order.date}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2" asChild>
+              <Link to="/admin/products/new">
+                <Package className="w-6 h-6" />
+                <span>Yeni Ürün</span>
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2" asChild>
+              <Link to="/admin/coupons">
+                <CreditCard className="w-6 h-6" />
+                <span>Kupon Oluştur</span>
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2" asChild>
+              <Link to="/admin/campaigns">
+                <Target className="w-6 h-6" />
+                <span>Kampanya</span>
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2" asChild>
+              <Link to="/admin/reports">
+                <Activity className="w-6 h-6" />
+                <span>Raporlar</span>
+              </Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
