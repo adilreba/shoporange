@@ -241,18 +241,11 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: prod
-      CorsConfiguration:
+      Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,Accept'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         AllowOrigin: "'*'"
         MaxAge: "'600'"
-        AllowCredentials: true
-      MethodSettings:
-        - ResourcePath: /*
-          HttpMethod: '*'
-          LoggingLevel: INFO
-          MetricsEnabled: true
-          DataTraceEnabled: true
       Auth:
         DefaultAuthorizer: CognitoAuthorizer
         Authorizers:
@@ -623,7 +616,12 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref UsersTable
-        - SESSendBouncePolicy: {}
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "*"
       Events:
         ForgotPassword:
           Type: Api
@@ -777,7 +775,7 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGateway
-            Path: /categories/{slug}
+            Path: /categories/slug/{slug}
             Method: GET
 
   CreateCategoryFunction:
@@ -954,16 +952,6 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
       Timeout: 300
-
-  # ============================================
-  # CLOUDWATCH LOGS
-  # ============================================
-  
-  ApiGatewayAccessLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/apigateway/${ApiGateway}/access'
-      RetentionInDays: 30
 
 # ============================================
 # OUTPUTS
