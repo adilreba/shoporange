@@ -25,71 +25,6 @@ Parameters:
 
 Resources:
   # ============================================
-  # COGNITO USER POOL
-  # ============================================
-  
-  UserPool:
-    Type: AWS::Cognito::UserPool
-    Properties:
-      UserPoolName: AtusHome-UserPool
-      AutoVerifiedAttributes:
-        - email
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-          RequireUppercase: true
-          RequireLowercase: true
-          RequireNumbers: true
-          RequireSymbols: false
-      Schema:
-        - Name: email
-          Required: true
-          Mutable: true
-        - Name: name
-          Required: true
-          Mutable: true
-        - Name: phone_number
-          Required: false
-          Mutable: true
-      AccountRecoverySetting:
-        RecoveryMechanisms:
-          - Name: verified_email
-            Priority: 1
-
-  UserPoolClient:
-    Type: AWS::Cognito::UserPoolClient
-    Properties:
-      ClientName: AtusHome-WebClient
-      UserPoolId: !Ref UserPool
-      GenerateSecret: false
-      AllowedOAuthFlows:
-        - implicit
-        - code
-      AllowedOAuthScopes:
-        - email
-        - openid
-        - profile
-      SupportedIdentityProviders:
-        - COGNITO
-      CallbackURLs:
-        - https://your-domain.com/callback
-        - http://localhost:5173/callback
-      LogoutURLs:
-        - https://your-domain.com/logout
-        - http://localhost:5173/logout
-      AllowedOAuthFlowsUserPoolClient: true
-      ExplicitAuthFlows:
-        - ALLOW_USER_SRP_AUTH
-        - ALLOW_REFRESH_TOKEN_AUTH
-        - ALLOW_USER_PASSWORD_AUTH
-
-  UserPoolDomain:
-    Type: AWS::Cognito::UserPoolDomain
-    Properties:
-      Domain: atushome-auth
-      UserPoolId: !Ref UserPool
-
-  # ============================================
   # DYNAMODB TABLES
   # ============================================
   
@@ -241,27 +176,17 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: prod
-      CorsConfiguration:
+      Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,Accept'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         AllowOrigin: "'*'"
         MaxAge: "'600'"
-        AllowCredentials: true
       MethodSettings:
         - ResourcePath: /*
-          HttpMethod: '*'
+          HttpMethod: *
           LoggingLevel: INFO
           MetricsEnabled: true
           DataTraceEnabled: true
-      Auth:
-        DefaultAuthorizer: CognitoAuthorizer
-        Authorizers:
-          CognitoAuthorizer:
-            UserPoolArn: !GetAtt UserPool.Arn
-            Identity:
-              Header: Authorization
-              ValidationExpression: ^Bearer [-0-9a-zA-Z\._]*$
-              ReauthorizeEvery: 300
 
   # ============================================
   # LAMBDA FUNCTIONS - PRODUCTS
@@ -283,8 +208,6 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /products
             Method: GET
-            Auth:
-              Authorizer: NONE
 
   GetProductFunction:
     Type: AWS::Serverless::Function
@@ -302,8 +225,6 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /products/{id}
             Method: GET
-            Auth:
-              Authorizer: NONE
 
   CreateProductFunction:
     Type: AWS::Serverless::Function
@@ -378,8 +299,6 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /orders
             Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
 
   GetOrdersFunction:
     Type: AWS::Serverless::Function
@@ -397,8 +316,6 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /orders
             Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
 
   GetOrderFunction:
     Type: AWS::Serverless::Function
@@ -416,8 +333,6 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /orders/{id}
             Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
 
   UpdateOrderStatusFunction:
     Type: AWS::Serverless::Function
@@ -832,111 +747,6 @@ Resources:
             Method: DELETE
 
   # ============================================
-  # LAMBDA FUNCTIONS - ADMIN
-  # ============================================
-  
-  AdminGetOrdersFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ../lambda/
-      Handler: admin.getAllOrders
-      Description: Get all orders for admin panel
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref OrdersTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref UsersTable
-      Events:
-        AdminGetOrders:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /admin/orders
-            Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
-
-  AdminGetProductsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ../lambda/
-      Handler: admin.getAllProducts
-      Description: Get all products with details for admin
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref ProductsTable
-      Events:
-        AdminGetProducts:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /admin/products
-            Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
-
-  AdminUpdateOrderStatusFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ../lambda/
-      Handler: admin.updateOrderStatus
-      Description: Update order status from admin panel
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref OrdersTable
-      Events:
-        AdminUpdateOrderStatus:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /admin/orders/{id}/status
-            Method: PUT
-            Auth:
-              Authorizer: CognitoAuthorizer
-
-  AdminDeleteOrderFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ../lambda/
-      Handler: admin.deleteOrder
-      Description: Delete order from admin panel
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref OrdersTable
-      Events:
-        AdminDeleteOrder:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /admin/orders/{id}
-            Method: DELETE
-            Auth:
-              Authorizer: CognitoAuthorizer
-
-  AdminGetDashboardStatsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ../lambda/
-      Handler: admin.getDashboardStats
-      Description: Get dashboard statistics for admin
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref OrdersTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref ProductsTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref UsersTable
-      Events:
-        AdminGetDashboardStats:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /admin/dashboard
-            Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
-
-  # ============================================
   # LAMBDA FUNCTIONS - SEED DATA
   # ============================================
   
@@ -975,24 +785,6 @@ Outputs:
     Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
     Export:
       Name: !Sub '${AWS::StackName}-ApiUrl'
-  
-  CognitoUserPoolId:
-    Description: Cognito User Pool ID
-    Value: !Ref UserPool
-    Export:
-      Name: !Sub '${AWS::StackName}-UserPoolId'
-  
-  CognitoUserPoolClientId:
-    Description: Cognito User Pool Client ID
-    Value: !Ref UserPoolClient
-    Export:
-      Name: !Sub '${AWS::StackName}-UserPoolClientId'
-  
-  CognitoDomain:
-    Description: Cognito Domain
-    Value: !Sub '${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com'
-    Export:
-      Name: !Sub '${AWS::StackName}-CognitoDomain'
   
   ProductsTable:
     Description: Products DynamoDB Table ARN
