@@ -35,6 +35,8 @@ import AdminDashboard from '@/pages/Admin/Dashboard';
 import AdminProducts from '@/pages/Admin/AdminProducts';
 import AdminOrders from '@/pages/Admin/AdminOrders';
 import AdminUsers from '@/pages/Admin/AdminUsers';
+import AdminSettings from '@/pages/Admin/Settings';
+import ProductForm from '@/pages/Admin/ProductForm';
 
 // Protected Route Component
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
@@ -138,8 +140,11 @@ function App() {
         <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="products" element={<AdminProducts />} />
+          <Route path="products/new" element={<ProductForm />} />
+          <Route path="products/:id/edit" element={<ProductForm />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
         
         {/* 404 Page */}
