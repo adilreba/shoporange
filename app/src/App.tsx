@@ -28,6 +28,10 @@ import { Returns } from '@/pages/Returns';
 import { FAQ } from '@/pages/FAQ';
 import { Contact } from '@/pages/Contact';
 import { NotFound } from '@/pages/NotFound';
+import { Support } from '@/pages/Support';
+import { Reviews } from '@/pages/Reviews';
+import { Lists } from '@/pages/Lists';
+import { Coupons } from '@/pages/Coupons';
 
 // Admin Layout & Pages
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -132,6 +136,38 @@ function App() {
           element={
             <ProtectedRoute>
               <Settings />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/support" 
+          element={
+            <ProtectedRoute>
+              <Support />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/reviews" 
+          element={
+            <ProtectedRoute>
+              <Reviews />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/lists" 
+          element={
+            <ProtectedRoute>
+              <Lists />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/coupons" 
+          element={
+            <ProtectedRoute>
+              <Coupons />
             </ProtectedRoute>
           } 
         />
