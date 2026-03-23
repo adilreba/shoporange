@@ -15,7 +15,11 @@ import {
   Sun,
   Moon,
   X,
-  LayoutGrid
+  LayoutGrid,
+  MessageCircle,
+  Star,
+  Bookmark,
+  Ticket
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -344,9 +348,26 @@ export function Header() {
                         <Badge className="bg-red-500 text-white text-xs px-2">{wishlistCount}</Badge>
                       )}
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate('/orders')}>
                       <Package className="h-4 w-4 mr-2" />
                       Siparişlerim
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/support')}>
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Soru ve Taleplerim
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/reviews')}>
+                      <Star className="h-4 w-4 mr-2" />
+                      Değerlendirmelerim
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/lists')}>
+                      <Bookmark className="h-4 w-4 mr-2" />
+                      Tüm Listem
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/coupons')}>
+                      <Ticket className="h-4 w-4 mr-2" />
+                      Kuponlarım
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/profile')}>
                       <User className="h-4 w-4 mr-2" />
@@ -393,6 +414,23 @@ export function Header() {
                     <DropdownMenuItem onClick={() => navigate('/compare')}>
                       <Scale className="mr-2 h-4 w-4" />
                       Karşılaştırma
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/support')}>
+                      <MessageCircle className="mr-2 h-4 w-4" />
+                      Soru ve Taleplerim
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/reviews')}>
+                      <Star className="mr-2 h-4 w-4" />
+                      Değerlendirmelerim
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/lists')}>
+                      <Bookmark className="mr-2 h-4 w-4" />
+                      Tüm Listem
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/coupons')}>
+                      <Ticket className="mr-2 h-4 w-4" />
+                      Kuponlarım
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/admin" className="flex items-center cursor-pointer">
