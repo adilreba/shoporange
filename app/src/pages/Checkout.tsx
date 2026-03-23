@@ -20,6 +20,7 @@ import { Footer } from '@/components/common/Footer';
 import { StripePayment } from '@/components/payment/StripePayment';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useOrderStore } from '@/stores/orderStore';
 import { shippingOptions } from '@/data/mockData';
 import { toast } from 'sonner';
 
@@ -27,6 +28,7 @@ export function Checkout() {
   const navigate = useNavigate();
   const { items, totalPrice, finalPrice, shippingCost, clearCart } = useCartStore();
   const { user } = useAuthStore();
+  const { addOrder } = useOrderStore();
   
   const [step, setStep] = useState<'shipping' | 'payment' | 'processing'>('shipping');
   const [selectedShipping, setSelectedShipping] = useState('standard');
@@ -58,12 +60,35 @@ export function Checkout() {
   const handlePaymentSuccess = async (_paymentIntentId: string) => {
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    const newOrderId = 'ORD-' + Date.now();
-    setOrderId(newOrderId);
+    // Sipariş oluştur
+    const orderItems = items.map(item => ({
+      productId: item.product.id,
+      name: item.product.name,
+      price: item.product.price,
+      quantity: item.quantity,
+      image: item.product.images?.[0]
+    }));
+
+    const newOrder = addOrder({
+      customer: shippingData.fullName,
+      email: user?.email || '',
+      phone: shippingData.phone,
+      address: {
+        street: shippingData.address,
+        city: shippingData.city,
+        postalCode: shippingData.zipCode
+      },
+      items: orderItems,
+      total: finalTotal,
+      paymentMethod: 'credit_card',
+      notes: `Kargo: ${selectedShippingOption?.name || 'Standart'}`
+    });
+
+    setOrderId(newOrder.id);
     setStep('processing');
     
     toast.success('Siparişiniz başarıyla oluşturuldu!', {
-      description: `Sipariş numaranız: ${newOrderId}`
+      description: `Sipariş numaranız: ${newOrder.id}`
     });
     
     setTimeout(() => {

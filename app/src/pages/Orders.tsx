@@ -19,22 +19,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
 import { useAuthStore } from '@/stores/authStore';
-import { adminMockOrders } from '@/data/mockData';
+import { useOrderStore } from '@/stores/orderStore';
 import { toast } from 'sonner';
 
 export function Orders() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
+  const { getOrdersByEmail } = useOrderStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
 
-  // Filter orders for current user (in real app, this would come from API)
-  const userOrders = adminMockOrders.filter(order => 
-    order.email === user?.email || order.customer === user?.name
-  );
-
-  // If no user-specific orders, show all for demo
-  const displayOrders = userOrders.length > 0 ? userOrders : adminMockOrders.slice(0, 5);
+  // Get orders from store for current user
+  const userOrders = user?.email ? getOrdersByEmail(user.email) : [];
+  const displayOrders = userOrders;
 
   const filteredOrders = displayOrders.filter(order => {
     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -188,7 +185,7 @@ export function Orders() {
                                 </div>
                                 <div>
                                   <p className="font-semibold">{order.id}</p>
-                                  <p className="text-sm text-muted-foreground">{order.date}</p>
+                                  <p className="text-sm text-muted-foreground">{new Date(order.createdAt).toLocaleDateString('tr-TR')}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-4">
@@ -214,7 +211,7 @@ export function Orders() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <MapPin className="w-4 h-4" />
-                                {order.shippingAddress?.city}, {order.shippingAddress?.district}
+                                {order.address?.city}
                               </div>
                               <div className="flex items-center gap-2">
                                 <Button 
