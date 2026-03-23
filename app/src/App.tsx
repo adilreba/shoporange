@@ -18,7 +18,7 @@ import { Compare } from '@/pages/Compare';
 import { Profile } from '@/pages/Profile';
 import { Orders } from '@/pages/Orders';
 import { Settings } from '@/pages/Settings';
-import { OrderTracking } from '@/pages/OrderTracking';
+import OrderTracking from '@/pages/OrderTracking';
 import { About } from '@/pages/About';
 import { Campaigns } from '@/pages/Campaigns';
 import { NewArrivals } from '@/pages/NewArrivals';
