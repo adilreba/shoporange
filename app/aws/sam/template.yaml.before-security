@@ -14,56 +14,82 @@ Globals:
         USERS_TABLE: !Ref UsersTable
         REVIEWS_TABLE: !Ref ReviewsTable
         CATEGORIES_TABLE: !Ref CategoriesTable
+        IMAGES_BUCKET: !Ref ProductImagesBucket
         JWT_SECRET: !Ref JwtSecret
+        REGION: eu-west-1
+
+Parameters:
+  JwtSecret:
+    Type: String
+    Description: JWT Secret for token generation
+    Default: 'change-this-secret-in-production-use-aws-secrets-manager'
+    NoEcho: true
 
 Resources:
   # ============================================
-  # SECRETS MANAGER - JWT SECRET
+  # COGNITO USER POOL
   # ============================================
   
-  JwtSecret:
-    Type: AWS::SecretsManager::Secret
+  UserPool:
+    Type: AWS::Cognito::UserPool
     Properties:
-      Name: !Sub 'atushome/jwt-secret-${AWS::StackName}'
-      Description: JWT Secret for token generation
-      GenerateSecretString:
-        SecretStringTemplate: '{"jwtSecret":""}'
-        GenerateStringKey: jwtSecret
-        PasswordLength: 64
-        ExcludeCharacters: '"@/\'
-      Tags:
-        - Key: Project
-          Value: AtusHome
+      UserPoolName: AtusHome-UserPool
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: name
+          Required: true
+          Mutable: true
+        - Name: phone_number
+          Required: false
+          Mutable: true
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
 
-  # ============================================
-  # WAF (Web Application Firewall) - BASIC
-  # ============================================
-  
-  WAFWebACL:
-    Type: AWS::WAFv2::WebACL
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
     Properties:
-      Name: atushome-api-waf
-      Description: Basic WAF for API protection
-      Scope: REGIONAL
-      DefaultAction:
-        Allow: {}
-      VisibilityConfig:
-        SampledRequestsEnabled: true
-        CloudWatchMetricsEnabled: true
-        MetricName: atushome-waf-metric
-      Rules:
-        - Name: RateLimitRule
-          Priority: 1
-          Statement:
-            RateBasedStatement:
-              Limit: 2000
-              AggregateKeyType: IP
-          Action:
-            Block: {}
-          VisibilityConfig:
-            SampledRequestsEnabled: true
-            CloudWatchMetricsEnabled: true
-            MetricName: RateLimitMetric
+      ClientName: AtusHome-WebClient
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlows:
+        - implicit
+        - code
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - https://your-domain.com/callback
+        - http://localhost:5173/callback
+      LogoutURLs:
+        - https://your-domain.com/logout
+        - http://localhost:5173/logout
+      AllowedOAuthFlowsUserPoolClient: true
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: atushome-auth
+      UserPoolId: !Ref UserPool
 
   # ============================================
   # DYNAMODB TABLES
@@ -210,6 +236,43 @@ Resources:
           Value: Production
 
   # ============================================
+  # S3 BUCKET - PRODUCT IMAGES
+  # ============================================
+  
+  ProductImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: atushome-product-images
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            AllowedOrigins:
+              - "*"
+            MaxAge: 3600
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      Tags:
+        - Key: Project
+          Value: AtusHome
+        - Key: Environment
+          Value: Production
+
+  # ============================================
   # API GATEWAY
   # ============================================
   
@@ -222,10 +285,15 @@ Resources:
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         AllowOrigin: "'*'"
         MaxAge: "'600'"
-      MethodSettings:
-        - ResourcePath: /*
-          HttpMethod: '*'
-          MetricsEnabled: true
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+            Identity:
+              Header: Authorization
+              ValidationExpression: ^Bearer [-0-9a-zA-Z\._]*$
+              ReauthorizeEvery: 300
 
   # ============================================
   # LAMBDA FUNCTIONS - PRODUCTS
@@ -247,6 +315,8 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /products
             Method: GET
+            Auth:
+              Authorizer: NONE
 
   GetProductFunction:
     Type: AWS::Serverless::Function
@@ -264,6 +334,8 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /products/{id}
             Method: GET
+            Auth:
+              Authorizer: NONE
 
   CreateProductFunction:
     Type: AWS::Serverless::Function
@@ -338,6 +410,8 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /orders
             Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   GetOrdersFunction:
     Type: AWS::Serverless::Function
@@ -355,6 +429,8 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /orders
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   GetOrderFunction:
     Type: AWS::Serverless::Function
@@ -372,6 +448,8 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /orders/{id}
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   UpdateOrderStatusFunction:
     Type: AWS::Serverless::Function
@@ -736,7 +814,7 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGateway
-            Path: /categories/by-slug/{slug}
+            Path: /categories/slug/{slug}
             Method: GET
 
   CreateCategoryFunction:
@@ -791,47 +869,170 @@ Resources:
             Method: DELETE
 
   # ============================================
-  # S3 BUCKET - PRODUCT IMAGES (SECURE)
+  # LAMBDA FUNCTIONS - ADMIN
   # ============================================
   
-  ProductImagesBucket:
-    Type: AWS::S3::Bucket
+  AdminGetOrdersFunction:
+    Type: AWS::Serverless::Function
     Properties:
-      BucketName: !Sub 'atushome-images-${AWS::AccountId}'
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      CorsConfiguration:
-        CorsRules:
-          - AllowedHeaders:
-              - "*"
-            AllowedMethods:
-              - GET
-              - PUT
-            AllowedOrigins:
-              - "*"
-            MaxAge: 3600
-      LifecycleConfiguration:
-        Rules:
-          - Id: TransitionToIA
-            Status: Enabled
-            Transitions:
-              - StorageClass: STANDARD_IA
-                TransitionInDays: 90
-          - Id: DeleteOldVersions
-            Status: Enabled
-            NoncurrentVersionExpirationInDays: 30
-      VersioningConfiguration:
-        Status: Enabled
-      Tags:
-        - Key: Project
-          Value: AtusHome
+      CodeUri: ../lambda/
+      Handler: admin.getAllOrders
+      Description: Get all orders for admin panel
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        AdminGetOrders:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /admin/orders
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  AdminGetProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: admin.getAllProducts
+      Description: Get all products with details for admin
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        AdminGetProducts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /admin/products
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  AdminUpdateOrderStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: admin.updateOrderStatus
+      Description: Update order status from admin panel
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        AdminUpdateOrderStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /admin/orders/{id}/status
+            Method: PUT
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  AdminDeleteOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: admin.deleteOrder
+      Description: Delete order from admin panel
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        AdminDeleteOrder:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /admin/orders/{id}
+            Method: DELETE
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  AdminGetDashboardStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: admin.getDashboardStats
+      Description: Get dashboard statistics for admin
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        AdminGetDashboardStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /admin/dashboard
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  # ============================================
+  # LAMBDA FUNCTIONS - S3 IMAGES
+  # ============================================
+  
+  GetUploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: s3.getUploadUrl
+      Description: Generate presigned URL for image upload
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref ProductImagesBucket
+      Events:
+        GetUploadUrl:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /upload/url
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  DeleteImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: s3.deleteImage
+      Description: Delete image from S3
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref ProductImagesBucket
+      Events:
+        DeleteImage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /images/{key}
+            Method: DELETE
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  ListImagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: s3.listImages
+      Description: List images in S3 bucket
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ProductImagesBucket
+      Events:
+        ListImages:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /images
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   # ============================================
   # LAMBDA FUNCTIONS - SEED DATA
@@ -852,10 +1053,6 @@ Resources:
             TableName: !Ref UsersTable
       Timeout: 300
 
-  # ============================================
-  # CLOUDWATCH LOGS
-  # ============================================
-  
 # ============================================
 # OUTPUTS
 # ============================================
@@ -866,6 +1063,24 @@ Outputs:
     Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
     Export:
       Name: !Sub '${AWS::StackName}-ApiUrl'
+  
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolId'
+  
+  CognitoUserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolClientId'
+  
+  CognitoDomain:
+    Description: Cognito Domain
+    Value: !Sub '${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com'
+    Export:
+      Name: !Sub '${AWS::StackName}-CognitoDomain'
   
   ProductsTable:
     Description: Products DynamoDB Table ARN
@@ -896,3 +1111,15 @@ Outputs:
     Value: !GetAtt CategoriesTable.Arn
     Export:
       Name: !Sub '${AWS::StackName}-CategoriesTable'
+  
+  ImagesBucket:
+    Description: S3 Bucket for product images
+    Value: !Ref ProductImagesBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-ImagesBucket'
+  
+  ImagesBucketUrl:
+    Description: S3 Bucket URL for images
+    Value: !Sub 'https://${ProductImagesBucket}.s3.${AWS::Region}.amazonaws.com'
+    Export:
+      Name: !Sub '${AWS::StackName}-ImagesBucketUrl'
