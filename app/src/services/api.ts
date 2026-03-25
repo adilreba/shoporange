@@ -1,5 +1,6 @@
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://your-api-gateway-url.execute-api.eu-west-1.amazonaws.com/prod';
+const DEFAULT_API_URL = 'https://your-api-gateway-url.execute-api.eu-west-1.amazonaws.com/prod';
+const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 
 // Mock kullanıcılar (development/demo için)
 const MOCK_USERS = [
@@ -40,8 +41,25 @@ const MOCK_USERS = [
   }
 ];
 
+// Force mock mode flag - AWS deploy edilene kadar true olarak kalacak
+const FORCE_MOCK_MODE = true;
+
+// Check if using mock API (no real backend configured)
+const isMockMode = () => {
+  // Force mock mode aktifse her zaman true döndür
+  if (FORCE_MOCK_MODE) return true;
+  
+  const envUrl = import.meta.env.VITE_API_URL;
+  return !envUrl || envUrl === DEFAULT_API_URL || envUrl === '';
+};
+
 // Helper function for API calls
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
+  // Eğer mock mode aktifse, gerçek API çağrısı yapma
+  if (isMockMode()) {
+    throw new Error('Mock mode aktif - fetchApi kullanılamaz');
+  }
+  
   const token = localStorage.getItem('auth_token');
   
   const headers: Record<string, string> = {
@@ -65,12 +83,6 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
 
   return response.json();
 }
-
-// Check if using mock API (no real backend configured)
-const isMockMode = () => {
-  return !import.meta.env.VITE_API_URL || 
-         import.meta.env.VITE_API_URL === 'https://your-api-gateway-url.execute-api.eu-west-1.amazonaws.com/prod';
-};
 
 // ====================
 // Auth API (with Mock Support)
