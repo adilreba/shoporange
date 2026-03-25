@@ -326,20 +326,20 @@ export function ChatWidget() {
                 {/* Message Bubble */}
                 <div
                   className={cn(
-                    'max-w-[80%] rounded-xl px-2.5 py-1.5 text-[11px] leading-relaxed',
+                    'max-w-[85%] rounded-2xl px-3 py-2 text-[10px] leading-5',
                     message.sender === 'user'
-                      ? 'bg-orange-500 text-white rounded-br-sm'
+                      ? 'bg-orange-500 text-white rounded-br-md'
                       : message.sender === 'agent'
-                      ? 'bg-blue-500 text-white rounded-bl-sm'
-                      : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-bl-sm border border-orange-100 dark:border-orange-800'
+                      ? 'bg-blue-500 text-white rounded-bl-md'
+                      : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-md'
                   )}
                 >
-                  <p className="whitespace-pre-line">{message.text}</p>
+                  <p className="whitespace-pre-line font-normal">{message.text}</p>
                   <span
                     className={cn(
-                      'text-[9px] mt-1 block opacity-70',
-                      message.sender === 'user' ? 'text-orange-100' : 
-                      message.sender === 'agent' ? 'text-blue-100' : 'text-orange-400'
+                      'text-[9px] mt-1 block opacity-60',
+                      message.sender === 'user' ? 'text-white/70' : 
+                      message.sender === 'agent' ? 'text-white/70' : 'text-gray-400'
                     )}
                   >
                     {formatTime(message.timestamp)}
