@@ -339,10 +339,10 @@ export function ChatWidget() {
 
   return (
     <>
-      {/* Arkaplan overlay - açıkken tıklanınca kapatır */}
+      {/* Arkaplan overlay - çok hafif şeffaf */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/20 z-40 transition-opacity"
+          className="fixed inset-0 bg-black/5 backdrop-blur-[2px] z-40 transition-opacity"
           onClick={() => setIsOpen(false)}
         />
       )}
