@@ -168,32 +168,20 @@ export function HeroSection() {
         <ChevronRight className="h-5 w-5 lg:h-6 lg:w-6" />
       </button>
 
-      {/* Dots */}
-      <div className="absolute bottom-4 sm:bottom-6 lg:bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+      {/* Dots - Minimal */}
+      <div className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
         {slides.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
             className={`transition-all duration-300 rounded-full ${
               index === currentSlide 
-                ? 'w-6 sm:w-8 h-2 bg-orange-500' 
-                : 'w-2 h-2 bg-card/50 hover:bg-card'
+                ? 'w-5 sm:w-6 h-1.5 bg-white' 
+                : 'w-1.5 h-1.5 bg-white/40 hover:bg-white/60'
             }`}
             aria-label={`Slayt ${index + 1}`}
           />
         ))}
-      </div>
-
-      {/* Swipe Hint - Mobile only */}
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 sm:hidden">
-        <div className="flex items-center gap-2 text-white/60 text-xs">
-          <span>Kaydır</span>
-          <div className="flex gap-1">
-            <div className="w-1 h-1 rounded-full bg-white/60" />
-            <div className="w-1 h-1 rounded-full bg-white/60" />
-            <div className="w-1 h-1 rounded-full bg-white/60" />
-          </div>
-        </div>
       </div>
     </section>
   );
