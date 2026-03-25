@@ -303,31 +303,22 @@ export function ChatWidget() {
                   message.sender === 'user' ? 'flex-row-reverse' : ''
                 )}
               >
-                {/* System Message - Bot Mode */}
-                {message.sender === 'bot' && message.text.includes('Bot modu') ? (
-                  <div className="w-full text-center py-0.5">
-                    <span className="text-[7px] text-gray-300 italic">
-                      {message.text}
-                    </span>
-                  </div>
-                ) : (
-                  /* Message Bubble - No Avatar */
-                  <div
-                    className={cn(
-                      'max-w-[85%] rounded-md px-2 py-1 text-[8px] leading-3',
-                      message.sender === 'user'
-                        ? 'bg-orange-500 text-white rounded-br-sm ml-auto'
-                        : message.sender === 'agent'
-                        ? 'bg-blue-500 text-white rounded-bl-sm'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-sm'
-                    )}
-                  >
-                    <p className="whitespace-pre-line">{message.text}</p>
-                    <span className="text-[7px] opacity-40 block mt-0.5">
-                      {formatTime(message.timestamp)}
-                    </span>
-                  </div>
-                )}
+                {/* Message Bubble - No Avatar */}
+                <div
+                  className={cn(
+                    'max-w-[85%] rounded-md px-2 py-1 text-[8px] leading-3',
+                    message.sender === 'user'
+                      ? 'bg-orange-500 text-white rounded-br-sm ml-auto'
+                      : message.sender === 'agent'
+                      ? 'bg-blue-500 text-white rounded-bl-sm'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-sm'
+                  )}
+                >
+                  <p className="whitespace-pre-line">{message.text}</p>
+                  <span className="text-[7px] opacity-40 block mt-0.5">
+                    {formatTime(message.timestamp)}
+                  </span>
+                </div>
               </div>
             ))}
 

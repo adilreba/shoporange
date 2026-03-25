@@ -220,28 +220,8 @@ export const useChatStore = create<ChatState>()(
         newWs.onclose = (event) => {
           console.log('[Chat] WebSocket disconnected:', event.code, event.reason);
           
-          // Handle specific error codes
-          let errorMessage = 'Bağlantı kesildi.';
-          if (event.code === 1006) {
-            errorMessage = '⚠️ Canlı destek kapalı. Bot aktif.';
-          } else if (event.code !== 1000 && event.code !== 1001) {
-            errorMessage = 'Bağlantı hatası. Bot modunda devam ediliyor.';
-          }
-          
-          // Only show error once
-          const messages = get().messages;
-          const lastMessage = messages[messages.length - 1];
-          if (!lastMessage?.text?.includes('Bot modunda')) {
-            set({ 
-              messages: [...messages, {
-                id: 'closed-' + Date.now(),
-                text: errorMessage,
-                sender: 'bot',
-                timestamp: new Date().toISOString(),
-                isRead: true,
-              }]
-            });
-          }
+          // Handle specific error codes - don't show error message, just update status
+          // System message will be shown via connectionStatus
           
           set({ 
             ws: null, 
@@ -288,15 +268,7 @@ export const useChatStore = create<ChatState>()(
             sessionId
           }));
         } else if (connectionStatus === 'closed' || connectionStatus === 'idle') {
-          // WebSocket not connected - show info message once
-          const messages = get().messages;
-          const lastMsg = messages[messages.length - 2]; // Before user message
-          if (!lastMsg?.text?.includes('Bot modunda')) {
-            get().addMessage(
-              '🤖 Bot modu aktif',
-              'bot'
-            );
-          }
+          // WebSocket not connected - auto-response without system message
         }
 
         // Always provide auto-response (works even without WebSocket)
