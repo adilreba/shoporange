@@ -1,10 +1,44 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, TrendingUp, Clock, ArrowRight } from 'lucide-react';
+import { Search, X, TrendingUp, Clock, ArrowRight, Mic, MicOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { products } from '@/data/mockData';
 import type { Product } from '@/types';
+
+// Speech Recognition types
+interface SpeechRecognitionEvent {
+  results: {
+    [key: number]: {
+      [key: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+}
+
+interface ISpeechRecognition {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => ISpeechRecognition;
+    webkitSpeechRecognition: new () => ISpeechRecognition;
+  }
+}
 
 interface LiveSearchProps {
   isOpen: boolean;
@@ -18,7 +52,10 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
   const [trendingSearches] = useState([
     'iPhone 15', 'Samsung', 'Nike Air Max', 'Laptop', 'Kulaklık'
   ]);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const navigate = useNavigate();
 
   // Load recent searches from localStorage
@@ -27,6 +64,13 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
     if (saved) {
       setRecentSearches(JSON.parse(saved));
     }
+  }, []);
+
+  // Cleanup voice recognition on unmount
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+    };
   }, []);
 
   // Focus input when opened
@@ -122,6 +166,48 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
     }).format(price);
   };
 
+  // Voice Search
+  const startVoiceSearch = useCallback(() => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      setVoiceError('Tarayıcınız sesli aramayı desteklemiyor');
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognitionRef.current = new SpeechRecognition();
+    
+    recognitionRef.current.lang = 'tr-TR';
+    recognitionRef.current.continuous = false;
+    recognitionRef.current.interimResults = false;
+
+    recognitionRef.current.onstart = () => {
+      setIsListening(true);
+      setVoiceError(null);
+    };
+
+    recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = event.results[0][0].transcript;
+      setQuery(transcript);
+      performSearch(transcript);
+    };
+
+    recognitionRef.current.onerror = (_event: SpeechRecognitionErrorEvent) => {
+      setVoiceError('Ses algılanamadı, tekrar deneyin');
+      setIsListening(false);
+    };
+
+    recognitionRef.current.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current.start();
+  }, []);
+
+  const stopVoiceSearch = useCallback(() => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+  }, []);
+
   if (!isOpen) return null;
 
   return (
@@ -144,18 +230,40 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
               placeholder="Ürün, kategori veya marka ara..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-12 pr-12 py-4 text-lg border-2 border-orange-100 focus:border-orange-500 rounded-xl"
+              className="w-full pl-12 pr-24 py-4 text-lg border-2 border-orange-100 focus:border-orange-500 rounded-xl"
             />
-            {query && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              {/* Voice Search Button */}
               <button
                 type="button"
-                onClick={() => setQuery('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full"
+                onClick={isListening ? stopVoiceSearch : startVoiceSearch}
+                className={`p-2 rounded-full transition-colors ${
+                  isListening 
+                    ? 'bg-red-500 text-white animate-pulse' 
+                    : 'hover:bg-muted text-muted-foreground'
+                }`}
+                title={isListening ? 'Dinleniyor...' : 'Sesli ara'}
               >
-                <X className="w-5 h-5 text-muted-foreground" />
+                {isListening ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
               </button>
-            )}
+              
+              {/* Clear Button */}
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="p-1 hover:bg-muted rounded-full"
+                >
+                  <X className="w-5 h-5 text-muted-foreground" />
+                </button>
+              )}
+            </div>
           </form>
+          
+          {/* Voice Error */}
+          {voiceError && (
+            <p className="text-sm text-red-500 mt-2 text-center">{voiceError}</p>
+          )}
 
           {/* Results Area */}
           <div className="mt-4 max-h-[60vh] overflow-y-auto">

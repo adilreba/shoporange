@@ -16,6 +16,7 @@ import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
 import { SEO } from '@/components/common/SEO';
 import { ProductCard } from '@/components/product/ProductCard';
+import { cn } from '@/lib/utils';
 import { ProductGridSkeleton } from '@/components/product/ProductCardSkeleton';
 import { products, categories, brands, subcategories } from '@/data/mockData';
 import type { Category } from '@/types';
@@ -66,13 +67,77 @@ export function Products() {
     setSearchQuery(searchParam);
   }, [searchParams]);
 
-  const brandCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    brands.forEach(brand => {
-      counts[brand] = products.filter(p => p.brand === brand).length;
+  // Facets - Dinamik ürün sayıları
+  const facets = useMemo(() => {
+    // Tüm filtreler dışındaki sonuçlara göre facet hesapla
+    const baseFilters = (p: typeof products[0]) => {
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        if (!(
+          p.name.toLowerCase().includes(query) ||
+          p.brand.toLowerCase().includes(query) ||
+          p.category.toLowerCase().includes(query) ||
+          p.description.toLowerCase().includes(query) ||
+          p.tags?.some(tag => tag.toLowerCase().includes(query))
+        )) return false;
+      }
+      if (selectedSubcategory && p.subcategory !== selectedSubcategory) return false;
+      if (selectedBrands.length > 0 && !selectedBrands.includes(p.brand)) return false;
+      if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
+      if (minRating > 0 && p.rating < minRating) return false;
+      if (onlyDiscount && (!p.discount || p.discount <= 0)) return false;
+      if (onlyInStock && p.stock <= 0) return false;
+      return true;
+    };
+
+    const baseProducts = products.filter(baseFilters);
+
+    // Kategori facet'leri (mevcut kategori hariç)
+    const categoryCounts: Record<string, number> = {};
+    categories.forEach(cat => {
+      categoryCounts[cat.id] = baseProducts.filter(p => p.category === cat.id).length;
     });
-    return counts;
-  }, []);
+
+    // Marka facet'leri
+    const brandCounts: Record<string, number> = {};
+    brands.forEach(brand => {
+      brandCounts[brand] = baseProducts.filter(p => p.brand === brand).length;
+    });
+
+    // Fiyat aralığı facet'leri
+    const priceRanges = [
+      { label: '0 - 1.000 TL', min: 0, max: 1000 },
+      { label: '1.000 - 5.000 TL', min: 1000, max: 5000 },
+      { label: '5.000 - 10.000 TL', min: 5000, max: 10000 },
+      { label: '10.000 - 25.000 TL', min: 10000, max: 25000 },
+      { label: '25.000 TL+', min: 25000, max: Infinity },
+    ];
+    const priceRangeCounts: Record<string, number> = {};
+    priceRanges.forEach(range => {
+      priceRangeCounts[range.label] = baseProducts.filter(
+        p => p.price >= range.min && p.price < range.max
+      ).length;
+    });
+
+    // Puan facet'leri
+    const ratingCounts: Record<number, number> = {};
+    [4, 3, 2, 1].forEach(rating => {
+      ratingCounts[rating] = baseProducts.filter(p => p.rating >= rating).length;
+    });
+
+    // İndirim ve stok
+    const discountCount = baseProducts.filter(p => p.discount && p.discount > 0).length;
+    const inStockCount = baseProducts.filter(p => p.stock > 0).length;
+
+    return {
+      categoryCounts,
+      brandCounts,
+      priceRangeCounts,
+      ratingCounts,
+      discountCount,
+      inStockCount,
+    };
+  }, [searchQuery, selectedCategory, selectedSubcategory, selectedBrands, priceRange, minRating, onlyDiscount, onlyInStock]);
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
@@ -137,6 +202,29 @@ export function Products() {
 
     return result;
   }, [searchQuery, selectedCategory, selectedSubcategory, selectedBrands, priceRange, minRating, onlyDiscount, onlyInStock, sortBy]);
+
+  // Did you mean? - Benzer kelime önerileri
+  const suggestions = useMemo(() => {
+    if (!searchQuery || filteredProducts.length > 0) return [];
+    
+    const query = searchQuery.toLowerCase();
+    const allTerms = [
+      ...categories.map(c => c.name),
+      ...brands,
+      ...products.flatMap(p => p.tags || []),
+      ...products.map(p => p.name.split(' ')[0]),
+    ];
+    
+    const similar = allTerms.filter(term => {
+      const termLower = term.toLowerCase();
+      return termLower.length >= 3 && (
+        termLower.slice(0, 3) === query.slice(0, 3) ||
+        query.slice(0, 3) === termLower.slice(0, 3)
+      ) && termLower !== query;
+    });
+    
+    return [...new Set(similar)].slice(0, 3);
+  }, [searchQuery, filteredProducts.length]);
 
   const activeFiltersCount = [
     selectedCategory,
@@ -208,22 +296,51 @@ export function Products() {
     }).format(price);
   };
 
+  // Highlight search query in text
+  const highlightText = (text: string, query: string) => {
+    if (!query.trim()) return text;
+    
+    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    return parts.map((part, i) => 
+      part.toLowerCase() === query.toLowerCase() ? (
+        <mark key={i} className="bg-orange-200 text-orange-900 px-0.5 rounded">{part}</mark>
+      ) : part
+    );
+  };
+
   const FilterContent = () => (
     <div className="space-y-6 pb-20">
       <div className="border-b border-border pb-4">
         <h4 className="font-semibold mb-3 text-foreground text-sm">Kategoriler</h4>
         <div className="space-y-2">
-          {categories.map(cat => (
-            <label key={cat.id} className="flex items-center gap-3 cursor-pointer group py-1">
-              <Checkbox
-                checked={selectedCategory === cat.id}
-                onCheckedChange={() => handleCategoryChange(cat.id)}
-                className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
-              />
-              <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors">{cat.name}</span>
-              <span className="text-xs text-muted-foreground ml-auto bg-muted px-2 py-0.5 rounded-full">{cat.productCount}</span>
-            </label>
-          ))}
+          {categories.map(cat => {
+            const count = facets.categoryCounts[cat.id] || 0;
+            const isDisabled = count === 0 && selectedCategory !== cat.id;
+            return (
+              <label 
+                key={cat.id} 
+                className={cn(
+                  "flex items-center gap-3 cursor-pointer group py-1",
+                  isDisabled && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <Checkbox
+                  checked={selectedCategory === cat.id}
+                  onCheckedChange={() => !isDisabled && handleCategoryChange(cat.id)}
+                  disabled={isDisabled}
+                  className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                />
+                <span className={cn(
+                  "text-sm group-hover:text-orange-600 transition-colors",
+                  isDisabled ? "text-muted-foreground" : "text-foreground"
+                )}>{cat.name}</span>
+                <span className={cn(
+                  "text-xs ml-auto px-2 py-0.5 rounded-full",
+                  count > 0 ? "bg-muted text-muted-foreground" : "bg-gray-100 text-gray-400"
+                )}>{count}</span>
+              </label>
+            );
+          })}
         </div>
       </div>
 
@@ -266,63 +383,109 @@ export function Products() {
       <div className="border-b border-border pb-4">
         <h4 className="font-semibold mb-3 text-foreground text-sm">Markalar</h4>
         <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-          {brands.map(brand => (
-            <label key={brand} className="flex items-center gap-3 cursor-pointer group py-1">
-              <Checkbox
-                checked={selectedBrands.includes(brand)}
-                onCheckedChange={() => toggleBrand(brand)}
-                className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
-              />
-              <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">{brand}</span>
-              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{brandCounts[brand] || 0}</span>
-            </label>
-          ))}
+          {brands.map(brand => {
+            const count = facets.brandCounts[brand] || 0;
+            const isDisabled = count === 0 && !selectedBrands.includes(brand);
+            return (
+              <label 
+                key={brand} 
+                className={cn(
+                  "flex items-center gap-3 cursor-pointer group py-1",
+                  isDisabled && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <Checkbox
+                  checked={selectedBrands.includes(brand)}
+                  onCheckedChange={() => !isDisabled && toggleBrand(brand)}
+                  disabled={isDisabled}
+                  className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                />
+                <span className={cn(
+                  "text-sm flex-1 group-hover:text-orange-600 transition-colors",
+                  isDisabled ? "text-muted-foreground" : "text-foreground"
+                )}>{brand}</span>
+                <span className={cn(
+                  "text-xs px-2 py-0.5 rounded-full",
+                  count > 0 ? "bg-muted text-muted-foreground" : "bg-gray-100 text-gray-400"
+                )}>{count}</span>
+              </label>
+            );
+          })}
         </div>
       </div>
 
       <div className="border-b border-border pb-4">
         <h4 className="font-semibold mb-3 text-foreground text-sm">Minimum Puan</h4>
         <div className="space-y-2">
-          {[4, 3, 2, 1].map(rating => (
-            <label key={rating} className="flex items-center gap-3 cursor-pointer group py-1">
-              <Checkbox
-                checked={minRating === rating}
-                onCheckedChange={() => setMinRating(minRating === rating ? 0 : rating)}
-                className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
-              />
-              <div className="flex items-center gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <span key={i} className={`text-base ${i < rating ? 'text-amber-400' : 'text-gray-200'}`}>
-                    ★
-                  </span>
-                ))}
-                <span className="text-sm text-muted-foreground ml-2">ve üzeri</span>
-              </div>
-            </label>
-          ))}
+          {[4, 3, 2, 1].map(rating => {
+            const count = facets.ratingCounts[rating] || 0;
+            const isDisabled = count === 0 && minRating !== rating;
+            return (
+              <label 
+                key={rating} 
+                className={cn(
+                  "flex items-center gap-3 cursor-pointer group py-1",
+                  isDisabled && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <Checkbox
+                  checked={minRating === rating}
+                  onCheckedChange={() => !isDisabled && setMinRating(minRating === rating ? 0 : rating)}
+                  disabled={isDisabled}
+                  className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                />
+                <div className="flex items-center gap-1 flex-1">
+                  {[...Array(5)].map((_, i) => (
+                    <span key={i} className={`text-base ${i < rating ? 'text-amber-400' : 'text-gray-200'}`}>
+                      ★
+                    </span>
+                  ))}
+                  <span className="text-sm text-muted-foreground ml-2">ve üzeri</span>
+                </div>
+                <span className={cn(
+                  "text-xs px-2 py-0.5 rounded-full",
+                  count > 0 ? "bg-muted text-muted-foreground" : "bg-gray-100 text-gray-400"
+                )}>{count}</span>
+              </label>
+            );
+          })}
         </div>
       </div>
 
       <div>
         <h4 className="font-semibold mb-3 text-foreground text-sm">Diğer Filtreler</h4>
         <div className="space-y-3">
-          <label className="flex items-center gap-3 cursor-pointer group py-1">
+          <label className={cn(
+            "flex items-center gap-3 cursor-pointer group py-1",
+            facets.discountCount === 0 && !onlyDiscount && "opacity-50 cursor-not-allowed"
+          )}>
             <Checkbox
               checked={onlyDiscount}
-              onCheckedChange={(checked) => setOnlyDiscount(checked as boolean)}
+              onCheckedChange={(checked) => facets.discountCount > 0 && setOnlyDiscount(checked as boolean)}
+              disabled={facets.discountCount === 0 && !onlyDiscount}
               className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
             />
-            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors">Sadece İndirimli Ürünler</span>
-            <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full ml-auto">İNDİRİM</span>
+            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece İndirimli Ürünler</span>
+            <span className={cn(
+              "text-xs px-2 py-0.5 rounded-full",
+              facets.discountCount > 0 ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-400"
+            )}>{facets.discountCount}</span>
           </label>
-          <label className="flex items-center gap-3 cursor-pointer group py-1">
+          <label className={cn(
+            "flex items-center gap-3 cursor-pointer group py-1",
+            facets.inStockCount === 0 && !onlyInStock && "opacity-50 cursor-not-allowed"
+          )}>
             <Checkbox
               checked={onlyInStock}
-              onCheckedChange={(checked) => setOnlyInStock(checked as boolean)}
+              onCheckedChange={(checked) => facets.inStockCount > 0 && setOnlyInStock(checked as boolean)}
+              disabled={facets.inStockCount === 0 && !onlyInStock}
               className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
             />
-            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors">Sadece Stoktakiler</span>
-            <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full ml-auto">STOKTA</span>
+            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece Stoktakiler</span>
+            <span className={cn(
+              "text-xs px-2 py-0.5 rounded-full",
+              facets.inStockCount > 0 ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
+            )}>{facets.inStockCount}</span>
           </label>
         </div>
       </div>
@@ -349,16 +512,39 @@ export function Products() {
       <Header />
 
       <main className="container-custom pt-[42px] pb-6 sm:pt-[42px] sm:pb-8 px-4 sm:px-6 lg:px-8">
-        {/* Title */}
+        {/* Title & Did You Mean */}
         <div className="mb-4 sm:mb-6">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">
-            {searchQuery ? `"${searchQuery}" Arama Sonuçları` :
-              selectedCategory ? categories.find(c => c.id === selectedCategory)?.name :
-                'Tüm Ürünler'}
+            {searchQuery ? (
+              <span>"{highlightText(searchQuery, searchQuery)}" Arama Sonuçları</span>
+            ) : selectedCategory ? (
+              categories.find(c => c.id === selectedCategory)?.name
+            ) : 'Tüm Ürünler'}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             {filteredProducts.length} ürün bulundu
           </p>
+          
+          {/* Did you mean? */}
+          {suggestions.length > 0 && (
+            <div className="mt-3 flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Bunu mu demiştiniz?</span>
+              {suggestions.map((suggestion, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setSearchQuery(suggestion);
+                    const params = new URLSearchParams(searchParams);
+                    params.set('search', suggestion);
+                    setSearchParams(params);
+                  }}
+                  className="text-orange-600 hover:text-orange-700 underline font-medium"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Toolbar */}
