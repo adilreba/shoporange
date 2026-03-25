@@ -21,6 +21,11 @@ interface ChatState {
   agentId: string | null;
   agentName: string | null;
   
+  // Queue & Waiting
+  queuePosition: number | null;
+  waitingForAgent: boolean;
+  totalWaitingCustomers: number;
+  
   // Messages & UI
   messages: ChatMessage[];
   isOpen: boolean;
@@ -41,6 +46,8 @@ interface ChatState {
   clearChat: () => void;
   assignAgent: (agentId: string, agentName?: string) => void;
   closeSession: () => void;
+  requestAgent: () => void;
+  updateQueuePosition: (position: number, total: number) => void;
 }
 
 // WebSocket endpoint
@@ -82,6 +89,9 @@ export const useChatStore = create<ChatState>()(
       unreadCount: 0,
       isTyping: false,
       isAgentTyping: false,
+      queuePosition: null,
+      waitingForAgent: false,
+      totalWaitingCustomers: 0,
 
       // Connect to WebSocket
       connect: (userId: string, userType: 'customer' | 'agent' = 'customer') => {
@@ -128,7 +138,9 @@ export const useChatStore = create<ChatState>()(
             case 'agent_joined':
               set({ 
                 agentId: data.agentId,
-                connectionStatus: 'active'
+                connectionStatus: 'active',
+                waitingForAgent: false,
+                queuePosition: null
               });
               get().addMessage(data.message, 'agent');
               break;
@@ -149,7 +161,6 @@ export const useChatStore = create<ChatState>()(
             case 'typing':
               if (data.userType === 'agent') {
                 set({ isAgentTyping: true });
-                // Clear typing after 3 seconds
                 setTimeout(() => set({ isAgentTyping: false }), 3000);
               }
               break;
@@ -158,10 +169,23 @@ export const useChatStore = create<ChatState>()(
               // Message confirmed by server
               break;
 
+            case 'queue_status':
+              set({ 
+                queuePosition: data.position,
+                totalWaitingCustomers: data.total,
+                waitingForAgent: true
+              });
+              if (data.message) {
+                get().addMessage(data.message, 'bot');
+              }
+              break;
+
             case 'chat_closed':
               set({ 
                 connectionStatus: 'closed',
-                agentId: null
+                agentId: null,
+                waitingForAgent: false,
+                queuePosition: null
               });
               get().addMessage(data.message, 'bot');
               break;
@@ -217,7 +241,6 @@ export const useChatStore = create<ChatState>()(
           }));
         }
 
-        // Add message locally immediately
         get().addMessage(text, 'user');
 
         // If no agent connected, use auto-response
@@ -331,6 +354,38 @@ export const useChatStore = create<ChatState>()(
           agentId: null,
           agentName: null,
           sessionId: null,
+          queuePosition: null,
+          waitingForAgent: false,
+        });
+      },
+
+      // Request agent connection
+      requestAgent: () => {
+        const { ws, isConnected, sessionId } = get();
+        
+        if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+          get().addMessage('Bağlantı hatası. Lütfen sayfayı yenileyin.', 'bot');
+          return;
+        }
+
+        ws.send(JSON.stringify({
+          action: 'request_agent',
+          sessionId
+        }));
+
+        set({ 
+          waitingForAgent: true,
+          queuePosition: null
+        });
+
+        get().addMessage('🔄 Müşteri temsilcisine bağlanıyorsunuz...\n\nSize beklerken yardımcı olabilir miyim?', 'bot');
+      },
+
+      // Update queue position
+      updateQueuePosition: (position: number, total: number) => {
+        set({ 
+          queuePosition: position,
+          totalWaitingCustomers: total
         });
       },
 
@@ -351,13 +406,16 @@ export const useChatStore = create<ChatState>()(
           agentId: null,
           agentName: null,
           connectionStatus: 'idle',
+          queuePosition: null,
+          waitingForAgent: false,
+          totalWaitingCustomers: 0,
         });
       },
     }),
     {
       name: 'chat-storage',
       partialize: (state) => ({ 
-        messages: state.messages.filter(m => m.id !== 'welcome'), // Don't persist welcome message
+        messages: state.messages.filter(m => m.id !== 'welcome'),
         sessionId: state.sessionId 
       }),
     }

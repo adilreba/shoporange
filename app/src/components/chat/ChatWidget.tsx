@@ -17,13 +17,17 @@ export function ChatWidget() {
     isConnected,
     connectionStatus,
     agentName,
+    queuePosition,
+    waitingForAgent,
+    totalWaitingCustomers,
     setIsOpen, 
     clearChat,
     connect,
     disconnect,
     sendMessage,
     sendTyping,
-    closeSession
+    closeSession,
+    requestAgent
   } = useChatStore();
   
   const { user, isAuthenticated } = useAuthStore();
@@ -177,6 +181,9 @@ export function ChatWidget() {
   };
 
   const getStatusText = () => {
+    if (waitingForAgent && connectionStatus !== 'active') {
+      return queuePosition ? `Sırada: ${queuePosition}. sıra` : 'Temsilci Bekleniyor...';
+    }
     switch (connectionStatus) {
       case 'connecting':
         return 'Bağlanıyor...';
@@ -359,20 +366,54 @@ export function ChatWidget() {
           </div>
         </div>
 
-        {/* Quick Replies */}
-        {connectionStatus !== 'active' && (
-          <div className="px-3 pb-2 flex flex-wrap gap-1.5">
-            {quickReplies.map((reply) => (
-              <button
-                key={reply}
-                onClick={() => {
-                  sendMessage(reply);
-                }}
-                className="text-[11px] px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
-              >
-                {reply}
-              </button>
-            ))}
+        {/* Quick Replies & Connect Button */}
+        {connectionStatus !== 'active' && !waitingForAgent && (
+          <div className="px-3 pb-2 space-y-2">
+            <button
+              onClick={requestAgent}
+              className="w-full text-[12px] px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-colors font-medium flex items-center justify-center gap-2"
+            >
+              <User className="w-4 h-4" />
+              Müşteri Temsilcisine Bağlan
+            </button>
+            <div className="flex flex-wrap gap-1.5">
+              {quickReplies.map((reply) => (
+                <button
+                  key={reply}
+                  onClick={() => {
+                    sendMessage(reply);
+                  }}
+                  className="text-[11px] px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+                >
+                  {reply}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Queue Status */}
+        {waitingForAgent && connectionStatus !== 'active' && (
+          <div className="px-3 pb-2">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                <Clock className="w-4 h-4 animate-pulse" />
+                <span className="text-sm font-medium">Temsilciye bağlanılıyor...</span>
+              </div>
+              {queuePosition !== null && queuePosition > 0 && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  Önünüzde {queuePosition} kişi var. Lütfen bekleyin.
+                </p>
+              )}
+              {totalWaitingCustomers > 0 && queuePosition === null && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  Şu anda {totalWaitingCustomers} kişi bekliyor. Sıranız geldiğinde otomatik bağlanacaksınız.
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                Beklerken sorularınızı sorabilirsiniz, bot yardımcı olmaya çalışacak.
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -401,6 +442,8 @@ export function ChatWidget() {
         <p className="text-[10px] text-muted-foreground text-center mt-1.5">
           {connectionStatus === 'active' 
             ? 'Müşteri temsilcimizle canlı sohbet ediyorsunuz'
+            : waitingForAgent
+            ? 'Sıranız geldiğinde otomatik bağlanacaksınız, sorularınızı sorabilirsiniz'
             : connectionStatus === 'waiting'
             ? 'Bekleme listesindesiniz, temsilcimiz bağlanacak'
             : connectionStatus === 'closed'

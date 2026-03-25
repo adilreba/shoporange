@@ -299,6 +299,54 @@ async function handleMessage(event: WebSocketEvent): Promise<APIGatewayProxyResu
 
     // Handle different actions
     switch (action) {
+      case 'request_agent':
+        // Customer requests agent
+        await docClient.send(new UpdateCommand({
+          TableName: CHAT_SESSIONS_TABLE,
+          Key: { sessionId: chatSessionId },
+          UpdateExpression: 'SET #status = :status, priority = :priority, updatedAt = :now',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':status': 'waiting',
+            ':priority': 1, // Higher priority for explicit requests
+            ':now': new Date().toISOString()
+          }
+        }));
+
+        // Get queue position (count waiting customers)
+        const queueResult = await docClient.send(new ScanCommand({
+          TableName: CHAT_SESSIONS_TABLE,
+          FilterExpression: '#status = :status AND createdAt <= :createdAt',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':status': 'waiting',
+            ':createdAt': session.Item.createdAt
+          }
+        }));
+
+        const position = queueResult.Count || 1;
+
+        // Notify customer
+        await sendToConnection(connectionId, {
+          type: 'queue_status',
+          position,
+          total: position,
+          message: position === 1 
+            ? 'Sıranız geldi, temsilci atanması bekleniyor...'
+            : `Önünüzde ${position - 1} kişi var. Sıranız geldiğinde otomatik bağlanacaksınız.`
+        });
+
+        // Notify all agents
+        await notifyAgents({
+          type: 'new_waiting_customer',
+          sessionId: chatSessionId,
+          customerId: userId,
+          priority: 1,
+          timestamp: new Date().toISOString()
+        });
+
+        return { statusCode: 200, body: 'Agent requested' };
+
       case 'send_message':
         // Save message
         const messageId = `msg_${Date.now()}`;
