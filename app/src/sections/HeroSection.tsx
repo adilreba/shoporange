@@ -174,7 +174,7 @@ export function HeroSection() {
           <button
             key={index}
             onClick={() => goToSlide(index)}
-            className={`transition-all duration-300 rounded-full ${
+            className={`carousel-dot transition-all duration-300 rounded-full ${
               index === currentSlide 
                 ? 'w-5 sm:w-6 h-1.5 bg-white' 
                 : 'w-1.5 h-1.5 bg-white/40 hover:bg-white/60'

@@ -493,12 +493,18 @@
     }
   }
 
-  /* Better Touch Targets */
-  button, 
-  [role="button"],
+  /* Better Touch Targets - Exclude carousel dots */
+  button:not(.carousel-dot), 
+  [role="button"]:not(.carousel-dot),
   a {
     min-height: 44px;
     min-width: 44px;
+  }
+  
+  /* Carousel dots should remain small */
+  button.carousel-dot {
+    min-height: auto;
+    min-width: auto;
   }
 
   /* Prevent Horizontal Scroll */
