@@ -17,7 +17,8 @@ import {
   Tag,
   Warehouse,
   Headphones,
-  Truck
+  Truck,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useThemeStore } from '@/stores/themeStore';
@@ -28,6 +29,7 @@ const menuItems = [
   { path: '/admin/products', icon: Package, label: 'Ürünler' },
   { path: '/admin/stock', icon: Warehouse, label: 'Stok Yönetimi' },
   { path: '/admin/orders', icon: ShoppingCart, label: 'Siparişler' },
+  { path: '/admin/invoices', icon: FileText, label: 'Faturalar' },
   { path: '/admin/coupons', icon: Percent, label: 'Kuponlar' },
   { path: '/admin/campaigns', icon: Tag, label: 'Kampanyalar' },
   { path: '/admin/users', icon: Users, label: 'Kullanıcılar' },
