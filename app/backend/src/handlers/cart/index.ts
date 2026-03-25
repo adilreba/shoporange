@@ -1,7 +1,10 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import * as AWS from 'aws-sdk';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, GetCommand, PutCommand, UpdateCommand, DeleteCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
 
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+// DynamoDB client - SDK v3
+const client = new DynamoDBClient({});
+const dynamodb = DynamoDBDocumentClient.from(client);
 const CART_TABLE = process.env.CART_TABLE || '';
 
 const headers = {
@@ -10,9 +13,21 @@ const headers = {
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
 };
 
+// Helper functions
+const createErrorResponse = (statusCode: number, message: string): APIGatewayProxyResult => ({
+  statusCode,
+  headers,
+  body: JSON.stringify({ error: message, timestamp: new Date().toISOString() }),
+});
+
+const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResult => ({
+  statusCode,
+  headers,
+  body: JSON.stringify(data),
+});
+
 // Kullanıcı ID'sini token'dan al
 const getUserId = (event: APIGatewayProxyEvent): string => {
-  // Cognito authorizer'dan kullanıcı bilgisi
   return event.requestContext.authorizer?.claims?.sub || 'guest';
 };
 
@@ -21,35 +36,25 @@ export const getCart = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const userId = getUserId(event);
 
-    const result = await dynamodb
-      .query({
-        TableName: CART_TABLE,
-        KeyConditionExpression: 'userId = :userId',
-        ExpressionAttributeValues: {
-          ':userId': userId,
-        },
-      })
-      .promise();
+    const result = await dynamodb.send(new QueryCommand({
+      TableName: CART_TABLE,
+      KeyConditionExpression: 'userId = :userId',
+      ExpressionAttributeValues: {
+        ':userId': userId,
+      },
+    }));
 
     const items = result.Items || [];
     const total = items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        items,
-        total,
-        count: items.reduce((sum: number, item: any) => sum + item.quantity, 0),
-      }),
-    };
+    return createSuccessResponse({
+      items,
+      total,
+      count: items.reduce((sum: number, item: any) => sum + item.quantity, 0),
+    });
   } catch (error) {
     console.error('Error fetching cart:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Failed to fetch cart' }),
-    };
+    return createErrorResponse(500, 'Failed to fetch cart');
   }
 };
 
@@ -59,75 +64,53 @@ export const addToCart = async (event: APIGatewayProxyEvent): Promise<APIGateway
     const userId = getUserId(event);
 
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: 'Request body is required' }),
-      };
+      return createErrorResponse(400, 'Request body is required');
     }
 
     const { productId, name, price, image, quantity = 1 } = JSON.parse(event.body);
 
     if (!productId || !name || !price) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: 'Missing required fields' }),
-      };
+      return createErrorResponse(400, 'Missing required fields');
     }
 
     // Mevcut ürünü kontrol et
-    const existing = await dynamodb
-      .get({
-        TableName: CART_TABLE,
-        Key: { userId, productId },
-      })
-      .promise();
+    const existing = await dynamodb.send(new GetCommand({
+      TableName: CART_TABLE,
+      Key: { userId, productId },
+    }));
 
     if (existing.Item) {
       // Mevcut ürünü güncelle
-      await dynamodb
-        .update({
-          TableName: CART_TABLE,
-          Key: { userId, productId },
-          UpdateExpression: 'SET quantity = quantity + :quantity, updatedAt = :updatedAt',
-          ExpressionAttributeValues: {
-            ':quantity': quantity,
-            ':updatedAt': new Date().toISOString(),
-          },
-        })
-        .promise();
+      await dynamodb.send(new UpdateCommand({
+        TableName: CART_TABLE,
+        Key: { userId, productId },
+        UpdateExpression: 'SET quantity = quantity + :quantity, updatedAt = :updatedAt',
+        ExpressionAttributeValues: {
+          ':quantity': quantity,
+          ':updatedAt': new Date().toISOString(),
+        },
+      }));
     } else {
       // Yeni ürün ekle
-      await dynamodb
-        .put({
-          TableName: CART_TABLE,
-          Item: {
-            userId,
-            productId,
-            name,
-            price,
-            image,
-            quantity,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        })
-        .promise();
+      await dynamodb.send(new PutCommand({
+        TableName: CART_TABLE,
+        Item: {
+          userId,
+          productId,
+          name,
+          price,
+          image,
+          quantity,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      }));
     }
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ message: 'Added to cart' }),
-    };
+    return createSuccessResponse({ message: 'Added to cart' });
   } catch (error) {
     console.error('Error adding to cart:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Failed to add to cart' }),
-    };
+    return createErrorResponse(500, 'Failed to add to cart');
   }
 };
 
@@ -138,49 +121,33 @@ export const updateCartItem = async (event: APIGatewayProxyEvent): Promise<APIGa
     const productId = event.pathParameters?.productId;
 
     if (!productId || !event.body) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: 'Missing required fields' }),
-      };
+      return createErrorResponse(400, 'Missing required fields');
     }
 
     const { quantity } = JSON.parse(event.body);
 
     if (quantity <= 0) {
       // Miktar 0 veya negatifse ürünü sil
-      await dynamodb
-        .delete({
-          TableName: CART_TABLE,
-          Key: { userId, productId },
-        })
-        .promise();
+      await dynamodb.send(new DeleteCommand({
+        TableName: CART_TABLE,
+        Key: { userId, productId },
+      }));
     } else {
-      await dynamodb
-        .update({
-          TableName: CART_TABLE,
-          Key: { userId, productId },
-          UpdateExpression: 'SET quantity = :quantity, updatedAt = :updatedAt',
-          ExpressionAttributeValues: {
-            ':quantity': quantity,
-            ':updatedAt': new Date().toISOString(),
-          },
-        })
-        .promise();
+      await dynamodb.send(new UpdateCommand({
+        TableName: CART_TABLE,
+        Key: { userId, productId },
+        UpdateExpression: 'SET quantity = :quantity, updatedAt = :updatedAt',
+        ExpressionAttributeValues: {
+          ':quantity': quantity,
+          ':updatedAt': new Date().toISOString(),
+        },
+      }));
     }
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ message: 'Cart updated' }),
-    };
+    return createSuccessResponse({ message: 'Cart updated' });
   } catch (error) {
     console.error('Error updating cart:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Failed to update cart' }),
-    };
+    return createErrorResponse(500, 'Failed to update cart');
   }
 };
 
@@ -191,32 +158,18 @@ export const removeFromCart = async (event: APIGatewayProxyEvent): Promise<APIGa
     const productId = event.pathParameters?.productId;
 
     if (!productId) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: 'Product ID is required' }),
-      };
+      return createErrorResponse(400, 'Product ID is required');
     }
 
-    await dynamodb
-      .delete({
-        TableName: CART_TABLE,
-        Key: { userId, productId },
-      })
-      .promise();
+    await dynamodb.send(new DeleteCommand({
+      TableName: CART_TABLE,
+      Key: { userId, productId },
+    }));
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ message: 'Removed from cart' }),
-    };
+    return createSuccessResponse({ message: 'Removed from cart' });
   } catch (error) {
     console.error('Error removing from cart:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Failed to remove from cart' }),
-    };
+    return createErrorResponse(500, 'Failed to remove from cart');
   }
 };
 
@@ -226,15 +179,13 @@ export const clearCart = async (event: APIGatewayProxyEvent): Promise<APIGateway
     const userId = getUserId(event);
 
     // Kullanıcının tüm sepet öğelerini bul
-    const result = await dynamodb
-      .query({
-        TableName: CART_TABLE,
-        KeyConditionExpression: 'userId = :userId',
-        ExpressionAttributeValues: {
-          ':userId': userId,
-        },
-      })
-      .promise();
+    const result = await dynamodb.send(new QueryCommand({
+      TableName: CART_TABLE,
+      KeyConditionExpression: 'userId = :userId',
+      ExpressionAttributeValues: {
+        ':userId': userId,
+      },
+    }));
 
     // Batch delete
     const items = result.Items || [];
@@ -248,59 +199,39 @@ export const clearCart = async (event: APIGatewayProxyEvent): Promise<APIGateway
         },
       }));
 
-      await dynamodb
-        .batchWrite({
-          RequestItems: {
-            [CART_TABLE]: deleteRequests,
-          },
-        })
-        .promise();
+      await dynamodb.send(new BatchWriteCommand({
+        RequestItems: {
+          [CART_TABLE]: deleteRequests,
+        },
+      }));
     }
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ message: 'Cart cleared' }),
-    };
+    return createSuccessResponse({ message: 'Cart cleared' });
   } catch (error) {
     console.error('Error clearing cart:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Failed to clear cart' }),
-    };
+    return createErrorResponse(500, 'Failed to clear cart');
   }
 };
 
-// Main handler - routes to specific functions and handles OPTIONS
+// Main handler
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  // Handle OPTIONS (preflight) requests
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers,
-      body: '',
-    };
+    return { statusCode: 200, headers, body: '' };
   }
 
   const path = event.path;
   const method = event.httpMethod;
 
-  // Route to appropriate function
   if (path === '/cart' || path.endsWith('/cart')) {
     if (method === 'GET') return getCart(event);
     if (method === 'POST') return addToCart(event);
     if (method === 'DELETE') return clearCart(event);
   }
-  
+
   if (path.includes('/cart/') && path.split('/cart/')[1]) {
     if (method === 'PUT') return updateCartItem(event);
     if (method === 'DELETE') return removeFromCart(event);
   }
 
-  return {
-    statusCode: 404,
-    headers,
-    body: JSON.stringify({ error: 'Not found' }),
-  };
+  return createErrorResponse(404, 'Not found');
 };

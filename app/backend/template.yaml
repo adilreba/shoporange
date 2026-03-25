@@ -18,6 +18,11 @@ Globals:
         ORDERS_TABLE: !Ref OrdersTable
         CART_TABLE: !Ref CartTable
         VERIFICATION_TABLE: !Ref VerificationTable
+        STOCK_RESERVATIONS_TABLE: !Ref StockReservationsTable
+        SHIPPING_TABLE: !Ref ShippingTable
+        CHAT_CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+        CHAT_SESSIONS_TABLE: !Ref ChatSessionsTable
+        CHAT_MESSAGES_TABLE: !Ref ChatMessagesTable
         FROM_EMAIL: !Ref FromEmail
         SMS_ORIGINATOR: 'AtusHome'
         COGNITO_USER_POOL_ID: !Ref UserPool
@@ -91,6 +96,8 @@ Resources:
               KeyType: HASH
           Projection:
             ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
 
   CartTable:
     Type: AWS::DynamoDB::Table
@@ -126,6 +133,181 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: expiryTime
         Enabled: true
+
+  # Stock Reservations Table
+  StockReservationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-StockReservations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: reservationId
+          AttributeType: S
+        - AttributeName: productId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: reservationId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: ProductIdIndex
+          KeySchema:
+            - AttributeName: productId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # Invoices Table (e-Fatura / e-Arşiv)
+  InvoicesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Invoices
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: invoiceId
+          AttributeType: S
+        - AttributeName: orderId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: invoiceNumber
+          AttributeType: S
+      KeySchema:
+        - AttributeName: invoiceId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: OrderIdIndex
+          KeySchema:
+            - AttributeName: orderId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: InvoiceNumberIndex
+          KeySchema:
+            - AttributeName: invoiceNumber
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Shipping Table (Kargo Takibi)
+  ShippingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Shipping
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: shippingId
+          AttributeType: S
+        - AttributeName: orderId
+          AttributeType: S
+        - AttributeName: trackingNumber
+          AttributeType: S
+        - AttributeName: provider
+          AttributeType: S
+      KeySchema:
+        - AttributeName: shippingId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: OrderIdIndex
+          KeySchema:
+            - AttributeName: orderId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: TrackingNumberIndex
+          KeySchema:
+            - AttributeName: trackingNumber
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: ProviderIndex
+          KeySchema:
+            - AttributeName: provider
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Chat Tables (Live Support)
+  ChatConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-ChatConnections
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  ChatSessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-ChatSessions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: customerId
+          AttributeType: S
+        - AttributeName: agentId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: CustomerIdIndex
+          KeySchema:
+            - AttributeName: customerId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: AgentIdIndex
+          KeySchema:
+            - AttributeName: agentId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  ChatMessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-ChatMessages
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: messageId
+          AttributeType: S
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: messageId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: SessionIdIndex
+          KeySchema:
+            - AttributeName: sessionId
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
 
   # Cognito
   UserPool:
@@ -450,8 +632,6 @@ Resources:
             Method: post
             RestApiId: !Ref ApiGateway
 
-Outputs:
-
   # Admin - Get All Products
   AdminGetProductsFunction:
     Type: AWS::Serverless::Function
@@ -550,6 +730,598 @@ Outputs:
             Method: get
             RestApiId: !Ref ApiGateway
 
+  # ============================================
+  # Stock Management Functions
+  # ============================================
+  
+  CheckStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/stock
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /stock/check/{id}
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  ReserveStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/stock
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /stock/reserve
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  ReleaseStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/stock
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /stock/release/{id}
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  ConfirmStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/stock
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /stock/confirm/{id}
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  UpdateStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/stock
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /stock/update/{id}
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  BulkUpdateStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/stock
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /stock/bulk-update
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  GetUserReservationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/stock
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /stock/reservations/{userId}
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  GetLowStockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/stock
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /stock/low-stock
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  # e-Fatura / e-Arşiv Functions
+  CreateInvoiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/invoicing
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InvoicesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /invoices
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  CreateArchiveInvoiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/invoicing
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InvoicesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /invoices/archive
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  ValidateInvoiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/invoicing
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /invoices/validate
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  GetInvoiceStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/invoicing
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref InvoicesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /invoices/{invoiceId}/status
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  CancelInvoiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/invoicing
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InvoicesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /invoices/{invoiceId}/cancel
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  # Shipping (Kargo) Functions
+  CreateShipmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ShippingTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  GetShipmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ShippingTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping/order/{orderId}
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  TrackShipmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ShippingTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping/track/{trackingNumber}
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  CancelShipmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ShippingTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping/{shippingId}/cancel
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  ShippingWebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ShippingTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping/webhook
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  GetShippingRatesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping/rates
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  GetShippingProvidersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping/providers
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  # Notification Functions
+  SendNotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/notifications
+      Handler: index.handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: '*'
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /notifications/send
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  TestNotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/notifications
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /notifications/test
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  # DynamoDB Stream Handler for Order Notifications
+  OrderNotificationStreamFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/notifications
+      Handler: index.handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: '*'
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        StreamEvent:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt OrdersTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 10
+            Enabled: true
+
+  # ============================================
+  # WebSocket Chat API
+  # ============================================
+  
+  # WebSocket API Gateway
+  ChatWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: AtusHome-ChatWebSocket
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  # WebSocket Deployment
+  ChatWebSocketDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - ChatConnectRoute
+      - ChatDisconnectRoute
+      - ChatMessageRoute
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+
+  # WebSocket Stage
+  ChatWebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      StageName: prod
+      DeploymentId: !Ref ChatWebSocketDeployment
+
+  # WebSocket Routes
+  ChatConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: $connect
+      Target: !Sub integrations/${ChatConnectIntegration}
+
+  ChatConnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ChatWebSocketFunction.Arn}/invocations
+
+  ChatDisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: $disconnect
+      Target: !Sub integrations/${ChatDisconnectIntegration}
+
+  ChatDisconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ChatWebSocketFunction.Arn}/invocations
+
+  ChatMessageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: sendmessage
+      Target: !Sub integrations/${ChatMessageIntegration}
+
+  ChatMessageIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ChatWebSocketFunction.Arn}/invocations
+
+  # WebSocket Lambda Function
+  ChatWebSocketFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/chat
+      Handler: index.handler
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          CHAT_CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          CHAT_SESSIONS_TABLE: !Ref ChatSessionsTable
+          CHAT_MESSAGES_TABLE: !Ref ChatMessagesTable
+          WEBSOCKET_API_ENDPOINT: !Sub wss://${ChatWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatSessionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatMessagesTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*
+
+  # HTTP API for Chat Management
+  GetWaitingChatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/chat
+      Handler: index.handler
+      Environment:
+        Variables:
+          CHAT_CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          CHAT_SESSIONS_TABLE: !Ref ChatSessionsTable
+          CHAT_MESSAGES_TABLE: !Ref ChatMessagesTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ChatSessionsTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /chat/waiting
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  GetAgentChatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/chat
+      Handler: index.handler
+      Environment:
+        Variables:
+          CHAT_CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          CHAT_SESSIONS_TABLE: !Ref ChatSessionsTable
+          CHAT_MESSAGES_TABLE: !Ref ChatMessagesTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ChatSessionsTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /chat/agent/{agentId}
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  AssignAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/chat
+      Handler: index.handler
+      Environment:
+        Variables:
+          CHAT_CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          CHAT_SESSIONS_TABLE: !Ref ChatSessionsTable
+          CHAT_MESSAGES_TABLE: !Ref ChatMessagesTable
+          WEBSOCKET_API_ENDPOINT: !Sub wss://${ChatWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatSessionsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /chat/assign
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  GetChatMessagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/chat
+      Handler: index.handler
+      Environment:
+        Variables:
+          CHAT_MESSAGES_TABLE: !Ref ChatMessagesTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ChatMessagesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /chat/{sessionId}/messages
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  CloseChatFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/chat
+      Handler: index.handler
+      Environment:
+        Variables:
+          CHAT_CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          CHAT_SESSIONS_TABLE: !Ref ChatSessionsTable
+          CHAT_MESSAGES_TABLE: !Ref ChatMessagesTable
+          WEBSOCKET_API_ENDPOINT: !Sub wss://${ChatWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatSessionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatConnectionsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /chat/{sessionId}/close
+            Method: post
+            RestApiId: !Ref ApiGateway
+
 # ============================================
 # Outputs
 # ============================================
@@ -570,3 +1342,7 @@ Outputs:
   CognitoDomain:
     Description: Cognito Domain
     Value: !Sub '${UserPool}.auth.${AWS::Region}.amazoncognito.com'
+  
+  ChatWebSocketEndpoint:
+    Description: WebSocket API Endpoint for Live Chat
+    Value: !Sub wss://${ChatWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod

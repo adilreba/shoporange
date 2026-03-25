@@ -1,8 +1,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { toast } from 'sonner';
 import type { Product, CartItem } from '@/types';
 import { cartApi } from '@/services/api';
 import { useAuthStore } from './authStore';
+
+// Helper function for stock check
+const checkStock = (product: Product, quantity: number, currentQuantity: number = 0) => {
+  const totalRequested = quantity + currentQuantity;
+  if (totalRequested > product.stock) {
+    return {
+      success: false,
+      message: `Stok yetersiz! Maksimum ${product.stock} adet eklenebilir.`,
+    };
+  }
+  return { success: true };
+};
 
 interface CartState {
   items: CartItem[];
@@ -99,23 +112,36 @@ export const useCartStore = create<CartState>()(
         const { items } = get();
         const isAuthenticated = useAuthStore.getState().isAuthenticated;
         
-        // Local state güncelle
+        // Mevcut sepet miktarını bul
         const existingItem = items.find(item => item.product.id === product.id);
+        const currentQuantity = existingItem?.quantity || 0;
+        
+        // Stok kontrolü yap
+        const stockCheck = checkStock(product, quantity, currentQuantity);
+        
+        if (!stockCheck.success) {
+          toast.error(stockCheck.message || 'Stok yetersiz');
+          return;
+        }
 
         if (existingItem) {
           const newQuantity = existingItem.quantity + quantity;
-          if (newQuantity <= product.stock) {
-            set({
-              items: items.map(item =>
-                item.product.id === product.id
-                  ? { ...item, quantity: newQuantity }
-                  : item
-              )
-            });
-          }
+          set({
+            items: items.map(item =>
+              item.product.id === product.id
+                ? { ...item, quantity: newQuantity }
+                : item
+            )
+          });
+          toast.success(`${product.name} sepete eklendi!`, {
+            description: `Sepetteki toplam: ${newQuantity} adet`
+          });
         } else {
           set({
             items: [...items, { product, quantity }]
+          });
+          toast.success(`${product.name} sepete eklendi!`, {
+            description: `${quantity} adet ürün sepetinize eklendi.`
           });
         }
 
@@ -160,21 +186,27 @@ export const useCartStore = create<CartState>()(
         }
 
         const item = get().items.find(i => i.product.id === productId);
-        if (item && quantity <= item.product.stock) {
-          set({
-            items: get().items.map(i =>
-              i.product.id === productId
-                ? { ...i, quantity }
-                : i
-            )
-          });
+        if (!item) return;
+        
+        // Stok kontrolü
+        if (quantity > item.product.stock) {
+          toast.error(`Stok yetersiz! Maksimum ${item.product.stock} adet eklenebilir.`);
+          return;
+        }
+        
+        set({
+          items: get().items.map(i =>
+            i.product.id === productId
+              ? { ...i, quantity }
+              : i
+          )
+        });
 
-          if (isAuthenticated) {
-            try {
-              await cartApi.updateItem(productId, quantity);
-            } catch (error) {
-              console.error('Failed to update cart on server:', error);
-            }
+        if (isAuthenticated) {
+          try {
+            await cartApi.updateItem(productId, quantity);
+          } catch (error) {
+            console.error('Failed to update cart on server:', error);
           }
         }
       },

@@ -2,7 +2,7 @@ version = 0.1
 
 [default.deploy.parameters]
 stack_name = "atushome-backend"
-resolve_s3 = true
+resolve_s3 = false
 s3_prefix = "atushome-backend"
 region = "eu-west-1"
 confirm_changeset = true

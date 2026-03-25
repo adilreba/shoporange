@@ -9,11 +9,12 @@ import {
   Truck, 
   ShieldCheck, 
   RotateCcw,
-
   Minus,
   Plus,
   Share2,
-  AlertCircle
+  AlertCircle,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ import { useCartStore } from '@/stores/cartStore';
 import { useWishlistStore } from '@/stores/wishlistStore';
 import { useCompareStore } from '@/stores/compareStore';
 import { useRecentlyViewedStore } from '@/stores/recentlyViewedStore';
+import { useStockStore } from '@/stores/stockStore';
 import { toast } from 'sonner';
 import { RecentlyViewed } from '@/components/product/RecentlyViewed';
 import { StockAlertButton } from '@/components/product/StockAlert';
@@ -41,21 +43,98 @@ export function ProductDetail() {
   const { toggleWishlist, isInWishlist } = useWishlistStore();
   const { toggleCompare, isInCompare } = useCompareStore();
   const { addItem: addToRecentlyViewed } = useRecentlyViewedStore();
+  const { checkProductStock, getCachedStock } = useStockStore();
   
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isZoomed, setIsZoomed] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(false);
+  
+  // Real-time stock state
+  const [stockInfo, setStockInfo] = useState<{
+    loading: boolean;
+    available: number;
+    inStock: boolean;
+    canAddToCart: boolean;
+    error: string | null;
+  }>({
+    loading: true,
+    available: product?.stock || 0,
+    inStock: (product?.stock || 0) > 0,
+    canAddToCart: (product?.stock || 0) > 0,
+    error: null,
+  });
 
+  // Check stock on mount and when product changes
   useEffect(() => {
-    if (product) {
-      setSelectedImage(0);
-      setQuantity(1);
-      addToRecentlyViewed(product);
-      // Ürün değiştiğinde sayfayı en üste kaydır
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [product, addToRecentlyViewed]);
+    if (!product || !id) return;
+
+    const checkStock = async () => {
+      setStockInfo(prev => ({ ...prev, loading: true, error: null }));
+      
+      try {
+        // First check cache
+        const cached = getCachedStock(id);
+        if (cached) {
+          setStockInfo({
+            loading: false,
+            available: cached.actualAvailable,
+            inStock: cached.actualAvailable > 0,
+            canAddToCart: cached.actualAvailable > 0,
+            error: null,
+          });
+        }
+
+        // Then fetch fresh data
+        const result = await checkProductStock(id, quantity);
+        setStockInfo({
+          loading: false,
+          available: result.available,
+          inStock: result.inStock,
+          canAddToCart: result.canAddToCart,
+          error: null,
+        });
+      } catch (error) {
+        console.error('Error checking stock:', error);
+        // Fallback to product data
+        setStockInfo({
+          loading: false,
+          available: product.stock || 0,
+          inStock: (product.stock || 0) > 0,
+          canAddToCart: (product.stock || 0) > 0,
+          error: 'Stok bilgisi alınamadı, lütfen tekrar deneyin',
+        });
+      }
+    };
+
+    checkStock();
+    setSelectedImage(0);
+    setQuantity(1);
+    addToRecentlyViewed(product);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [product, id, quantity, checkProductStock, getCachedStock, addToRecentlyViewed]);
+
+  // Refresh stock every 60 seconds
+  useEffect(() => {
+    if (!id) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const result = await checkProductStock(id, quantity);
+        setStockInfo({
+          loading: false,
+          available: result.available,
+          inStock: result.inStock,
+          canAddToCart: result.canAddToCart,
+          error: null,
+        });
+      } catch (error) {
+        console.error('Error refreshing stock:', error);
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [id, quantity, checkProductStock]);
 
   // Scroll listener for mobile sticky actions
   useEffect(() => {
@@ -94,7 +173,15 @@ export function ProductDetail() {
     .filter(p => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
+    // Check stock again before adding
+    if (!stockInfo.canAddToCart || stockInfo.available < quantity) {
+      toast.error('Yetersiz stok!', {
+        description: `Mevcut stok: ${stockInfo.available} adet`
+      });
+      return;
+    }
+
     addToCart(product, quantity);
     toast.success(`${product.name} sepete eklendi!`, {
       description: `${quantity} adet ürün sepetinize eklendi.`
@@ -144,6 +231,67 @@ export function ProductDetail() {
     }).format(price);
   };
 
+  // Get stock status display
+  const getStockStatus = () => {
+    if (stockInfo.loading) {
+      return (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-sm">Stok kontrol ediliyor...</span>
+        </div>
+      );
+    }
+
+    if (stockInfo.error) {
+      return (
+        <div className="flex items-center gap-2 text-amber-600">
+          <AlertTriangle className="w-4 h-4" />
+          <span className="text-sm">{stockInfo.error}</span>
+        </div>
+      );
+    }
+
+    if (stockInfo.available === 0) {
+      return (
+        <>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500" />
+          <span className="text-red-600 font-medium text-sm sm:text-base">Stokta Yok</span>
+        </>
+      );
+    }
+
+    if (stockInfo.available < 5) {
+      return (
+        <>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-red-600 font-medium text-sm sm:text-base">
+            Son {stockInfo.available} adet!
+          </span>
+        </>
+      );
+    }
+
+    if (stockInfo.available < 10) {
+      return (
+        <>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-yellow-500" />
+          <span className="text-yellow-600 font-medium text-sm sm:text-base">
+            Stokta ({stockInfo.available} adet)
+          </span>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-green-500" />
+        <span className="text-green-600 font-medium text-sm sm:text-base">
+          Stokta ({stockInfo.available} adet)
+        </span>
+      </>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {product && (
@@ -183,6 +331,12 @@ export function ProductDetail() {
                 )}
                 {product.isBestseller && (
                   <Badge className="bg-amber-500 text-xs">ÇOK SATAN</Badge>
+                )}
+                {!stockInfo.inStock && !stockInfo.loading && (
+                  <Badge className="bg-gray-500 text-xs">TÜKENDİ</Badge>
+                )}
+                {stockInfo.available > 0 && stockInfo.available < 5 && (
+                  <Badge className="bg-red-500 text-xs animate-pulse">AZ STOK</Badge>
                 )}
               </div>
 
@@ -291,21 +445,9 @@ export function ProductDetail() {
               </div>
             )}
 
-            {/* Stock Status */}
+            {/* Stock Status - Real-time */}
             <div className="flex items-center gap-2">
-              {product.stock > 0 ? (
-                <>
-                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-green-500" />
-                  <span className="text-green-600 font-medium text-sm sm:text-base">
-                    Stokta ({product.stock} adet)
-                  </span>
-                </>
-              ) : (
-                <>
-                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500" />
-                  <span className="text-red-600 font-medium text-sm sm:text-base">Stokta Yok</span>
-                </>
-              )}
+              {getStockStatus()}
             </div>
 
             {/* Desktop Quantity & Add to Cart */}
@@ -313,17 +455,17 @@ export function ProductDetail() {
               {/* Quantity Selector */}
               <div className="flex items-center border rounded-lg">
                 <button
-                  onClick={() => setQuantity(Math.max(0, quantity - 1))}
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="p-2.5 sm:p-3 hover:bg-muted transition-colors disabled:opacity-50"
-                  disabled={quantity <= 0}
+                  disabled={quantity <= 1 || stockInfo.loading}
                 >
                   <Minus className="h-4 w-4" />
                 </button>
                 <span className="w-10 sm:w-12 text-center font-medium">{quantity}</span>
                 <button
-                  onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                  onClick={() => setQuantity(Math.min(stockInfo.available, quantity + 1))}
                   className="p-2.5 sm:p-3 hover:bg-muted transition-colors"
-                  disabled={quantity >= product.stock}
+                  disabled={quantity >= stockInfo.available || stockInfo.loading}
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -334,10 +476,19 @@ export function ProductDetail() {
                 size="lg"
                 className="flex-1 gradient-orange h-12 sm:h-14 text-base sm:text-lg"
                 onClick={handleAddToCart}
-                disabled={product.stock === 0}
+                disabled={!stockInfo.canAddToCart || stockInfo.loading}
               >
-                <ShoppingCart className="h-5 w-5 mr-2" />
-                Sepete Ekle
+                {stockInfo.loading ? (
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                ) : (
+                  <ShoppingCart className="h-5 w-5 mr-2" />
+                )}
+                {stockInfo.loading 
+                  ? 'Kontrol ediliyor...' 
+                  : stockInfo.canAddToCart 
+                    ? 'Sepete Ekle' 
+                    : 'Stokta Yok'
+                }
               </Button>
 
               {/* Wishlist */}
@@ -362,7 +513,7 @@ export function ProductDetail() {
             </div>
 
             {/* Stock Alert - Show when out of stock */}
-            {product.stock === 0 && (
+            {!stockInfo.inStock && !stockInfo.loading && (
               <div className="hidden sm:block">
                 <StockAlertButton 
                   productId={product.id} 
@@ -400,15 +551,15 @@ export function ProductDetail() {
               <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
                 className="p-3 hover:bg-muted transition-colors"
-                disabled={quantity <= 1}
+                disabled={quantity <= 1 || stockInfo.loading}
               >
                 <Minus className="h-4 w-4" />
               </button>
               <span className="w-10 text-center font-medium text-base">{quantity}</span>
               <button
-                onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                onClick={() => setQuantity(Math.min(stockInfo.available, quantity + 1))}
                 className="p-3 hover:bg-muted transition-colors"
-                disabled={quantity >= product.stock}
+                disabled={quantity >= stockInfo.available || stockInfo.loading}
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -418,11 +569,20 @@ export function ProductDetail() {
             <Button 
               className="flex-1 gradient-orange h-11 min-w-0"
               onClick={handleAddToCart}
-              disabled={product.stock === 0}
+              disabled={!stockInfo.canAddToCart || stockInfo.loading}
             >
-              <ShoppingCart className="h-4 w-4 mr-1.5 flex-shrink-0" />
+              {stockInfo.loading ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin flex-shrink-0" />
+              ) : (
+                <ShoppingCart className="h-4 w-4 mr-1.5 flex-shrink-0" />
+              )}
               <span className="text-sm truncate">
-                {product.stock === 0 ? 'Stokta Yok' : `Ekle ${formatPrice(product.price * quantity)}`}
+                {stockInfo.loading 
+                  ? 'Kontrol...' 
+                  : stockInfo.canAddToCart 
+                    ? `Ekle ${formatPrice(product.price * quantity)}` 
+                    : 'Stokta Yok'
+                }
               </span>
             </Button>
 

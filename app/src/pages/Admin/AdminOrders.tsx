@@ -13,7 +13,8 @@ import {
   RefreshCw,
   MapPin,
   Phone,
-  Mail
+  Mail,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,17 +55,19 @@ const statusConfig = {
   processing: { label: 'İşleniyor', color: 'bg-blue-500', textColor: 'text-blue-700', icon: Package },
   shipped: { label: 'Kargoda', color: 'bg-purple-500', textColor: 'text-purple-700', icon: Truck },
   completed: { label: 'Tamamlandı', color: 'bg-green-500', textColor: 'text-green-700', icon: CheckCircle },
-  cancelled: { label: 'İptal Edildi', color: 'bg-red-500', textColor: 'text-red-700', icon: XCircle }
+  cancelled: { label: 'İptal Edildi', color: 'bg-red-500', textColor: 'text-red-700', icon: XCircle },
+  refunded: { label: 'İade Edildi', color: 'bg-gray-500', textColor: 'text-gray-700', icon: RotateCcw }
 };
 
 const paymentStatusConfig = {
   pending: { label: 'Bekliyor', color: 'bg-yellow-100 text-yellow-700' },
   completed: { label: 'Ödendi', color: 'bg-green-100 text-green-700' },
-  failed: { label: 'Başarısız', color: 'bg-red-100 text-red-700' }
+  failed: { label: 'Başarısız', color: 'bg-red-100 text-red-700' },
+  refunded: { label: 'İade Edildi', color: 'bg-gray-100 text-gray-700' }
 };
 
 export default function AdminOrders() {
-  const { orders, updateOrderStatus, updatePaymentStatus, getAllOrders } = useOrderStore();
+  const { orders, updateOrderStatus, updatePaymentStatus } = useOrderStore();
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -74,7 +77,7 @@ export default function AdminOrders() {
   // Refresh orders from store
   useEffect(() => {
     setLoading(true);
-    getAllOrders();
+    // Load orders from store
     setTimeout(() => setLoading(false), 500);
   }, []);
 

@@ -89,9 +89,23 @@ export const ordersApi = {
     total: number;
     shippingAddress: any;
     paymentMethod: string;
+    customer?: string;
+    email?: string;
+    phone?: string;
+    notes?: string;
   }) => fetchApi('/orders', {
     method: 'POST',
     body: JSON.stringify(order),
+  }),
+  
+  update: (id: string, order: any) => fetchApi(`/orders/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(order),
+  }),
+
+  updateStatus: (id: string, status: string) => fetchApi(`/orders/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
   }),
 };
 
@@ -164,6 +178,11 @@ export const verificationApi = {
       body: JSON.stringify(address),
     }),
 };
+
+// ====================
+// Stock API
+// ====================
+export { stockApi } from './stockApi';
 
 // ====================
 // Generic API (for admin pages)

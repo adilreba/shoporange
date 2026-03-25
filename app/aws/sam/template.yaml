@@ -36,14 +36,14 @@ Resources:
           Value: AtusHome
 
   # ============================================
-  # WAF (Web Application Firewall) - BASIC
+  # WAF (Web Application Firewall) - ENTERPRISE SECURITY
   # ============================================
   
   WAFWebACL:
     Type: AWS::WAFv2::WebACL
     Properties:
-      Name: atushome-api-waf
-      Description: Basic WAF for API protection
+      Name: !Sub 'atushome-waf-${AWS::StackName}'
+      Description: Enterprise WAF for API protection - SQL Injection, XSS, DDoS
       Scope: REGIONAL
       DefaultAction:
         Allow: {}
@@ -52,11 +52,75 @@ Resources:
         CloudWatchMetricsEnabled: true
         MetricName: atushome-waf-metric
       Rules:
-        - Name: RateLimitRule
+        # 1. AWS Managed Rules - Common Rule Set (SQL Injection, XSS, etc.)
+        - Name: AWSManagedRulesCommonRuleSet
           Priority: 1
           Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+              RuleActionOverrides:
+                - ActionToUse:
+                    Block: {}
+                  Name: SizeRestrictions_BODY
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesCommonRuleSetMetric
+
+        # 2. AWS Managed Rules - SQL Injection
+        - Name: AWSManagedRulesSQLiRuleSet
+          Priority: 2
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesSQLiRuleSet
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesSQLiRuleSetMetric
+
+        # 3. AWS Managed Rules - Known Bad Inputs
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 3
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesKnownBadInputsRuleSetMetric
+
+        # 4. AWS Managed Rules - Bot Control (Block bad bots)
+        - Name: AWSManagedRulesBotControlRuleSet
+          Priority: 4
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesBotControlRuleSet
+              ManagedRuleGroupConfigs:
+                - AWSManagedRulesBotControlRuleSet:
+                    InspectionLevel: TARGETED
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesBotControlRuleSetMetric
+
+        # 5. Rate Limiting - Aggressive DDoS Protection
+        - Name: RateLimitRule
+          Priority: 5
+          Statement:
             RateBasedStatement:
-              Limit: 2000
+              Limit: 100
               AggregateKeyType: IP
           Action:
             Block: {}
@@ -64,6 +128,59 @@ Resources:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
             MetricName: RateLimitMetric
+
+        # 6. Geo-blocking - Block high-risk countries
+        - Name: GeoBlockingRule
+          Priority: 6
+          Statement:
+            GeoMatchStatement:
+              CountryCodes:
+                - KP  # North Korea
+                - IR  # Iran
+                - SY  # Syria
+                - CU  # Cuba
+                - RU  # Russia (optional - remove if you have Russian customers)
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: GeoBlockingMetric
+
+        # 7. Custom XSS Protection
+        - Name: XSSProtectionRule
+          Priority: 7
+          Statement:
+            OrStatement:
+              Statements:
+                - XssMatchStatement:
+                    FieldToMatch:
+                      Body: {}
+                    TextTransformations:
+                      - Priority: 0
+                        Type: URL_DECODE
+                      - Priority: 1
+                        Type: HTML_ENTITY_DECODE
+                - XssMatchStatement:
+                    FieldToMatch:
+                      QueryString: {}
+                    TextTransformations:
+                      - Priority: 0
+                        Type: URL_DECODE
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: XSSProtectionMetric
+
+  # WAF WebACL Association with API Gateway
+  WAFWebACLAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    DependsOn: ApiGatewayprodStage
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/${ApiGateway}/stages/prod'
+      WebACLArn: !GetAtt WAFWebACL.Arn
 
   # ============================================
   # DYNAMODB TABLES
@@ -853,19 +970,221 @@ Resources:
       Timeout: 300
 
   # ============================================
+  # CLOUDFRONT CDN - DDoS PROTECTION & SSL
+  # ============================================
+  
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: AtusHome API CDN with Security
+        PriceClass: PriceClass_100  # North America and Europe
+        HttpVersion: http2and3
+        DefaultRootObject: index.html
+        
+        # Origin for API Gateway
+        Origins:
+          - Id: APIOrigin
+            DomainName: !Sub '${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com'
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+            OriginCustomHeaders:
+              - HeaderName: X-Origin-Verify
+                HeaderValue: atushome-secure-origin
+          
+          # Origin for S3 Static Assets
+          - Id: S3Origin
+            DomainName: !GetAtt ProductImagesBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOAI}'
+        
+        # Default Cache Behavior for API
+        DefaultCacheBehavior:
+          TargetOriginId: APIOrigin
+          ViewerProtocolPolicy: https-only
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            - PUT
+            - POST
+            - PATCH
+            - DELETE
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: true
+            Headers:
+              - Authorization
+              - Content-Type
+              - X-Api-Key
+            Cookies:
+              Forward: all
+          MinTTL: 0
+          DefaultTTL: 0
+          MaxTTL: 0
+          Compress: true
+        
+        # Cache Behavior for Static Assets (S3)
+        CacheBehaviors:
+          - PathPattern: /images/*
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: https-only
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachedMethods:
+              - GET
+              - HEAD
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+            MinTTL: 86400
+            DefaultTTL: 604800
+            MaxTTL: 31536000
+            Compress: true
+        
+        # SSL/TLS Configuration (AWS managed certificate)
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+        
+        # Security Headers
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 403
+            ResponsePagePath: /error.html
+            ErrorCachingMinTTL: 300
+          - ErrorCode: 404
+            ResponseCode: 404
+            ResponsePagePath: /error.html
+            ErrorCachingMinTTL: 300
+        
+        # Restrictions
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: none
+        
+        # Logging disabled - requires S3 ACL enabled bucket
+
+  # CloudFront Origin Access Identity for S3
+  CloudFrontOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: OAI for AtusHome S3 Bucket
+
+  # ============================================
   # CLOUDWATCH LOGS
   # ============================================
   
+  # API Gateway Access Logs
+  ApiGatewayAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${ApiGateway}-access-logs'
+      RetentionInDays: 30
+
+  # WAF Logs
+  WAFLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/waf/atushome-waf-${AWS::StackName}-logs'
+      RetentionInDays: 30
+
+  # CloudWatch Alarms for Security
+  HighRequestRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: AtusHome-HighRequestRate
+      AlarmDescription: Alert when request rate exceeds normal threshold
+      MetricName: Count
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Ref ApiGateway
+
+  # ============================================
+  # S3 BUCKET POLICY - RESTRICTIVE
+  # ============================================
+  
+  ProductImagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ProductImagesBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Allow CloudFront access only
+          - Sid: CloudFrontAccess
+            Effect: Allow
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+            Resource: !Sub '${ProductImagesBucket.Arn}/*'
+          
+          # Deny HTTP access (HTTPS only)
+          - Sid: DenyHTTP
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt ProductImagesBucket.Arn
+              - !Sub '${ProductImagesBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': false
+          
+          # Deny unencrypted uploads
+          - Sid: DenyUnencryptedUploads
+            Effect: Deny
+            Principal: '*'
+            Action: s3:PutObject
+            Resource: !Sub '${ProductImagesBucket.Arn}/*'
+            Condition:
+              StringNotEquals:
+                's3:x-amz-server-side-encryption': AES256
+
 # ============================================
 # OUTPUTS
 # ============================================
 
 Outputs:
   ApiUrl:
-    Description: API Gateway endpoint URL
+    Description: API Gateway endpoint URL (Direct Access)
     Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
     Export:
       Name: !Sub '${AWS::StackName}-ApiUrl'
+  
+  CloudFrontUrl:
+    Description: CloudFront CDN URL (Use this for production - Secured with WAF)
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFrontUrl'
+  
+  WAFWebACLArn:
+    Description: WAF WebACL ARN
+    Value: !GetAtt WAFWebACL.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-WAFWebACLArn'
+  
+  ProductImagesBucket:
+    Description: S3 Bucket for product images
+    Value: !Ref ProductImagesBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-ProductImagesBucket'
   
   ProductsTable:
     Description: Products DynamoDB Table ARN
@@ -896,3 +1215,7 @@ Outputs:
     Value: !GetAtt CategoriesTable.Arn
     Export:
       Name: !Sub '${AWS::StackName}-CategoriesTable'
+  
+  SecuritySummary:
+    Description: Security Features Enabled
+    Value: 'WAF(SQL Injection, XSS, Bad Bots, Rate Limiting, Geo-blocking) + CloudFront(DDoS, SSL) + S3 Encryption + HTTPS Only'

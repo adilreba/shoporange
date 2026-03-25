@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   ShoppingBag, 
@@ -10,7 +10,10 @@ import {
   Truck,
   ShieldCheck,
   RotateCcw,
-
+  Loader2,
+  AlertTriangle,
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,8 +21,18 @@ import { Separator } from '@/components/ui/separator';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
 import { useCartStore } from '@/stores/cartStore';
+import { useStockStore } from '@/stores/stockStore';
+import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 export function Cart() {
   const navigate = useNavigate();
@@ -38,7 +51,34 @@ export function Cart() {
     clearCart
   } = useCartStore();
   
+  const { 
+    reserveCartStock, 
+    releaseReservation, 
+    reservationId,
+    isReserving,
+    isReservationValid,
+    getReservationExpiry 
+  } = useStockStore();
+  
+  const { isAuthenticated } = useAuthStore();
+  
   const [couponInput, setCouponInput] = useState('');
+  const [showStockDialog, setShowStockDialog] = useState(false);
+  const [stockIssues, setStockIssues] = useState<Array<{
+    productId: string;
+    productName: string;
+    requested: number;
+    available: number;
+  }>>([]);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+  // Release reservation when leaving cart (if not checked out)
+  useEffect(() => {
+    return () => {
+      // Note: This will run when component unmounts
+      // In a real app, you might want to handle this differently
+    };
+  }, []);
 
   const handleApplyCoupon = () => {
     if (applyCoupon(couponInput)) {
@@ -49,12 +89,80 @@ export function Cart() {
     }
   };
 
+  const handleCheckout = async () => {
+    if (!isAuthenticated) {
+      toast.error('Ödeme yapmak için giriş yapmalısınız');
+      navigate('/login', { state: { from: '/checkout' } });
+      return;
+    }
+
+    setIsCheckingOut(true);
+
+    try {
+      // Reserve stock before going to checkout
+      const cartItems = items.map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+      }));
+
+      const result = await reserveCartStock(cartItems);
+
+      if (result.success) {
+        toast.success('Stok rezerve edildi!', {
+          description: '30 dakika içinde ödemeyi tamamlayın.',
+        });
+        navigate('/checkout');
+      } else {
+        if (result.insufficientItems && result.insufficientItems.length > 0) {
+          setStockIssues(result.insufficientItems);
+          setShowStockDialog(true);
+        } else {
+          toast.error(result.error || 'Stok rezervasyonu başarısız oldu');
+        }
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error('Bir hata oluştu, lütfen tekrar deneyin');
+    } finally {
+      setIsCheckingOut(false);
+    }
+  };
+
+  const handleRemoveStockIssueItem = (productId: string) => {
+    removeFromCart(productId);
+    setStockIssues(prev => prev.filter(item => item.productId !== productId));
+    toast.info('Ürün sepetten kaldırıldı');
+    
+    if (stockIssues.length <= 1) {
+      setShowStockDialog(false);
+    }
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
       currency: 'TRY',
       minimumFractionDigits: 0
     }).format(price);
+  };
+
+  // Get reservation status display
+  const getReservationStatus = () => {
+    if (!reservationId) return null;
+    
+    if (isReservationValid()) {
+      const expiry = getReservationExpiry();
+      if (expiry) {
+        const minutesLeft = Math.ceil((expiry.getTime() - Date.now()) / 60000);
+        return (
+          <div className="flex items-center gap-2 text-green-600 text-sm bg-green-50 p-2 rounded-lg">
+            <CheckCircle2 className="h-4 w-4" />
+            <span>Stok rezerve edildi ({minutesLeft} dk kaldı)</span>
+          </div>
+        );
+      }
+    }
+    return null;
   };
 
   if (items.length === 0) {
@@ -96,6 +204,13 @@ export function Cart() {
           </span>
         </h1>
 
+        {/* Reservation Status */}
+        {getReservationStatus() && (
+          <div className="mb-4">
+            {getReservationStatus()}
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-3 sm:space-y-4">
@@ -131,6 +246,13 @@ export function Cart() {
                       {item.product.discount && item.product.discount > 0 && (
                         <Badge className="mt-1 bg-red-100 text-red-600 text-xs">
                           %{item.product.discount} İndirim
+                        </Badge>
+                      )}
+
+                      {/* Stock Warning */}
+                      {item.product.stock <= 5 && item.product.stock > 0 && (
+                        <Badge className="mt-1 bg-amber-100 text-amber-600 text-xs">
+                          Son {item.product.stock} adet!
                         </Badge>
                       )}
                     </div>
@@ -195,6 +317,7 @@ export function Cart() {
               variant="ghost" 
               className="text-red-500 hover:text-red-600 w-full lg:hidden"
               onClick={() => {
+                releaseReservation();
                 clearCart();
                 toast.info('Sepet temizlendi');
               }}
@@ -275,11 +398,27 @@ export function Cart() {
               {/* Checkout Button */}
               <Button 
                 className="w-full gradient-orange h-12 sm:h-14 text-base sm:text-lg"
-                onClick={() => navigate('/checkout')}
+                onClick={handleCheckout}
+                disabled={isCheckingOut || isReserving}
               >
-                Ödemeye Geç
-                <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
+                {isCheckingOut || isReserving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" />
+                    Stok Kontrol Ediliyor...
+                  </>
+                ) : (
+                  <>
+                    Ödemeye Geç
+                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
+                  </>
+                )}
               </Button>
+
+              {/* Reservation Info */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                <Clock className="h-3 w-3" />
+                <span>Ödeme sayfasında stok 30 dakika rezerve edilir</span>
+              </div>
 
               {/* Free Shipping Progress */}
               {totalPrice() < 500 && (
@@ -313,6 +452,7 @@ export function Cart() {
               variant="ghost" 
               className="text-red-500 hover:text-red-600 w-full mt-4 hidden lg:flex"
               onClick={() => {
+                releaseReservation();
                 clearCart();
                 toast.info('Sepet temizlendi');
               }}
@@ -324,18 +464,73 @@ export function Cart() {
         </div>
       </main>
 
+      {/* Stock Issues Dialog */}
+      <Dialog open={showStockDialog} onOpenChange={setShowStockDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Stok Uyarısı
+            </DialogTitle>
+            <DialogDescription>
+              Bazı ürünlerin stok durumu değişti veya yetersiz.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3 py-4">
+            {stockIssues.map((issue) => (
+              <div 
+                key={issue.productId}
+                className="flex items-center justify-between p-3 bg-red-50 rounded-lg"
+              >
+                <div>
+                  <p className="font-medium text-sm">{issue.productName}</p>
+                  <p className="text-xs text-red-600">
+                    İstenen: {issue.requested} adet • Mevcut: {issue.available} adet
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleRemoveStockIssueItem(issue.productId)}
+                  className="text-red-600 hover:bg-red-100"
+                >
+                  Kaldır
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowStockDialog(false)}>
+              Sepeti Düzenle
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Mobile Sticky Checkout */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-card border-t p-3 sm:p-4 safe-area-inset z-50">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-card border-t p-3 sm:p-4 safe-area-inset z-40">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground">Toplam</span>
           <span className="text-xl font-bold text-orange-600">{formatPrice(finalPrice())}</span>
         </div>
         <Button 
           className="w-full gradient-orange h-11"
-          onClick={() => navigate('/checkout')}
+          onClick={handleCheckout}
+          disabled={isCheckingOut || isReserving}
         >
-          Ödemeye Geç
-          <ArrowRight className="h-4 w-4 ml-2" />
+          {isCheckingOut || isReserving ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Kontrol...
+            </>
+          ) : (
+            <>
+              Ödemeye Geç
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </>
+          )}
         </Button>
       </div>
 

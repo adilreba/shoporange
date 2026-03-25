@@ -33,6 +33,9 @@ import { Reviews } from '@/pages/Reviews';
 import { Lists } from '@/pages/Lists';
 import { Coupons } from '@/pages/Coupons';
 
+// Legal Pages
+import { KVKKPage, PrivacyPolicyPage, TermsOfServicePage, ReturnPolicyPage, PreInformationPage } from '@/pages/legal';
+
 // Admin Layout & Pages
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminDashboard from '@/pages/Admin/Dashboard';
@@ -43,6 +46,8 @@ import AdminSettings from '@/pages/Admin/Settings';
 import ProductForm from '@/pages/Admin/ProductForm';
 import AdminCoupons from '@/pages/Admin/Coupons';
 import AdminCampaigns from '@/pages/Admin/Campaigns';
+import StockManagement from '@/pages/Admin/StockManagement';
+import AgentDashboard from '@/pages/Admin/AgentDashboard';
 
 // Protected Route Component
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
@@ -91,6 +96,13 @@ function App() {
         <Route path="/returns" element={<Returns />} />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/contact" element={<Contact />} />
+        
+        {/* Legal Pages */}
+        <Route path="/kvkk" element={<KVKKPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/return-policy" element={<ReturnPolicyPage />} />
+        <Route path="/pre-information" element={<PreInformationPage />} />
         
         {/* Protected Routes */}
         <Route 
@@ -180,11 +192,13 @@ function App() {
           <Route path="products" element={<AdminProducts />} />
           <Route path="products/new" element={<ProductForm />} />
           <Route path="products/:id/edit" element={<ProductForm />} />
+          <Route path="stock" element={<StockManagement />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="coupons" element={<AdminCoupons />} />
           <Route path="campaigns" element={<AdminCampaigns />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="support" element={<AgentDashboard />} />
         </Route>
         
         {/* 404 Page */}

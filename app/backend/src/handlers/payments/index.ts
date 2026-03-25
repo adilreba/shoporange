@@ -9,17 +9,38 @@ const headers = {
   'Access-Control-Allow-Methods': 'POST,OPTIONS',
 };
 
+// Helper functions
+const createErrorResponse = (statusCode: number, message: string): APIGatewayProxyResult => ({
+  statusCode,
+  headers,
+  body: JSON.stringify({ error: message, timestamp: new Date().toISOString() }),
+});
+
+const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResult => ({
+  statusCode,
+  headers,
+  body: JSON.stringify(data),
+});
+
 export const createPaymentIntent = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     if (!event.body) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Request body required' }) };
+      return createErrorResponse(400, 'Request body required');
     }
 
-    const { amount, currency = 'try' } = JSON.parse(event.body);
-    
-    if (!amount) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Amount required' }) };
+    const { amount, currency = 'try', orderId } = JSON.parse(event.body);
+
+    if (!amount || amount <= 0) {
+      return createErrorResponse(400, 'Valid amount required');
     }
+
+    // TODO: Gerçek Stripe entegrasyonu
+    // const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+    // const paymentIntent = await stripe.paymentIntents.create({
+    //   amount: amount * 100, // kuruş cinsinden
+    //   currency: currency.toLowerCase(),
+    //   metadata: { orderId },
+    // });
 
     // Placeholder - Stripe entegrasyonu sonradan eklenecek
     const paymentIntent = {
@@ -30,17 +51,15 @@ export const createPaymentIntent = async (event: APIGatewayProxyEvent): Promise<
       status: 'requires_confirmation'
     };
 
-    return { 
-      statusCode: 200, 
-      headers, 
-      body: JSON.stringify({ 
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id
-      }) 
-    };
+    return createSuccessResponse({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      amount,
+      currency,
+    });
   } catch (error) {
     console.error('Error:', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Internal server error' }) };
+    return createErrorResponse(500, 'Internal server error');
   }
 };
 
@@ -49,32 +68,36 @@ export const stripeWebhook = async (event: APIGatewayProxyEvent): Promise<APIGat
     const sig = event.headers['Stripe-Signature'] || '';
     const payload = event.body || '';
 
+    // TODO: Gerçek webhook verification
+    // const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+    // const event = stripe.webhooks.constructEvent(payload, sig, STRIPE_WEBHOOK_SECRET);
+
     // Placeholder - Webhook verification sonradan eklenecek
     console.log('Webhook received:', payload);
+    console.log('Stripe-Signature:', sig);
 
-    return { 
-      statusCode: 200, 
-      headers,
-      body: JSON.stringify({ received: true }) 
-    };
+    return createSuccessResponse({ received: true });
   } catch (error) {
     console.error('Error:', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Internal server error' }) };
+    return createErrorResponse(500, 'Internal server error');
   }
 };
 
-// Main handler - routes to specific functions and handles OPTIONS
+// Main handler
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
+
   const path = event.path;
   const method = event.httpMethod;
+
   if (path === '/payments/intent' || path.endsWith('/payments/intent')) {
     if (method === 'POST') return createPaymentIntent(event);
   }
   if (path === '/payments/webhook' || path.endsWith('/payments/webhook')) {
     if (method === 'POST') return stripeWebhook(event);
   }
-  return { statusCode: 404, headers, body: JSON.stringify({ error: 'Not found' }) };
+
+  return createErrorResponse(404, 'Not found');
 };

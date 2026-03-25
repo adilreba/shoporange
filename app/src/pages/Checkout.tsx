@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   CreditCard, 
@@ -8,7 +8,11 @@ import {
   Lock,
   ShieldCheck,
   MapPin,
-  ChevronLeft
+  ChevronLeft,
+  AlertTriangle,
+  PackageX,
+  Loader2,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,18 +25,32 @@ import { StripePayment } from '@/components/payment/StripePayment';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useOrderStore } from '@/stores/orderStore';
+import { useStockStore } from '@/stores/stockStore';
 import { shippingOptions } from '@/data/mockData';
 import { toast } from 'sonner';
 
 export function Checkout() {
   const navigate = useNavigate();
-  const { items, totalPrice, finalPrice, shippingCost, clearCart } = useCartStore();
+  const { items, totalPrice, finalPrice, shippingCost, clearCart, removeFromCart } = useCartStore();
   const { user } = useAuthStore();
   const { addOrder } = useOrderStore();
+  const { 
+    reservationId, 
+    confirmReservation, 
+    isReservationValid,
+    getReservationExpiry,
+    releaseReservation,
+    refreshReservation
+  } = useStockStore();
   
   const [step, setStep] = useState<'shipping' | 'payment' | 'processing'>('shipping');
   const [selectedShipping, setSelectedShipping] = useState('standard');
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  
+  // Stok kontrolü için state
+  const [stockErrors, setStockErrors] = useState<Array<{productId: string, name: string, requested: number, available: number}>>([]);
   
   const [shippingData, setShippingData] = useState({
     fullName: user?.address?.[0]?.fullName || '',
@@ -47,6 +65,51 @@ export function Checkout() {
   const shippingPrice = selectedShippingOption?.price || 0;
   const finalTotal = finalPrice() - shippingCost() + shippingPrice;
 
+  // Reservation timer
+  useEffect(() => {
+    if (!reservationId || !isReservationValid()) {
+      toast.error('Stok rezervasyonunuz sona erdi, lütfen sepete dönün.');
+      navigate('/cart');
+      return;
+    }
+
+    const expiry = getReservationExpiry();
+    if (!expiry) return;
+
+    const updateTimer = () => {
+      const left = Math.max(0, expiry.getTime() - Date.now());
+      setTimeLeft(left);
+      
+      if (left <= 0) {
+        toast.error('Stok rezervasyonunuz sona erdi!');
+        releaseReservation();
+        navigate('/cart');
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [reservationId, isReservationValid, getReservationExpiry, navigate, releaseReservation]);
+
+  // Refresh reservation every 20 minutes
+  useEffect(() => {
+    if (!reservationId) return;
+
+    const interval = setInterval(() => {
+      refreshReservation();
+    }, 20 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [reservationId, refreshReservation]);
+
+  const formatTime = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!shippingData.fullName || !shippingData.phone || !shippingData.address) {
@@ -58,43 +121,76 @@ export function Checkout() {
   };
 
   const handlePaymentSuccess = async (_paymentIntentId: string) => {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Sipariş oluştur
-    const orderItems = items.map(item => ({
-      productId: item.product.id,
-      name: item.product.name,
-      price: item.product.price,
-      quantity: item.quantity,
-      image: item.product.images?.[0]
-    }));
+    if (!reservationId) {
+      toast.error('Stok rezervasyonu bulunamadı');
+      return;
+    }
 
-    const newOrder = addOrder({
-      customer: shippingData.fullName,
-      email: user?.email || '',
-      phone: shippingData.phone,
-      address: {
-        street: shippingData.address,
-        city: shippingData.city,
-        postalCode: shippingData.zipCode
-      },
-      items: orderItems,
-      total: finalTotal,
-      paymentMethod: 'credit_card',
-      notes: `Kargo: ${selectedShippingOption?.name || 'Standart'}`
-    });
+    setIsProcessing(true);
 
-    setOrderId(newOrder.id);
-    setStep('processing');
-    
-    toast.success('Siparişiniz başarıyla oluşturuldu!', {
-      description: `Sipariş numaranız: ${newOrder.id}`
-    });
-    
-    setTimeout(() => {
-      clearCart();
-      navigate('/orders');
-    }, 3000);
+    try {
+      // Confirm stock deduction
+      const orderItems = items.map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+      }));
+
+      const confirmed = await confirmReservation(orderItems);
+
+      if (!confirmed) {
+        toast.error('Stok onaylanamadı, lütfen tekrar deneyin');
+        setStep('shipping');
+        setIsProcessing(false);
+        return;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Create order
+      const newOrder = await addOrder({
+        customer: shippingData.fullName,
+        email: user?.email || '',
+        phone: shippingData.phone,
+        address: {
+          street: shippingData.address,
+          city: shippingData.city,
+          postalCode: shippingData.zipCode
+        },
+        items: items.map(item => ({
+          productId: item.product.id,
+          name: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity,
+          image: item.product.images?.[0]
+        })),
+        total: finalTotal,
+        paymentMethod: 'credit_card',
+        notes: `Kargo: ${selectedShippingOption?.name || 'Standart'}`
+      });
+
+      setOrderId(newOrder.id);
+      setStep('processing');
+      
+      toast.success('Siparişiniz başarıyla oluşturuldu!', {
+        description: `Sipariş numaranız: ${newOrder.id}`
+      });
+      
+      setTimeout(() => {
+        clearCart();
+        navigate('/orders');
+      }, 3000);
+    } catch (error) {
+      console.error('Order error:', error);
+      toast.error('Sipariş oluşturulurken bir hata oluştu');
+      setIsProcessing(false);
+    }
+  };
+  
+  // Stok hatası olan ürünü sepetten kaldır
+  const handleRemoveStockError = (productId: string) => {
+    removeFromCart(productId);
+    setStockErrors(prev => prev.filter(err => err.productId !== productId));
+    toast.success('Ürün sepetten kaldırıldı');
   };
 
   const formatPrice = (price: number) => {
@@ -124,12 +220,66 @@ export function Checkout() {
       </div>
     );
   }
+  
+  // Stok hatası varsa göster
+  const hasStockErrors = stockErrors.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
       <main className="container-custom pt-[42px] pb-6 sm:pt-[42px] sm:pb-8 px-4">
+        {/* Reservation Timer */}
+        {timeLeft !== null && timeLeft > 0 && (
+          <div className="mb-4 bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-orange-600" />
+              <span className="text-sm text-orange-700">
+                Stok rezervasyonunuz için kalan süre:
+              </span>
+            </div>
+            <span className="font-bold text-orange-600 text-lg">
+              {formatTime(timeLeft)}
+            </span>
+          </div>
+        )}
+
+        {/* Stok Hatası Uyarısı */}
+        {hasStockErrors && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <PackageX className="h-5 w-5 text-red-500" />
+              <h3 className="font-semibold text-red-700">Stok Uyarısı</h3>
+            </div>
+            <p className="text-sm text-red-600 mb-3">
+              Bazı ürünlerin stok durumu değişti veya tükendi. Lütfen sepetinizi güncelleyin.
+            </p>
+            <div className="space-y-2">
+              {stockErrors.map(error => (
+                <div key={error.productId} className="flex items-center justify-between bg-white rounded-lg p-3">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <div>
+                      <p className="font-medium text-sm">{error.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        İstenen: {error.requested} adet | Mevcut: {error.available} adet
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleRemoveStockError(error.productId)}
+                    className="text-red-500 hover:bg-red-50"
+                  >
+                    Kaldır
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
         {/* Back Button & Title - Mobile */}
         <div className="flex items-center gap-2 mb-4 lg:hidden">
           <button 
@@ -287,8 +437,12 @@ export function Checkout() {
                   ))}
                 </RadioGroup>
 
-                <Button type="submit" className="w-full gradient-orange h-12 mt-4 sm:mt-6">
-                  Devam Et
+                <Button 
+                  type="submit" 
+                  className="w-full gradient-orange h-12 mt-4 sm:mt-6"
+                  disabled={hasStockErrors}
+                >
+                  {hasStockErrors ? 'Stok Hatası Var' : 'Devam Et'}
                   <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
                 </Button>
               </form>
@@ -305,11 +459,18 @@ export function Checkout() {
                   </div>
                 </div>
 
-                <StripePayment
-                  amount={finalTotal}
-                  onSuccess={handlePaymentSuccess}
-                  onCancel={() => setStep('shipping')}
-                />
+                {isProcessing ? (
+                  <div className="text-center py-12">
+                    <Loader2 className="h-12 w-12 animate-spin text-orange-500 mx-auto mb-4" />
+                    <p className="text-muted-foreground">Siparişiniz işleniyor...</p>
+                  </div>
+                ) : (
+                  <StripePayment
+                    amount={finalTotal}
+                    onSuccess={handlePaymentSuccess}
+                    onCancel={() => setStep('shipping')}
+                  />
+                )}
               </div>
             )}
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, Heart, Check, Star, Scale, Eye, Package } from 'lucide-react';
+import { ShoppingCart, Heart, Check, Star, Scale, Eye, Package, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCartStore } from '@/stores/cartStore';
@@ -27,10 +27,18 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (product.stock === 0) {
+      toast.error('Bu ürün stokta bulunmuyor.');
+      return;
+    }
     addToCart(product, 1);
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 1500);
   };
+  
+  // Stok durumu kontrolü
+  const isOutOfStock = product.stock === 0;
+  const isLowStock = product.stock > 0 && product.stock <= 5;
 
   const handleToggleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -289,17 +297,27 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
     >
       {/* Badges - Top Left - Compact for mobile */}
       <div className="absolute top-2 left-2 z-10 flex flex-wrap gap-1 max-w-[70%]">
-        {discount > 0 && (
+        {isOutOfStock && (
+          <Badge className="bg-gray-500 text-white text-[10px] px-1.5 py-0.5 font-bold rounded">
+            STOKTA YOK
+          </Badge>
+        )}
+        {isLowStock && !isOutOfStock && (
+          <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0.5 font-bold rounded">
+            SON {product.stock} ADET
+          </Badge>
+        )}
+        {discount > 0 && !isOutOfStock && (
           <Badge className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 font-bold rounded">
             -{discount}%
           </Badge>
         )}
-        {product.isNew && (
+        {product.isNew && !isOutOfStock && (
           <Badge className="bg-green-500 text-white text-[10px] px-1.5 py-0.5 font-bold rounded">
             YENİ
           </Badge>
         )}
-        {product.rating >= 4.5 && (
+        {product.rating >= 4.5 && !isOutOfStock && (
           <Badge className="bg-orange-500 text-white text-[10px] px-1.5 py-0.5 font-bold rounded">
             🔥 ÇOK SATAN
           </Badge>
@@ -384,13 +402,19 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
         <div className="mt-auto pt-2 border-t border-border/50">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <span className="text-sm sm:text-base font-bold text-orange-600 block">
+              <span className={`text-sm sm:text-base font-bold block ${isOutOfStock ? 'text-gray-400' : 'text-orange-600'}`}>
                 {product.price.toLocaleString('tr-TR')}₺
               </span>
-              {product.originalPrice && (
+              {product.originalPrice && !isOutOfStock && (
                 <p className="text-xs text-muted-foreground line-through">
                   {product.originalPrice.toLocaleString('tr-TR')}₺
                 </p>
+              )}
+              {isOutOfStock && (
+                <p className="text-xs text-red-500 font-medium">Stokta Yok</p>
+              )}
+              {isLowStock && !isOutOfStock && (
+                <p className="text-xs text-amber-500 font-medium">Son {product.stock} adet!</p>
               )}
             </div>
             <Button
@@ -398,11 +422,17 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
               className={`rounded-full h-8 w-8 flex-shrink-0 ${
                 isAdded 
                   ? 'bg-green-500 hover:bg-green-600' 
-                  : 'gradient-orange'
+                  : isOutOfStock
+                    ? 'bg-gray-300 cursor-not-allowed'
+                    : 'gradient-orange'
               }`}
               onClick={handleAddToCart}
+              disabled={isOutOfStock}
+              title={isOutOfStock ? 'Stokta Yok' : 'Sepete Ekle'}
             >
-              {isAdded ? (
+              {isOutOfStock ? (
+                <AlertCircle className="h-4 w-4" />
+              ) : isAdded ? (
                 <Check className="h-4 w-4" />
               ) : (
                 <ShoppingCart className="h-4 w-4" />

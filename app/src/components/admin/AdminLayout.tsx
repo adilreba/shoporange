@@ -14,7 +14,9 @@ import {
   Sun,
   Moon,
   Percent,
-  Tag
+  Tag,
+  Warehouse,
+  Headphones
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useThemeStore } from '@/stores/themeStore';
@@ -23,10 +25,12 @@ import { useAuthStore } from '@/stores/authStore';
 const menuItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
   { path: '/admin/products', icon: Package, label: 'Ürünler' },
+  { path: '/admin/stock', icon: Warehouse, label: 'Stok Yönetimi' },
   { path: '/admin/orders', icon: ShoppingCart, label: 'Siparişler' },
   { path: '/admin/coupons', icon: Percent, label: 'Kuponlar' },
   { path: '/admin/campaigns', icon: Tag, label: 'Kampanyalar' },
   { path: '/admin/users', icon: Users, label: 'Kullanıcılar' },
+  { path: '/admin/support', icon: Headphones, label: 'Canlı Destek' },
   { path: '/admin/settings', icon: Settings, label: 'Ayarlar' },
 ];
 

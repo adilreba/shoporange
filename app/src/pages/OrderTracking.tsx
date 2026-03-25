@@ -86,6 +86,13 @@ const statusConfig = {
     textColor: 'text-red-700',
     bgColor: 'bg-red-50',
     borderColor: 'border-red-200'
+  },
+  refunded: { 
+    label: 'İade Edildi', 
+    color: 'bg-gray-500', 
+    textColor: 'text-gray-700',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200'
   }
 };
 

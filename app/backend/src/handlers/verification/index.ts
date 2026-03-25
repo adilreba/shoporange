@@ -1,9 +1,14 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import * as AWS from 'aws-sdk';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 
-const ses = new AWS.SES({ region: process.env.AWS_REGION || 'eu-west-1' });
-const sns = new AWS.SNS({ region: process.env.AWS_REGION || 'eu-west-1' });
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+// SDK v3 Clients
+const dynamoClient = new DynamoDBClient({});
+const dynamodb = DynamoDBDocumentClient.from(dynamoClient);
+const sesClient = new SESClient({ region: process.env.AWS_REGION || 'eu-west-1' });
+const snsClient = new SNSClient({ region: process.env.AWS_REGION || 'eu-west-1' });
 
 const VERIFICATION_TABLE = process.env.VERIFICATION_TABLE || '';
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@atushome.com';
@@ -14,6 +19,19 @@ const headers = {
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key',
   'Access-Control-Allow-Methods': 'POST,OPTIONS',
 };
+
+// Helper functions
+const createErrorResponse = (statusCode: number, message: string): APIGatewayProxyResult => ({
+  statusCode,
+  headers,
+  body: JSON.stringify({ error: message, timestamp: new Date().toISOString() }),
+});
+
+const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResult => ({
+  statusCode,
+  headers,
+  body: JSON.stringify(data),
+});
 
 // 6 haneli OTP kodu oluştur
 const generateOTP = (): string => {
@@ -27,29 +45,29 @@ const OTP_EXPIRY = 10 * 60 * 1000;
 export const sendEmailVerification = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     if (!event.body) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Request body required' }) };
+      return createErrorResponse(400, 'Request body required');
     }
 
     const { email, userId } = JSON.parse(event.body);
 
     if (!email || !userId) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Email and userId required' }) };
+      return createErrorResponse(400, 'Email and userId required');
     }
 
     // E-posta formatı kontrolü
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid email format' }) };
+      return createErrorResponse(400, 'Invalid email format');
     }
 
     const otp = generateOTP();
     const expiryTime = Date.now() + OTP_EXPIRY;
 
     // OTP'yi DynamoDB'ye kaydet
-    await dynamodb.put({
+    await dynamodb.send(new PutCommand({
       TableName: VERIFICATION_TABLE,
       Item: {
-        id: `email_${userId}`,
+        userId: userId,
         type: 'email',
         email,
         otp,
@@ -58,10 +76,10 @@ export const sendEmailVerification = async (event: APIGatewayProxyEvent): Promis
         attempts: 0,
         createdAt: new Date().toISOString(),
       },
-    }).promise();
+    }));
 
-    // E-posta gönder
-    await ses.sendEmail({
+    // E-posta gönder (SES v3)
+    await sesClient.send(new SendEmailCommand({
       Source: FROM_EMAIL,
       Destination: { ToAddresses: [email] },
       Message: {
@@ -87,20 +105,16 @@ export const sendEmailVerification = async (event: APIGatewayProxyEvent): Promis
           },
         },
       },
-    }).promise();
+    }));
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ 
-        message: 'Verification code sent',
-        email: email.replace(/(.{2}).*(@.*)/, '$1***$2'),
-        expiryMinutes: 10,
-      }),
-    };
+    return createSuccessResponse({
+      message: 'Verification code sent',
+      email: email.replace(/(.{2}).*(@.*)/, '$1***$2'),
+      expiryMinutes: 10,
+    });
   } catch (error) {
     console.error('Error sending email verification:', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to send verification email' }) };
+    return createErrorResponse(500, 'Failed to send verification email');
   }
 };
 
@@ -108,63 +122,59 @@ export const sendEmailVerification = async (event: APIGatewayProxyEvent): Promis
 export const verifyEmailOTP = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     if (!event.body) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Request body required' }) };
+      return createErrorResponse(400, 'Request body required');
     }
 
     const { userId, otp } = JSON.parse(event.body);
 
     if (!userId || !otp) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'UserId and OTP required' }) };
+      return createErrorResponse(400, 'UserId and OTP required');
     }
 
-    const result = await dynamodb.get({
+    const result = await dynamodb.send(new GetCommand({
       TableName: VERIFICATION_TABLE,
-      Key: { id: `email_${userId}`, type: 'email' },
-    }).promise();
+      Key: { userId, type: 'email' },
+    }));
 
     if (!result.Item) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Verification not found' }) };
+      return createErrorResponse(400, 'Verification not found');
     }
 
     const record = result.Item;
 
     if (Date.now() > record.expiryTime) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Code expired' }) };
+      return createErrorResponse(400, 'Code expired');
     }
 
     if (record.attempts >= 3) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Too many attempts' }) };
+      return createErrorResponse(400, 'Too many attempts');
     }
 
     if (record.otp !== otp) {
-      await dynamodb.update({
+      await dynamodb.send(new UpdateCommand({
         TableName: VERIFICATION_TABLE,
-        Key: { id: `email_${userId}`, type: 'email' },
+        Key: { userId, type: 'email' },
         UpdateExpression: 'SET attempts = attempts + :inc',
         ExpressionAttributeValues: { ':inc': 1 },
-      }).promise();
+      }));
 
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid code' }) };
+      return createErrorResponse(400, 'Invalid code');
     }
 
-    await dynamodb.update({
+    await dynamodb.send(new UpdateCommand({
       TableName: VERIFICATION_TABLE,
-      Key: { id: `email_${userId}`, type: 'email' },
+      Key: { userId, type: 'email' },
       UpdateExpression: 'SET verified = :verified, verifiedAt = :verifiedAt',
       ExpressionAttributeValues: {
         ':verified': true,
         ':verifiedAt': new Date().toISOString(),
       },
-    }).promise();
+    }));
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ message: 'Email verified successfully', verified: true }),
-    };
+    return createSuccessResponse({ message: 'Email verified successfully', verified: true });
   } catch (error) {
     console.error('Error verifying email:', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to verify email' }) };
+    return createErrorResponse(500, 'Failed to verify email');
   }
 };
 
@@ -172,28 +182,28 @@ export const verifyEmailOTP = async (event: APIGatewayProxyEvent): Promise<APIGa
 export const sendPhoneVerification = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     if (!event.body) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Request body required' }) };
+      return createErrorResponse(400, 'Request body required');
     }
 
     const { phone, userId } = JSON.parse(event.body);
 
     if (!phone || !userId) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Phone and userId required' }) };
+      return createErrorResponse(400, 'Phone and userId required');
     }
 
     // Türkiye formatı: +90 ile başlamalı
     const phoneRegex = /^\+90[0-9]{10}$/;
     if (!phoneRegex.test(phone)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Use +90XXXXXXXXXX format' }) };
+      return createErrorResponse(400, 'Use +90XXXXXXXXXX format');
     }
 
     const otp = generateOTP();
     const expiryTime = Date.now() + OTP_EXPIRY;
 
-    await dynamodb.put({
+    await dynamodb.send(new PutCommand({
       TableName: VERIFICATION_TABLE,
       Item: {
-        id: `phone_${userId}`,
+        userId,
         type: 'phone',
         phone,
         otp,
@@ -202,11 +212,12 @@ export const sendPhoneVerification = async (event: APIGatewayProxyEvent): Promis
         attempts: 0,
         createdAt: new Date().toISOString(),
       },
-    }).promise();
+    }));
 
     const message = `${SMS_ORIGINATOR} dogrulama kodunuz: ${otp}. 10 dakika gecerlidir.`;
-    
-    await sns.publish({
+
+    // SMS gönder (SNS v3)
+    await snsClient.send(new PublishCommand({
       Message: message,
       PhoneNumber: phone,
       MessageAttributes: {
@@ -215,20 +226,16 @@ export const sendPhoneVerification = async (event: APIGatewayProxyEvent): Promis
           StringValue: 'Transactional',
         },
       },
-    }).promise();
+    }));
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ 
-        message: 'SMS sent',
-        phone: phone.replace(/(\+90)\d{6}(\d{4})/, '$1******$2'),
-        expiryMinutes: 10,
-      }),
-    };
+    return createSuccessResponse({
+      message: 'SMS sent',
+      phone: phone.replace(/(\+90)\d{6}(\d{4})/, '$1******$2'),
+      expiryMinutes: 10,
+    });
   } catch (error) {
     console.error('Error sending SMS:', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to send SMS' }) };
+    return createErrorResponse(500, 'Failed to send SMS');
   }
 };
 
@@ -236,47 +243,51 @@ export const sendPhoneVerification = async (event: APIGatewayProxyEvent): Promis
 export const verifyPhoneOTP = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     if (!event.body) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Request body required' }) };
+      return createErrorResponse(400, 'Request body required');
     }
 
     const { userId, otp } = JSON.parse(event.body);
 
     if (!userId || !otp) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'UserId and OTP required' }) };
+      return createErrorResponse(400, 'UserId and OTP required');
     }
 
-    const result = await dynamodb.get({
+    const result = await dynamodb.send(new GetCommand({
       TableName: VERIFICATION_TABLE,
-      Key: { id: `phone_${userId}`, type: 'phone' },
-    }).promise();
+      Key: { userId, type: 'phone' },
+    }));
 
-    if (!result.Item) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Not found' }) };
+    if (!result.Item) return createErrorResponse(400, 'Not found');
 
     const record = result.Item;
 
-    if (Date.now() > record.expiryTime) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Expired' }) };
-    if (record.attempts >= 3) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Too many attempts' }) };
+    if (Date.now() > record.expiryTime) return createErrorResponse(400, 'Expired');
+    if (record.attempts >= 3) return createErrorResponse(400, 'Too many attempts');
+
     if (record.otp !== otp) {
-      await dynamodb.update({
+      await dynamodb.send(new UpdateCommand({
         TableName: VERIFICATION_TABLE,
-        Key: { id: `phone_${userId}`, type: 'phone' },
+        Key: { userId, type: 'phone' },
         UpdateExpression: 'SET attempts = attempts + :inc',
         ExpressionAttributeValues: { ':inc': 1 },
-      }).promise();
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid code' }) };
+      }));
+      return createErrorResponse(400, 'Invalid code');
     }
 
-    await dynamodb.update({
+    await dynamodb.send(new UpdateCommand({
       TableName: VERIFICATION_TABLE,
-      Key: { id: `phone_${userId}`, type: 'phone' },
+      Key: { userId, type: 'phone' },
       UpdateExpression: 'SET verified = :verified, verifiedAt = :verifiedAt',
-      ExpressionAttributeValues: { ':verified': true, ':verifiedAt': new Date().toISOString() },
-    }).promise();
+      ExpressionAttributeValues: {
+        ':verified': true,
+        ':verifiedAt': new Date().toISOString(),
+      },
+    }));
 
-    return { statusCode: 200, headers, body: JSON.stringify({ message: 'Phone verified', verified: true }) };
+    return createSuccessResponse({ message: 'Phone verified', verified: true });
   } catch (error) {
     console.error('Error verifying phone:', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to verify phone' }) };
+    return createErrorResponse(500, 'Failed to verify phone');
   }
 };
 
@@ -284,7 +295,7 @@ export const verifyPhoneOTP = async (event: APIGatewayProxyEvent): Promise<APIGa
 export const validateAddress = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     if (!event.body) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Request body required' }) };
+      return createErrorResponse(400, 'Request body required');
     }
 
     const address = JSON.parse(event.body);
@@ -309,23 +320,25 @@ export const validateAddress = async (event: APIGatewayProxyEvent): Promise<APIG
     }
 
     if (errors.length > 0) {
-      return { statusCode: 400, headers, body: JSON.stringify({ valid: false, errors }) };
+      return createSuccessResponse({ valid: false, errors }, 400);
     }
 
-    return { statusCode: 200, headers, body: JSON.stringify({ valid: true, message: 'Address is valid' }) };
+    return createSuccessResponse({ valid: true, message: 'Address is valid' });
   } catch (error) {
     console.error('Error validating address:', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to validate address' }) };
+    return createErrorResponse(500, 'Failed to validate address');
   }
 };
 
-// Main handler - routes to specific functions and handles OPTIONS
+// Main handler
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
+
   const path = event.path;
   const method = event.httpMethod;
+
   if (path === '/verify/email/send' || path.endsWith('/verify/email/send')) {
     if (method === 'POST') return sendEmailVerification(event);
   }
@@ -341,5 +354,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   if (path === '/verify/address' || path.endsWith('/verify/address')) {
     if (method === 'POST') return validateAddress(event);
   }
-  return { statusCode: 404, headers, body: JSON.stringify({ error: 'Not found' }) };
+
+  return createErrorResponse(404, 'Not found');
 };

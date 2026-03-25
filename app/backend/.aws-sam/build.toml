@@ -52,7 +52,7 @@ architecture = "x86_64"
 handler = "index.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["SeedDataFunction"]
+functions = ["SeedDataFunction", "AdminGetProductsFunction", "AdminCreateProductFunction", "AdminUpdateProductFunction", "AdminDeleteProductFunction", "AdminGetOrdersFunction", "AdminUpdateOrderFunction", "AdminGetUsersFunction"]
 
 [function_build_definitions.e7c6be87-cd3f-4c22-b325-5fd023abb90f]
 codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/verification"
@@ -62,5 +62,50 @@ handler = "index.handler"
 manifest_hash = ""
 packagetype = "Zip"
 functions = ["SendEmailVerificationFunction", "VerifyEmailOTPFunction", "SendPhoneVerificationFunction", "VerifyPhoneOTPFunction", "ValidateAddressFunction"]
+
+[function_build_definitions.b76b377b-15a5-42e0-836e-65a5f55f9ac8]
+codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/stock"
+runtime = "nodejs20.x"
+architecture = "x86_64"
+handler = "index.handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["CheckStockFunction", "ReserveStockFunction", "ReleaseStockFunction", "ConfirmStockFunction", "UpdateStockFunction", "BulkUpdateStockFunction", "GetUserReservationsFunction", "GetLowStockFunction"]
+
+[function_build_definitions.29bd493a-b3df-4e60-baaa-e20e29b34edf]
+codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/invoicing"
+runtime = "nodejs20.x"
+architecture = "x86_64"
+handler = "index.handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["CreateInvoiceFunction", "CreateArchiveInvoiceFunction", "ValidateInvoiceFunction", "GetInvoiceStatusFunction", "CancelInvoiceFunction"]
+
+[function_build_definitions.4972735e-7c62-4b04-8e01-fe22765e0b2f]
+codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/shipping"
+runtime = "nodejs20.x"
+architecture = "x86_64"
+handler = "index.handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["CreateShipmentFunction", "GetShipmentFunction", "TrackShipmentFunction", "CancelShipmentFunction", "ShippingWebhookFunction", "GetShippingRatesFunction", "GetShippingProvidersFunction"]
+
+[function_build_definitions.951b46e5-b6c8-4373-870f-0f90fa6c4496]
+codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/notifications"
+runtime = "nodejs20.x"
+architecture = "x86_64"
+handler = "index.handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["SendNotificationFunction", "TestNotificationFunction", "OrderNotificationStreamFunction"]
+
+[function_build_definitions.b1014b94-fc8d-4e8d-94e5-349364a1a33d]
+codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/chat"
+runtime = "nodejs20.x"
+architecture = "x86_64"
+handler = "index.handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["ChatWebSocketFunction", "GetWaitingChatsFunction", "GetAgentChatsFunction", "AssignAgentFunction", "GetChatMessagesFunction", "CloseChatFunction"]
 
 [layer_build_definitions]

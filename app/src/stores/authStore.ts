@@ -4,9 +4,9 @@ import type { User, LoginCredentials, RegisterData } from '@/types';
 import { mockUser, mockAdminUser } from '@/data/mockData';
 
 // Check if API URL is configured
-// const API_URL = import.meta.env.VITE_API_URL;
-// Temporarily disabled until AWS auth API is fully implemented
-const USE_AWS_API = false; // API_URL && !API_URL.includes('your-api-gateway');
+const API_URL = import.meta.env.VITE_API_URL;
+// AWS Backend aktif - Stok yönetimi için gerçek API kullan
+const USE_AWS_API = API_URL && !API_URL.includes('your-api-gateway');
 
 // Placeholder API objects (to be replaced with real implementation from '@/services/api')
 const authApi = {

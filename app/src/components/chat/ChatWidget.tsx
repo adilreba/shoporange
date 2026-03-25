@@ -1,29 +1,64 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, Send, User, Bot, X, ChevronLeft, Trash2, GripVertical } from 'lucide-react';
+import { MessageCircle, Send, User, Bot, X, ChevronLeft, GripVertical, Wifi, WifiOff, Clock, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useChatStore } from '@/stores/chatStore';
+import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 export function ChatWidget() {
-  const { messages, isOpen, unreadCount, isTyping, setIsOpen, addMessage, clearChat } = useChatStore();
+  const { 
+    messages, 
+    isOpen, 
+    unreadCount, 
+    isTyping, 
+    isAgentTyping,
+    isConnected,
+    connectionStatus,
+    agentName,
+    setIsOpen, 
+    clearChat,
+    connect,
+    disconnect,
+    sendMessage,
+    sendTyping,
+    closeSession
+  } = useChatStore();
+  
+  const { user, isAuthenticated } = useAuthStore();
   const [inputMessage, setInputMessage] = useState('');
-  const [position, setPosition] = useState<{ y: number | null }>({ y: null }); // null = başlangıç (bottom: 20px)
+  const [position, setPosition] = useState<{ y: number | null }>({ y: null });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ y: 0 });
-  const [hasDragged, setHasDragged] = useState(false); // Click vs drag ayırt etmek için
+  const [hasDragged, setHasDragged] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Connect WebSocket when chat opens
+  useEffect(() => {
+    if (isOpen && !isConnected) {
+      const userId = isAuthenticated && user ? user.id : `guest_${Date.now()}`;
+      connect(userId, 'customer');
+    }
+  }, [isOpen, isConnected, connect, isAuthenticated, user]);
+
+  // Disconnect when component unmounts
+  useEffect(() => {
+    return () => {
+      disconnect();
+    };
+  }, [disconnect]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isTyping]);
+  }, [messages, isTyping, isAgentTyping]);
 
   // Focus input when chat opens
   useEffect(() => {
@@ -32,7 +67,18 @@ export function ChatWidget() {
     }
   }, [isOpen]);
 
-  // Sürükleme başladığında
+  // Send typing indicator
+  const handleTyping = () => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    sendTyping();
+    typingTimeoutRef.current = setTimeout(() => {
+      // Typing stopped
+    }, 3000);
+  };
+
+  // Drag handlers
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (isOpen) return;
     
@@ -44,17 +90,14 @@ export function ChatWidget() {
     
     if (button) {
       const rect = button.getBoundingClientRect();
-      // Eğer henüz sürüklenmediyse (position.y null), gerçek top değerini kullan
       const currentY = position.y === null ? rect.top : position.y;
       setDragStart({ y: clientY - currentY });
-      // Pozisyonu senkronize et
       if (position.y === null) {
         setPosition({ y: rect.top });
       }
     }
   };
 
-  // Sürükleme devam ederken
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent | TouchEvent) => {
       if (!isDragging) return;
@@ -62,12 +105,10 @@ export function ChatWidget() {
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       const newY = clientY - dragStart.y;
       
-      // Sürüklediğini işaretle (click olayını engellemek için)
       setHasDragged(true);
       
-      // Ekran sınırları içinde tut
-      const minY = 100; // Header'dan aşağıda
-      const maxY = window.innerHeight - 150; // Footer'dan yukarıda
+      const minY = 100;
+      const maxY = window.innerHeight - 150;
       
       const clampedY = Math.max(minY, Math.min(maxY, newY));
       setPosition({ y: clampedY });
@@ -95,7 +136,7 @@ export function ChatWidget() {
   const handleSend = () => {
     if (!inputMessage.trim()) return;
     
-    addMessage(inputMessage.trim(), 'user');
+    sendMessage(inputMessage.trim());
     setInputMessage('');
   };
 
@@ -103,12 +144,15 @@ export function ChatWidget() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    } else {
+      handleTyping();
     }
   };
 
   const handleClear = () => {
+    closeSession();
     clearChat();
-    toast.info('Sohbet geçmişi temizlendi');
+    toast.info('Sohbet sonlandırıldı');
   };
 
   const formatTime = (timestamp: string) => {
@@ -116,6 +160,36 @@ export function ChatWidget() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const getStatusIcon = () => {
+    switch (connectionStatus) {
+      case 'connecting':
+        return <Clock className="w-3 h-3 animate-spin" />;
+      case 'waiting':
+        return <Clock className="w-3 h-3 text-yellow-400" />;
+      case 'active':
+        return <Wifi className="w-3 h-3 text-green-400" />;
+      case 'closed':
+        return <WifiOff className="w-3 h-3 text-gray-400" />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusText = () => {
+    switch (connectionStatus) {
+      case 'connecting':
+        return 'Bağlanıyor...';
+      case 'waiting':
+        return 'Beklemede';
+      case 'active':
+        return agentName || 'Temsilci Çevrimiçi';
+      case 'closed':
+        return 'Sohbet Kapandı';
+      default:
+        return 'Çevrimdışı';
+    }
   };
 
   // Quick reply buttons
@@ -126,7 +200,7 @@ export function ChatWidget() {
     'Ödeme seçenekleri',
   ];
 
-  // KAPALI DURUM - Sürüklenebilir yarım daire buton
+  // CLOSED STATE - Draggable button
   if (!isOpen) {
     return (
       <button
@@ -148,7 +222,6 @@ export function ChatWidget() {
         )}
         title="Canlı Destek - Sürüklemek için tutun"
       >
-        {/* Grip göstergesi */}
         <GripVertical className="w-3 h-3 text-white/50 absolute left-1" />
         
         {unreadCount > 0 ? (
@@ -162,7 +235,6 @@ export function ChatWidget() {
           <ChevronLeft className="w-5 h-5" />
         )}
         
-        {/* Küçük nokta göstergeleri */}
         <div className="flex gap-0.5 mt-1">
           <span className="w-1 h-1 bg-white/40 rounded-full" />
           <span className="w-1 h-1 bg-white/40 rounded-full" />
@@ -171,11 +243,9 @@ export function ChatWidget() {
     );
   }
 
-  // AÇIK DURUM - Chat penceresi (her zaman sağ alttan)
+  // OPEN STATE - Chat window
   return (
-    <div 
-      className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-[24rem]"
-    >
+    <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-[24rem]">
       {/* Chat Header */}
       <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-2xl p-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -185,8 +255,8 @@ export function ChatWidget() {
           <div>
             <h3 className="font-semibold text-sm">Canlı Destek</h3>
             <p className="text-[10px] text-white/80 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-              Çevrimiçi
+              {getStatusIcon()}
+              {getStatusText()}
             </p>
           </div>
         </div>
@@ -196,8 +266,9 @@ export function ChatWidget() {
             size="icon"
             onClick={handleClear}
             className="text-white/80 hover:text-white hover:bg-white/20 h-8 w-8"
+            title="Sohbeti Sonlandır"
           >
-            <Trash2 className="w-4 h-4" />
+            <CheckCheck className="w-4 h-4" />
           </Button>
           <Button
             variant="ghost"
@@ -232,11 +303,15 @@ export function ChatWidget() {
                     'w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0',
                     message.sender === 'user'
                       ? 'bg-orange-100 text-orange-600'
+                      : message.sender === 'agent'
+                      ? 'bg-blue-100 text-blue-600'
                       : 'bg-muted text-muted-foreground'
                   )}
                 >
                   {message.sender === 'user' ? (
                     <User className="w-3 h-3" />
+                  ) : message.sender === 'agent' ? (
+                    <div className="text-[10px] font-bold">T</div>
                   ) : (
                     <Bot className="w-3 h-3" />
                   )}
@@ -248,6 +323,8 @@ export function ChatWidget() {
                     'max-w-[75%] rounded-2xl px-3 py-2 text-sm',
                     message.sender === 'user'
                       ? 'bg-orange-500 text-white rounded-br-none'
+                      : message.sender === 'agent'
+                      ? 'bg-blue-500 text-white rounded-bl-none'
                       : 'bg-muted dark:bg-gray-800 text-foreground dark:text-gray-200 rounded-bl-none'
                   )}
                 >
@@ -255,7 +332,8 @@ export function ChatWidget() {
                   <span
                     className={cn(
                       'text-[10px] mt-0.5 block',
-                      message.sender === 'user' ? 'text-orange-100' : 'text-muted-foreground'
+                      message.sender === 'user' ? 'text-orange-100' : 
+                      message.sender === 'agent' ? 'text-blue-100' : 'text-muted-foreground'
                     )}
                   >
                     {formatTime(message.timestamp)}
@@ -264,17 +342,32 @@ export function ChatWidget() {
               </div>
             ))}
 
-            {/* Typing Indicator */}
+            {/* Typing Indicators */}
             {isTyping && (
-              <div className="flex gap-2">
-                <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
-                  <Bot className="w-3 h-3 text-muted-foreground" />
+              <div className="flex gap-2 flex-row-reverse">
+                <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center">
+                  <User className="w-3 h-3 text-orange-600" />
                 </div>
-                <div className="bg-muted rounded-2xl rounded-bl-none px-3 py-2">
+                <div className="bg-orange-500 rounded-2xl rounded-br-none px-3 py-2">
                   <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="w-1.5 h-1.5 bg-orange-200 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 bg-orange-200 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 bg-orange-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isAgentTyping && (
+              <div className="flex gap-2">
+                <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                  <div className="text-[10px] font-bold text-blue-600">T</div>
+                </div>
+                <div className="bg-blue-500 rounded-2xl rounded-bl-none px-3 py-2">
+                  <div className="flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               </div>
@@ -283,19 +376,21 @@ export function ChatWidget() {
         </div>
 
         {/* Quick Replies */}
-        <div className="px-3 pb-2 flex flex-wrap gap-1.5">
-          {quickReplies.map((reply) => (
-            <button
-              key={reply}
-              onClick={() => {
-                addMessage(reply, 'user');
-              }}
-              className="text-[11px] px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
-            >
-              {reply}
-            </button>
-          ))}
-        </div>
+        {connectionStatus !== 'active' && (
+          <div className="px-3 pb-2 flex flex-wrap gap-1.5">
+            {quickReplies.map((reply) => (
+              <button
+                key={reply}
+                onClick={() => {
+                  sendMessage(reply);
+                }}
+                className="text-[11px] px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+              >
+                {reply}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Chat Input */}
@@ -308,18 +403,26 @@ export function ChatWidget() {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
+            disabled={connectionStatus === 'closed'}
             className="flex-1 h-9 text-sm"
           />
           <Button
             onClick={handleSend}
-            disabled={!inputMessage.trim()}
+            disabled={!inputMessage.trim() || connectionStatus === 'closed'}
             className="gradient-orange px-3 h-9"
           >
             <Send className="w-4 h-4" />
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground text-center mt-1.5">
-          Müşteri temsilcimiz en kısa sürede yanıt verecektir
+          {connectionStatus === 'active' 
+            ? 'Müşteri temsilcimizle canlı sohbet ediyorsunuz'
+            : connectionStatus === 'waiting'
+            ? 'Bekleme listesindesiniz, temsilcimiz bağlanacak'
+            : connectionStatus === 'closed'
+            ? 'Sohbet sonlandırıldı, yeni sohbet başlatabilirsiniz'
+            : 'Müşteri temsilcimiz en kısa sürede yanıt verecektir'
+          }
         </p>
       </div>
     </div>

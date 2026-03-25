@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { ordersApi } from '@/services/api';
+import { toast } from 'sonner';
 
 export interface OrderItem {
   productId: string;
@@ -21,30 +23,42 @@ export interface Order {
   };
   items: OrderItem[];
   total: number;
-  status: 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled';
-  paymentStatus: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled' | 'refunded';
+  paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
   paymentMethod: 'credit_card' | 'bank_transfer' | 'cash_on_delivery';
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  trackingNumber?: string;
+  shippingCompany?: string;
 }
 
 interface OrderState {
   orders: Order[];
-  addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'paymentStatus'>) => Order;
-  updateOrderStatus: (orderId: string, status: Order['status']) => void;
-  updatePaymentStatus: (orderId: string, status: Order['paymentStatus']) => void;
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions
+  addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'paymentStatus'>) => Promise<Order>;
+  updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
+  updatePaymentStatus: (orderId: string, status: Order['paymentStatus']) => Promise<void>;
+  updateTrackingInfo: (orderId: string, trackingNumber: string, shippingCompany: string) => Promise<void>;
+  cancelOrder: (orderId: string, reason?: string) => Promise<void>;
   getOrderById: (orderId: string) => Order | undefined;
   getOrdersByEmail: (email: string) => Order[];
   getAllOrders: () => Order[];
+  fetchOrdersFromServer: () => Promise<void>;
+  refundOrder: (orderId: string) => Promise<void>;
 }
 
 export const useOrderStore = create<OrderState>()(
   persist(
     (set, get) => ({
       orders: [],
+      isLoading: false,
+      error: null,
 
-      addOrder: (orderData) => {
+      addOrder: async (orderData) => {
         const newOrder: Order = {
           ...orderData,
           id: `ORD-${Date.now()}`,
@@ -54,6 +68,28 @@ export const useOrderStore = create<OrderState>()(
           updatedAt: new Date().toISOString(),
         };
 
+        // API'ye göndermeyi dene
+        try {
+          const savedOrder = await ordersApi.create({
+            customer: newOrder.customer,
+            email: newOrder.email,
+            phone: newOrder.phone,
+            shippingAddress: newOrder.address,
+            items: newOrder.items,
+            total: newOrder.total,
+            paymentMethod: newOrder.paymentMethod,
+            notes: newOrder.notes,
+          });
+          
+          // API'den dönen order ID'yi kullan
+          if (savedOrder && savedOrder.id) {
+            newOrder.id = savedOrder.id;
+          }
+        } catch (error) {
+          console.error('Failed to save order to server:', error);
+          // Local olarak devam et
+        }
+
         set((state) => ({
           orders: [newOrder, ...state.orders],
         }));
@@ -61,7 +97,20 @@ export const useOrderStore = create<OrderState>()(
         return newOrder;
       },
 
-      updateOrderStatus: (orderId, status) => {
+      updateOrderStatus: async (orderId, status) => {
+        const order = get().orders.find(o => o.id === orderId);
+        if (!order) {
+          toast.error('Sipariş bulunamadı');
+          return;
+        }
+
+        // API'ye göndermeyi dene
+        try {
+          await ordersApi.updateStatus(orderId, status);
+        } catch (error) {
+          console.error('Failed to update order status on server:', error);
+        }
+
         set((state) => ({
           orders: state.orders.map((order) =>
             order.id === orderId
@@ -69,9 +118,30 @@ export const useOrderStore = create<OrderState>()(
               : order
           ),
         }));
+        
+        // Bildirim göster
+        const statusLabels: Record<string, string> = {
+          pending: 'Beklemede',
+          processing: 'İşleniyor',
+          shipped: 'Kargoda',
+          completed: 'Tamamlandı',
+          cancelled: 'İptal Edildi',
+          refunded: 'İade Edildi'
+        };
+        toast.success(`Sipariş durumu güncellendi: ${statusLabels[status]}`);
       },
 
-      updatePaymentStatus: (orderId, paymentStatus) => {
+      updatePaymentStatus: async (orderId, paymentStatus) => {
+        // API'ye göndermeyi dene
+        try {
+          const order = get().orders.find(o => o.id === orderId);
+          if (order) {
+            await ordersApi.update(orderId, { ...order, paymentStatus });
+          }
+        } catch (error) {
+          console.error('Failed to update payment status on server:', error);
+        }
+
         set((state) => ({
           orders: state.orders.map((order) =>
             order.id === orderId
@@ -79,6 +149,117 @@ export const useOrderStore = create<OrderState>()(
               : order
           ),
         }));
+      },
+
+      updateTrackingInfo: async (orderId, trackingNumber, shippingCompany) => {
+        const order = get().orders.find(o => o.id === orderId);
+        if (!order) {
+          toast.error('Sipariş bulunamadı');
+          return;
+        }
+
+        // API'ye göndermeyi dene
+        try {
+          await ordersApi.update(orderId, { 
+            ...order, 
+            trackingNumber, 
+            shippingCompany,
+            status: 'shipped' 
+          });
+        } catch (error) {
+          console.error('Failed to update tracking info on server:', error);
+        }
+
+        set((state) => ({
+          orders: state.orders.map((o) =>
+            o.id === orderId
+              ? { 
+                  ...o, 
+                  trackingNumber, 
+                  shippingCompany, 
+                  status: 'shipped',
+                  updatedAt: new Date().toISOString() 
+                }
+              : o
+          ),
+        }));
+        
+        toast.success('Kargo bilgileri güncellendi');
+      },
+
+      cancelOrder: async (orderId, reason) => {
+        const order = get().orders.find(o => o.id === orderId);
+        if (!order) {
+          toast.error('Sipariş bulunamadı');
+          return;
+        }
+
+        if (order.status === 'completed') {
+          toast.error('Tamamlanmış sipariş iptal edilemez. İade işlemi yapın.');
+          return;
+        }
+
+        if (order.status === 'cancelled') {
+          toast.error('Sipariş zaten iptal edilmiş.');
+          return;
+        }
+
+        // API'ye göndermeyi dene
+        try {
+          await ordersApi.updateStatus(orderId, 'cancelled');
+        } catch (error) {
+          console.error('Failed to cancel order on server:', error);
+        }
+
+        set((state) => ({
+          orders: state.orders.map((o) =>
+            o.id === orderId
+              ? { 
+                  ...o, 
+                  status: 'cancelled', 
+                  notes: reason ? `${o.notes || ''} | İptal Nedeni: ${reason}` : o.notes,
+                  updatedAt: new Date().toISOString() 
+                }
+              : o
+          ),
+        }));
+        
+        toast.success('Sipariş iptal edildi. Stok otomatik olarak güncellendi.');
+      },
+      
+      refundOrder: async (orderId) => {
+        const order = get().orders.find(o => o.id === orderId);
+        if (!order) {
+          toast.error('Sipariş bulunamadı');
+          return;
+        }
+
+        if (order.status !== 'completed') {
+          toast.error('Sadece tamamlanmış siparişler iade edilebilir.');
+          return;
+        }
+
+        // API'ye göndermeyi dene
+        try {
+          await ordersApi.updateStatus(orderId, 'refunded');
+        } catch (error) {
+          console.error('Failed to refund order on server:', error);
+        }
+
+        set((state) => ({
+          orders: state.orders.map((o) =>
+            o.id === orderId
+              ? { 
+                  ...o, 
+                  status: 'refunded',
+                  paymentStatus: 'refunded',
+                  updatedAt: new Date().toISOString() 
+                }
+              : o
+          ),
+        }));
+        
+        toast.success('Sipariş iade edildi. Stok otomatik olarak güncellendi.');
       },
 
       getOrderById: (orderId) => {
@@ -91,6 +272,19 @@ export const useOrderStore = create<OrderState>()(
 
       getAllOrders: () => {
         return get().orders;
+      },
+      
+      fetchOrdersFromServer: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const orders = await ordersApi.getAll();
+          if (Array.isArray(orders)) {
+            set({ orders, isLoading: false });
+          }
+        } catch (error) {
+          console.error('Failed to fetch orders:', error);
+          set({ error: 'Siparişler yüklenirken hata oluştu', isLoading: false });
+        }
       },
     }),
     {
