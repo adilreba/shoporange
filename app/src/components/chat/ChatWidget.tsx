@@ -12,8 +12,7 @@ import {
   Package,
   Truck,
   RefreshCcw,
-  CreditCard,
-  GripVertical
+  CreditCard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -135,7 +134,7 @@ export function ChatWidget() {
   const [positionY, setPositionY] = useState(() => {
     const saved = getSavedPosition();
     if (saved) return saved;
-    return typeof window !== 'undefined' ? window.innerHeight / 2 - 150 : 300;
+    return typeof window !== 'undefined' ? window.innerHeight / 2 : 300;
   });
   
   const [isDragging, setIsDragging] = useState(false);
@@ -175,7 +174,7 @@ export function ChatWidget() {
 
   // Sürükleme olayları
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (isOpen) return; // Açıkken sürüklemeye izin verme
+    if (isOpen) return;
     
     setIsDragging(true);
     setDragStartY(e.clientY - positionY);
@@ -195,9 +194,10 @@ export function ChatWidget() {
       
       const newY = e.clientY - dragStartY;
       
-      // Ekran sınırları
-      const minY = 100;
-      const maxY = window.innerHeight - 200;
+      // Ekran sınırları (butonun ortası için)
+      const buttonHeight = 56; // w-14 h-14 = 56px
+      const minY = buttonHeight / 2;
+      const maxY = window.innerHeight - buttonHeight / 2;
       
       const clampedY = Math.max(minY, Math.min(maxY, newY));
       setPositionY(clampedY);
@@ -209,8 +209,9 @@ export function ChatWidget() {
       const touch = e.touches[0];
       const newY = touch.clientY - dragStartY;
       
-      const minY = 100;
-      const maxY = window.innerHeight - 200;
+      const buttonHeight = 56;
+      const minY = buttonHeight / 2;
+      const maxY = window.innerHeight - buttonHeight / 2;
       
       const clampedY = Math.max(minY, Math.min(maxY, newY));
       setPositionY(clampedY);
@@ -348,7 +349,7 @@ export function ChatWidget() {
 
       {/* Ana Container */}
       <div className="fixed right-0 top-0 h-full z-50 pointer-events-none">
-        {/* Kapalı durum - Sağda sürüklenebilir buton */}
+        {/* Kapalı durum - Sadece 💬 ikonu, sağda sürüklenebilir */}
         {!isOpen && (
           <button
             ref={buttonRef}
@@ -362,43 +363,22 @@ export function ChatWidget() {
               transform: 'translateY(-50%)'
             }}
             className={cn(
-              "flex items-center gap-2",
-              "bg-gradient-to-r from-orange-500 to-orange-600",
-              "text-white pl-3 pr-2 py-4",
-              "rounded-l-xl shadow-2xl",
+              "w-14 h-14 flex items-center justify-center",
+              "bg-gradient-to-br from-orange-500 to-orange-600",
+              "text-white rounded-l-2xl shadow-2xl",
               "pointer-events-auto",
               "transition-all duration-200",
-              isDragging ? "cursor-grabbing scale-105 shadow-orange-500/50" : "cursor-grab hover:pr-3"
+              isDragging ? "cursor-grabbing scale-110 shadow-orange-500/50" : "cursor-grab hover:scale-105"
             )}
           >
-            {/* Tutamaç ikonu */}
-            <GripVertical className={cn(
-              "w-4 h-4 text-white/60",
-              isDragging && "text-white"
-            )} />
-            
             <div className="relative">
-              <MessageCircle className="w-5 h-5" />
+              <MessageCircle className="w-7 h-7" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
                   {unreadCount}
                 </span>
               )}
             </div>
-            
-            {/* Dikey yazı */}
-            <span 
-              className="text-xs font-medium writing-mode-vertical"
-              style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-            >
-              Destek
-            </span>
-            
-            {/* Online göstergesi */}
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-            </span>
           </button>
         )}
 
