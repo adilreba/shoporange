@@ -220,12 +220,22 @@ export const useChatStore = create<ChatState>()(
         newWs.onclose = (event) => {
           console.log('[Chat] WebSocket disconnected:', event.code, event.reason);
           
-          // Show error message if connection failed (not intentional close)
-          if (event.code !== 1000 && event.code !== 1001) {
+          // Handle specific error codes
+          let errorMessage = 'Bağlantı kesildi.';
+          if (event.code === 1006) {
+            errorMessage = '⚠️ Canlı destek sunucusuna bağlanılamadı (Hata 1006). Demo modda devam ediliyor...';
+          } else if (event.code !== 1000 && event.code !== 1001) {
+            errorMessage = 'Bağlantı hatası oluştu. Demo modda devam ediliyor...';
+          }
+          
+          // Only show error once
+          const messages = get().messages;
+          const lastMessage = messages[messages.length - 1];
+          if (!lastMessage?.text?.includes('Demo modda')) {
             set({ 
-              messages: [...get().messages, {
+              messages: [...messages, {
                 id: 'closed-' + Date.now(),
-                text: 'Bağlantı kesildi. Yeniden bağlanmak için pencereyi kapatıp açın.',
+                text: errorMessage,
                 sender: 'bot',
                 timestamp: new Date().toISOString(),
                 isRead: true,
@@ -236,23 +246,13 @@ export const useChatStore = create<ChatState>()(
           set({ 
             ws: null, 
             isConnected: false,
-            connectionStatus: 'idle'
+            connectionStatus: 'closed'
           });
         };
 
         newWs.onerror = (error) => {
           console.error('[Chat] WebSocket error:', error);
-          set({ 
-            connectionStatus: 'closed',
-            isConnected: false,
-            messages: [...get().messages, {
-              id: 'error-' + Date.now(),
-              text: 'Bağlantı hatası oluştu. Lütfen sayfayı yenileyip tekrar deneyin.',
-              sender: 'bot',
-              timestamp: new Date().toISOString(),
-              isRead: true,
-            }]
-          });
+          // Don't show error message here, let onclose handle it
         };
 
         set({ ws: newWs });
@@ -273,21 +273,33 @@ export const useChatStore = create<ChatState>()(
         }
       },
 
-      // Send message via WebSocket
+      // Send message via WebSocket or fallback to auto-response
       sendMessage: (text: string) => {
-        const { ws, sessionId, isConnected, agentId } = get();
+        const { ws, sessionId, isConnected, agentId, connectionStatus } = get();
 
+        // Always add user message to UI
+        get().addMessage(text, 'user');
+
+        // Try to send via WebSocket if connected
         if (isConnected && ws?.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({
             action: 'send_message',
             message: text,
             sessionId
           }));
+        } else if (connectionStatus === 'closed' || connectionStatus === 'idle') {
+          // WebSocket not connected - show info message once
+          const messages = get().messages;
+          const lastMsg = messages[messages.length - 2]; // Before user message
+          if (!lastMsg?.text?.includes('Demo modda')) {
+            get().addMessage(
+              '🤖 Demo mod: Canlı destek sunucusu şu anda bağlı değil. Bot otomatik yanıt veriyor.',
+              'bot'
+            );
+          }
         }
 
-        get().addMessage(text, 'user');
-
-        // If no agent connected, use auto-response
+        // Always provide auto-response (works even without WebSocket)
         if (!agentId) {
           set({ isTyping: true });
           
@@ -303,12 +315,12 @@ export const useChatStore = create<ChatState>()(
             }
 
             if (!response) {
-              response = 'Anladım. Konuyu müşteri temsilcimize aktarıyorum. Lütfen biraz bekleyin...\n\nSıkça sorulan konular: sipariş, kargo, iade, ödeme, indirim, stok';
+              response = 'Anladım. Size yardımcı olmak için elimden geleni yapıyorum.\n\nDaha detaylı bilgi için:\n• Sipariş takibi: sipariş\n• Kargo bilgisi: kargo\n• İade işlemleri: iade\n• Ödeme seçenekleri: ödeme';
             }
 
             set({ isTyping: false });
             get().addMessage(response, 'bot');
-          }, 1000 + Math.random() * 1000);
+          }, 800 + Math.random() * 800);
         }
       },
 
