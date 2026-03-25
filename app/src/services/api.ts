@@ -1,6 +1,45 @@
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://your-api-gateway-url.execute-api.eu-west-1.amazonaws.com/prod';
 
+// Mock kullanıcılar (development/demo için)
+const MOCK_USERS = [
+  {
+    id: 'admin-1',
+    email: 'admin@atushome.com',
+    password: 'admin123',
+    name: 'Admin Kullanıcı',
+    role: 'admin',
+    phone: '+90 555 999 8888',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+    address: [],
+    createdAt: '2024-01-01'
+  },
+  {
+    id: 'user-1',
+    email: 'test@example.com',
+    password: 'password123',
+    name: 'Test Kullanıcı',
+    role: 'user',
+    phone: '+90 555 123 4567',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+    address: [
+      {
+        id: 'addr-1',
+        title: 'Ev',
+        fullName: 'Test Kullanıcı',
+        phone: '+90 555 123 4567',
+        city: 'İstanbul',
+        district: 'Kadıköy',
+        neighborhood: 'Moda',
+        addressLine: 'Moda Caddesi No:123 D:5',
+        zipCode: '34710',
+        isDefault: true
+      }
+    ],
+    createdAt: '2024-01-01'
+  }
+];
+
 // Helper function for API calls
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const token = localStorage.getItem('auth_token');
@@ -27,55 +66,181 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   return response.json();
 }
 
+// Check if using mock API (no real backend configured)
+const isMockMode = () => {
+  return !import.meta.env.VITE_API_URL || 
+         import.meta.env.VITE_API_URL === 'https://your-api-gateway-url.execute-api.eu-west-1.amazonaws.com/prod';
+};
+
 // ====================
-// Auth API
+// Auth API (with Mock Support)
 // ====================
 export const authApi = {
-  login: (email: string, password: string) =>
-    fetchApi('/auth/login', {
+  login: async (email: string, password: string) => {
+    // Mock mode - local authentication
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+      
+      const user = MOCK_USERS.find(u => u.email === email && u.password === password);
+      
+      if (!user) {
+        throw new Error('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
+      }
+      
+      // Don't send password in response
+      const { password: _, ...userWithoutPassword } = user;
+      
+      return {
+        token: `mock_token_${user.id}_${Date.now()}`,
+        user: userWithoutPassword
+      };
+    }
+    
+    // Real API mode
+    return fetchApi('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
-    }),
+    });
+  },
 
-  register: (data: {
+  register: async (data: {
     email: string;
     password: string;
     name: string;
     phone?: string;
-  }) =>
-    fetchApi('/auth/register', {
+  }) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Check if email already exists
+      if (MOCK_USERS.some(u => u.email === data.email)) {
+        throw new Error('Bu e-posta adresi zaten kayıtlı.');
+      }
+      
+      const newUser = {
+        id: `user-${Date.now()}`,
+        email: data.email,
+        password: data.password,
+        name: data.name,
+        role: 'user',
+        phone: data.phone || '',
+        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+        address: [],
+        createdAt: new Date().toISOString()
+      };
+      
+      MOCK_USERS.push(newUser);
+      
+      const { password: _, ...userWithoutPassword } = newUser;
+      
+      return {
+        token: `mock_token_${newUser.id}_${Date.now()}`,
+        user: userWithoutPassword
+      };
+    }
+    
+    return fetchApi('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
-  logout: () =>
-    fetchApi('/auth/logout', {
+  logout: async () => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      return { success: true };
+    }
+    
+    return fetchApi('/auth/logout', {
       method: 'POST',
-    }),
+    });
+  },
 
-  verifyToken: (token: string) =>
-    fetchApi('/auth/verify', {
+  verifyToken: async (token: string) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Extract user ID from mock token
+      const match = token.match(/mock_token_(.+?)_/);
+      if (!match) {
+        throw new Error('Geçersiz token');
+      }
+      
+      const userId = match[1];
+      const user = MOCK_USERS.find(u => u.id === userId);
+      
+      if (!user) {
+        throw new Error('Kullanıcı bulunamadı');
+      }
+      
+      const { password: _, ...userWithoutPassword } = user;
+      
+      return { user: userWithoutPassword };
+    }
+    
+    return fetchApi('/auth/verify', {
       method: 'POST',
       body: JSON.stringify({ token }),
-    }),
+    });
+  },
 
-  forgotPassword: (email: string) =>
-    fetchApi('/auth/forgot-password', {
+  forgotPassword: async (email: string) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const user = MOCK_USERS.find(u => u.email === email);
+      if (!user) {
+        throw new Error('Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.');
+      }
+      
+      return { message: 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.' };
+    }
+    
+    return fetchApi('/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email }),
-    }),
+    });
+  },
 
-  resetPassword: (token: string, password: string) =>
-    fetchApi('/auth/reset-password', {
+  resetPassword: async (token: string, password: string) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return { message: 'Şifreniz başarıyla güncellendi.' };
+    }
+    
+    return fetchApi('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify({ token, password }),
-    }),
+    });
+  },
 
-  socialLogin: (provider: 'google' | 'facebook', token: string) =>
-    fetchApi(`/auth/${provider}`, {
+  socialLogin: async (provider: 'google' | 'facebook', token: string) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // For demo, create or return a mock user for social login
+      const mockSocialUser = {
+        id: `social-${provider}-${Date.now()}`,
+        email: `demo@${provider}.com`,
+        name: `${provider} Kullanıcı`,
+        role: 'user',
+        phone: '',
+        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+        address: [],
+        createdAt: new Date().toISOString()
+      };
+      
+      return {
+        token: `mock_token_${mockSocialUser.id}_${Date.now()}`,
+        user: mockSocialUser
+      };
+    }
+    
+    return fetchApi(`/auth/${provider}`, {
       method: 'POST',
       body: JSON.stringify({ token }),
-    }),
+    });
+  },
 };
 
 // ====================

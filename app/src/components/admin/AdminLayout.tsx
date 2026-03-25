@@ -16,7 +16,8 @@ import {
   Percent,
   Tag,
   Warehouse,
-  Headphones
+  Headphones,
+  Truck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useThemeStore } from '@/stores/themeStore';
@@ -30,6 +31,7 @@ const menuItems = [
   { path: '/admin/coupons', icon: Percent, label: 'Kuponlar' },
   { path: '/admin/campaigns', icon: Tag, label: 'Kampanyalar' },
   { path: '/admin/users', icon: Users, label: 'Kullanıcılar' },
+  { path: '/admin/shipping', icon: Truck, label: 'Kargo' },
   { path: '/admin/support', icon: Headphones, label: 'Canlı Destek' },
   { path: '/admin/settings', icon: Settings, label: 'Ayarlar' },
 ];

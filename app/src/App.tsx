@@ -49,6 +49,7 @@ import AdminCoupons from '@/pages/Admin/Coupons';
 import AdminCampaigns from '@/pages/Admin/Campaigns';
 import StockManagement from '@/pages/Admin/StockManagement';
 import AgentDashboard from '@/pages/Admin/AgentDashboard';
+import ShippingSettings from '@/pages/Admin/ShippingSettings';
 
 // Protected Route Component
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
@@ -204,6 +205,7 @@ function App() {
           <Route path="coupons" element={<AdminCoupons />} />
           <Route path="campaigns" element={<AdminCampaigns />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="shipping" element={<ShippingSettings />} />
           <Route path="support" element={<AgentDashboard />} />
         </Route>
         

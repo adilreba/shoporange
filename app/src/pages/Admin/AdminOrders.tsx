@@ -14,10 +14,15 @@ import {
   MapPin,
   Phone,
   Mail,
-  RotateCcw
+  RotateCcw,
+  ExternalLink,
+  AlertCircle,
+  Building2,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -48,6 +53,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useOrderStore, type Order } from '@/stores/orderStore';
+import { useShippingStore, shippingCompanyInfo } from '@/stores/shippingStore';
 import { toast } from 'sonner';
 
 const statusConfig = {
@@ -67,12 +73,19 @@ const paymentStatusConfig = {
 };
 
 export default function AdminOrders() {
-  const { orders, updateOrderStatus, updatePaymentStatus } = useOrderStore();
+  const { orders, updateOrderStatus, updatePaymentStatus, updateTrackingInfo } = useOrderStore();
+  const { companies, getActiveCompanies, getDefaultCompany, findBestCompanyForCity } = useShippingStore();
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isShippingModalOpen, setIsShippingModalOpen] = useState(false);
+  const [shippingOrder, setShippingOrder] = useState<Order | null>(null);
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [selectedShippingCompany, setSelectedShippingCompany] = useState('');
+  const [isCreatingShipment, setIsCreatingShipment] = useState(false);
+  const [autoAssignedCompany, setAutoAssignedCompany] = useState<{id: string; name: string; branchName: string} | null>(null);
 
   // Refresh orders from store
   useEffect(() => {
@@ -123,6 +136,69 @@ export default function AdminOrders() {
   const openOrderDetail = (order: Order) => {
     setSelectedOrder(order);
     setIsDetailOpen(true);
+  };
+
+  const openShippingModal = (order: Order) => {
+    setShippingOrder(order);
+    setTrackingNumber(order.trackingNumber || '');
+    
+    // Müşteri şehrine göre en uygun şubeyi bul
+    const customerCity = order.address?.city || '';
+    const bestCompany = findBestCompanyForCity(customerCity);
+    
+    if (bestCompany) {
+      setSelectedShippingCompany(order.shippingCompany || bestCompany.id);
+      setAutoAssignedCompany({
+        id: bestCompany.id,
+        name: bestCompany.name,
+        branchName: bestCompany.branchInfo.branchName
+      });
+    } else {
+      const defaultCompany = getDefaultCompany();
+      setSelectedShippingCompany(order.shippingCompany || defaultCompany?.id || '');
+      setAutoAssignedCompany(null);
+    }
+    
+    setIsShippingModalOpen(true);
+  };
+
+  const handleCreateShipment = async () => {
+    if (!shippingOrder || !trackingNumber.trim() || !selectedShippingCompany) {
+      toast.error('Lütfen kargo bilgilerini eksiksiz doldurun');
+      return;
+    }
+
+    setIsCreatingShipment(true);
+
+    try {
+      // Kargo oluşturma simülasyonu
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Eğer tracking number yoksa otomatik oluştur (test amaçlı)
+      const finalTrackingNumber = trackingNumber.trim() || 
+        `${selectedShippingCompany.toUpperCase().substring(0, 3)}${Date.now().toString().slice(-10)}`;
+      
+      await updateTrackingInfo(shippingOrder.id, finalTrackingNumber, selectedShippingCompany);
+      
+      toast.success('Kargo oluşturuldu ve sipariş durumu güncellendi');
+      setIsShippingModalOpen(false);
+      setShippingOrder(null);
+      setTrackingNumber('');
+    } catch (error) {
+      toast.error('Kargo oluşturulurken bir hata oluştu');
+    } finally {
+      setIsCreatingShipment(false);
+    }
+  };
+
+  const getTrackingUrl = (order: Order) => {
+    if (!order.shippingCompany || !order.trackingNumber) return null;
+    
+    const company = companies.find(c => c.id === order.shippingCompany);
+    if (!company) return null;
+    
+    const info = shippingCompanyInfo[company.type];
+    return info?.trackingUrl?.replace('{trackingNumber}', order.trackingNumber) || null;
   };
 
   return (
@@ -272,6 +348,26 @@ export default function AdminOrders() {
                       </TableCell>
                       <TableCell>
                         <p className="text-sm">{formatDate(order.createdAt)}</p>
+                        {order.trackingNumber && order.shippingCompany && (
+                          <div className="mt-1 space-y-0.5">
+                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                              <Building2 className="w-3 h-3" />
+                              {(() => {
+                                const company = companies.find(c => c.id === order.shippingCompany);
+                                return company ? company.branchInfo.branchName : order.shippingCompany;
+                              })()}
+                            </div>
+                            <a 
+                              href={getTrackingUrl(order) || '#'} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-xs text-orange-600 hover:underline flex items-center gap-1"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              {order.trackingNumber}
+                            </a>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={paymentStatusConfig[order.paymentStatus].color}>
@@ -302,9 +398,9 @@ export default function AdminOrders() {
                               <Package className="w-4 h-4 mr-2" />
                               İşleme Al
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'shipped')}>
+                            <DropdownMenuItem onClick={() => openShippingModal(order)}>
                               <Truck className="w-4 h-4 mr-2" />
-                              Kargoya Ver
+                              Kargo Oluştur
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'completed')}>
                               <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
@@ -335,6 +431,59 @@ export default function AdminOrders() {
           
           {selectedOrder && (
             <div className="space-y-6">
+              {/* Shipping Info */}
+              {selectedOrder.shippingCompany && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Truck className="w-5 h-5 text-blue-600" />
+                    Kargo Bilgileri
+                  </h3>
+                  <div className="space-y-2">
+                    {(() => {
+                      const company = companies.find(c => c.id === selectedOrder.shippingCompany);
+                      return (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Kargo Firması</span>
+                            <span className="font-medium">
+                              {company?.name || selectedOrder.shippingCompany}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Şube</span>
+                            <span className="font-medium">
+                              {company?.branchInfo.branchName || 'Bilinmiyor'}
+                              {company?.branchInfo.branchCity && (
+                                <span className="text-gray-500 text-sm"> ({company.branchInfo.branchCity})</span>
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Şube Kodu</span>
+                            <span className="font-mono text-sm">{company?.branchInfo.branchCode || '-'}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Takip Numarası</span>
+                      <span className="font-mono font-medium">{selectedOrder.trackingNumber}</span>
+                    </div>
+                    {getTrackingUrl(selectedOrder) && (
+                      <a 
+                        href={getTrackingUrl(selectedOrder) || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline mt-2"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Kargoyu Takip Et
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Status & Payment */}
               <div className="flex gap-4">
                 <div className="flex-1">
@@ -435,6 +584,183 @@ export default function AdminOrders() {
                   <span className="text-xl font-bold">Toplam</span>
                   <span className="text-2xl font-bold text-orange-600">₺{selectedOrder.total.toLocaleString()}</span>
                 </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Shipping Modal */}
+      <Dialog open={isShippingModalOpen} onOpenChange={setIsShippingModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Kargo Oluştur</DialogTitle>
+          </DialogHeader>
+          
+          {shippingOrder && (
+            <div className="space-y-4 mt-4">
+              {/* Order Summary */}
+              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium">{shippingOrder.customer}</p>
+                    <p className="text-xs text-gray-500">{shippingOrder.id}</p>
+                    <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {shippingOrder.address?.city}
+                    </p>
+                  </div>
+                  <p className="text-sm font-bold">₺{shippingOrder.total.toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Auto Assignment Info */}
+              {autoAssignedCompany && selectedShippingCompany === autoAssignedCompany.id && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                  <p className="text-sm text-green-800 dark:text-green-200 flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    <span>
+                      <strong>{autoAssignedCompany.branchName}</strong> şubesi otomatik atandı
+                      ({shippingOrder.address?.city} için en uygun şube)
+                    </span>
+                  </p>
+                </div>
+              )}
+
+              {/* Shipping Company Selection */}
+              <div className="space-y-2">
+                <Label>Gönderim Yapılacak Şube *</Label>
+                <Select 
+                  value={selectedShippingCompany} 
+                  onValueChange={setSelectedShippingCompany}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Şube seçin" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-80">
+                    {/* Şehre göre önerilen şubeler */}
+                    {shippingOrder.address?.city && (
+                      <>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">
+                          {shippingOrder.address.city} İçin Önerilen
+                        </div>
+                        {companies
+                          .filter(c => c.isActive && (
+                            c.branchInfo.branchCity === shippingOrder.address?.city ||
+                            c.settings.serviceCities.includes(shippingOrder.address?.city || '')
+                          ))
+                          .map((company) => (
+                            <SelectItem key={company.id} value={company.id}>
+                              <span className="flex items-center gap-2">
+                                <Building2 className="w-4 h-4 text-green-500" />
+                                <span className="font-medium">{company.branchInfo.branchName}</span>
+                                <span className="text-gray-400">-</span>
+                                <span>{company.name}</span>
+                                {company.isDefault && (
+                                  <Badge variant="secondary" className="text-xs">Varsayılan</Badge>
+                                )}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        <div className="border-t my-2" />
+                      </>
+                    )}
+                    
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">
+                      Tüm Aktif Şubeler
+                    </div>
+                    {getActiveCompanies().map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        <span className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium">{company.branchInfo.branchName}</span>
+                          <span className="text-gray-400">-</span>
+                          <span>{company.name}</span>
+                          <span className="text-xs text-gray-400">({company.branchInfo.branchCity})</span>
+                          {company.credentials.testMode && (
+                            <span className="text-xs text-orange-500">[Test]</span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                {selectedShippingCompany && (
+                  <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                    {(() => {
+                      const company = companies.find(c => c.id === selectedShippingCompany);
+                      if (!company) return null;
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{company.branchInfo.branchName}</span>
+                          <span>•</span>
+                          <span>{company.branchInfo.branchCity}</span>
+                          <span>•</span>
+                          <span className="font-mono">Şube: {company.branchInfo.branchCode}</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+                
+                {companies.length === 0 && (
+                  <p className="text-xs text-orange-600">
+                    Henüz kargo şubesi eklenmemiş.{' '}
+                    <a href="/admin/shipping" className="underline">Ayarlara git</a>
+                  </p>
+                )}
+              </div>
+
+              {/* Tracking Number */}
+              <div className="space-y-2">
+                <Label>Takip Numarası *</Label>
+                <Input
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  placeholder="Örn: YT1234567890"
+                />
+                <p className="text-xs text-gray-500">
+                  Kargo şirketinden aldığınız takip numarasını girin
+                </p>
+              </div>
+
+              {/* Warning for test mode */}
+              {selectedShippingCompany && companies.find(c => c.id === selectedShippingCompany)?.credentials.testMode && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    Test modu aktif. Gerçek kargo gönderimi yapılmayacak.
+                  </p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => setIsShippingModalOpen(false)}
+                >
+                  İptal
+                </Button>
+                <Button 
+                  className="flex-1 gradient-orange"
+                  onClick={handleCreateShipment}
+                  disabled={isCreatingShipment || !selectedShippingCompany || companies.length === 0}
+                >
+                  {isCreatingShipment ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Oluşturuluyor...
+                    </>
+                  ) : (
+                    <>
+                      <Truck className="w-4 h-4 mr-2" />
+                      Kargo Oluştur
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           )}
