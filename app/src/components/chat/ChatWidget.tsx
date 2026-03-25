@@ -306,7 +306,7 @@ export function ChatWidget() {
                 {/* Avatar */}
                 <div
                   className={cn(
-                    'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5',
+                    'w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5',
                     message.sender === 'user'
                       ? 'bg-orange-100 text-orange-600'
                       : message.sender === 'agent'
@@ -315,31 +315,31 @@ export function ChatWidget() {
                   )}
                 >
                   {message.sender === 'user' ? (
-                    <User className="w-2.5 h-2.5" />
+                    <User className="w-2 h-2" />
                   ) : message.sender === 'agent' ? (
-                    <div className="text-[8px] font-medium">T</div>
+                    <div className="text-[7px] font-medium">T</div>
                   ) : (
-                    <Bot className="w-2.5 h-2.5" />
+                    <Bot className="w-2 h-2" />
                   )}
                 </div>
 
                 {/* Message Bubble */}
                 <div
                   className={cn(
-                    'max-w-[85%] rounded-2xl px-3 py-2 text-[10px] leading-5',
+                    'max-w-[78%] rounded-xl px-2 py-1.5 text-[9px] leading-4',
                     message.sender === 'user'
                       ? 'bg-orange-500 text-white rounded-br-md'
                       : message.sender === 'agent'
                       ? 'bg-blue-500 text-white rounded-bl-md'
-                      : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-md'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-md'
                   )}
                 >
-                  <p className="whitespace-pre-line font-normal">{message.text}</p>
+                  <p className="whitespace-pre-line">{message.text}</p>
                   <span
                     className={cn(
-                      'text-[9px] mt-1 block opacity-60',
-                      message.sender === 'user' ? 'text-white/70' : 
-                      message.sender === 'agent' ? 'text-white/70' : 'text-gray-400'
+                      'text-[8px] mt-0.5 block opacity-50',
+                      message.sender === 'user' ? 'text-white/60' : 
+                      message.sender === 'agent' ? 'text-white/60' : 'text-gray-400'
                     )}
                   >
                     {formatTime(message.timestamp)}

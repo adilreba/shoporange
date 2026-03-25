@@ -57,15 +57,15 @@ console.log('[Chat] WebSocket URL:', WS_ENDPOINT);
 
 // Auto-responses for common questions (fallback when no agent connected)
 const autoResponses: Record<string, string> = {
-  'merhaba': 'Merhaba! 👋 Size yardımcı olmaktan memnuniyet duyarım. Ne hakkında bilgi almak istersiniz?',
+  'merhaba': 'Merhaba! Sipariş, kargo, iade veya ödeme hakkında yardımcı olabilirim.',
   'selam': 'Merhaba! Size nasıl yardımcı olabilirim?',
-  'sipariş': 'Siparişlerinizi hesabınızdan takip edebilirsiniz. Yardımcı olmamı ister misiniz?',
-  'kargo': '500₺ ve üzeri alışverişlerinizde kargo ücretsizdir. Siparişiniz 1-3 iş günü içinde kargoya verilir.',
-  'iade': 'Tabii, 14 gün içinde koşulsuz iade hakkınız var. Hesabınızdan başvuru yapabilirsiniz.',
-  'ödeme': 'Kredi kartı, banka kartı ve havale/EFT ile ödeme yapabilirsiniz. Güvenli ödeme alt yapımız mevcuttur.',
-  'indirim': 'Güncel kampanyalarımızı ana sayfamızdan takip edebilirsiniz. Bültenimize abone olursanız özel fırsatlardan haberdar olabilirsiniz.',
-  'stok': 'Ürün stok bilgisini ürün sayfasında görebilirsiniz. İsterseniz stok alarmı kurabilir, ürün gelince haberdar olabilirsiniz.',
-  'yardım': 'Size sipariş, kargo, iade ve ödeme konularında yardımcı olabilirim. Ne hakkında bilgi almak istersiniz?',
+  'sipariş': 'Siparişlerinizi hesabınızdan takip edebilirsiniz.',
+  'kargo': '500₺+ siparişlerde kargo bedava. 1-3 günde kargoya verilir.',
+  'iade': '14 gün içinde koşulsuz iade yapabilirsiniz.',
+  'ödeme': 'Kredi kartı, havale/EFT ile ödeme yapabilirsiniz.',
+  'indirim': 'Kampanyalarımızı ana sayfadan takip edebilirsiniz.',
+  'stok': 'Stok bilgisini ürün sayfasında görebilirsiniz.',
+  'yardım': 'Sipariş, kargo, iade ve ödeme hakkında bilgi verebilirim.',
 };
 
 export const useChatStore = create<ChatState>()(
@@ -81,7 +81,7 @@ export const useChatStore = create<ChatState>()(
       messages: [
         {
           id: 'welcome',
-          text: 'Merhaba! 👋\n\nSize nasıl yardımcı olabilirim? Sipariş, kargo, iade veya ödeme hakkında bilgi alabilirsiniz.',
+          text: 'Merhaba! 👋 Sipariş, kargo, iade veya ödeme hakkında yardımcı olabilirim.',
           sender: 'bot',
           timestamp: new Date().toISOString(),
           isRead: true,
@@ -223,7 +223,7 @@ export const useChatStore = create<ChatState>()(
           // Handle specific error codes
           let errorMessage = 'Bağlantı kesildi.';
           if (event.code === 1006) {
-            errorMessage = '⚠️ Canlı destek kapalı. Bot modunda devam ediliyor.';
+            errorMessage = '⚠️ Canlı destek kapalı. Bot aktif.';
           } else if (event.code !== 1000 && event.code !== 1001) {
             errorMessage = 'Bağlantı hatası. Bot modunda devam ediliyor.';
           }
@@ -315,7 +315,7 @@ export const useChatStore = create<ChatState>()(
             }
 
             if (!response) {
-              response = 'Anladım. Bu konuda size yardımcı olmak isterdim ancak şu an tam olarak anlayamadım. Sipariş, kargo, iade veya ödeme hakkında bilgi almak ister misiniz?';
+              response = 'Bu konuda yardımcı olamadım. Sipariş, kargo, iade veya ödeme hakkında bilgi alabilirsiniz.';
             }
 
             set({ isTyping: false });
