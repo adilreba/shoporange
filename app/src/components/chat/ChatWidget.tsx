@@ -1,416 +1,489 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, Send, User, X, ChevronLeft, GripVertical, Wifi, WifiOff, Clock, CheckCheck } from 'lucide-react';
+import { 
+  MessageCircle, 
+  Send, 
+  X, 
+  Minimize2,
+  Bot,
+  User,
+  CheckCheck,
+  Sparkles,
+  Headphones,
+  ChevronRight,
+  Package,
+  Truck,
+  RefreshCcw,
+  CreditCard
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { useChatStore } from '@/stores/chatStore';
-import { useAuthStore } from '@/stores/authStore';
-import { toast } from 'sonner';
+
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+
+// Mesaj tipi
+interface Message {
+  id: string;
+  text: string;
+  sender: 'user' | 'bot' | 'agent';
+  timestamp: Date;
+  isRead?: boolean;
+}
+
+// Hızlı yanıt seçenekleri
+interface QuickReply {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  response: string;
+}
+
+const quickReplies: QuickReply[] = [
+  { 
+    id: 'order', 
+    label: 'Sipariş Takibi', 
+    icon: <Package className="w-4 h-4" />,
+    response: 'Siparişinizi takip etmek için sipariş numaranızı paylaşabilir misiniz?'
+  },
+  { 
+    id: 'cargo', 
+    label: 'Kargo Takibi', 
+    icon: <Truck className="w-4 h-4" />,
+    response: 'Kargonuzun durumunu öğrenmek için takip numaranızı yazabilirsiniz.'
+  },
+  { 
+    id: 'return', 
+    label: 'İade/Değişim', 
+    icon: <RefreshCcw className="w-4 h-4" />,
+    response: 'İade veya değişim işlemi için sipariş numaranızı ve ürün bilgisini paylaşın.'
+  },
+  { 
+    id: 'payment', 
+    label: 'Ödeme', 
+    icon: <CreditCard className="w-4 h-4" />,
+    response: 'Ödeme seçeneklerimiz hakkında bilgi almak için hangi konuda yardımcı olabilirim?'
+  },
+];
+
+// Bot otomatik yanıtları
+const botResponses: Record<string, string> = {
+  'merhaba': 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?',
+  'selam': 'Selam! 👋 Size nasıl yardımcı olabilirim?',
+  'nasılsın': 'Teşekkür ederim, ben bir yapay zeka asistanıyım ve size yardımcı olmak için buradayım! 😊',
+  'sipariş': 'Siparişinizle ilgili yardımcı olmaktan memnuniyet duyarım. Lütfen sipariş numaranızı paylaşın.',
+  'kargo': 'Kargo takibi için takip numaranızı yazabilir veya sipariş numaranızı paylaşabilirsiniz.',
+  'iade': 'İade işlemleri için ürünü orijinal ambalajında, faturasıyla birlikte göndermeniz gerekmektedir. İade süreci hakkında detaylı bilgi almak ister misiniz?',
+  'değişim': 'Değişim işlemi için ürünü orijinal ambalajında göndermeniz gerekiyor. Yeni ürünü size ücretsiz kargolayacağız.',
+  'şifre': 'Şifrenizi sıfırlamak için "Şifremi Unuttum" sayfasını kullanabilir veya e-posta adresinizi paylaşabilirsiniz.',
+  'ödeme': 'Kredi kartı, banka havalesi ve kapıda ödeme seçeneklerimiz bulunmaktadır. Taksit seçenekleri için bilgi almak ister misiniz?',
+  'kupon': 'Aktif kuponlarımızı görmek için Kampanyalar sayfamızı ziyaret edebilirsiniz. Size özel bir kupon kodu: ATUS10',
+  'teşekkür': 'Rica ederim! 😊 Başka bir konuda yardımcı olabilir miyim?',
+  'sağol': 'Rica ederim! Yardımcı olabileceğim başka bir konu var mı?',
+  'görüşürüz': 'Görüşmek üzere! 👋 AtusHome\'u tercih ettiğiniz için teşekkür ederiz. İyi günler dileriz!',
+  'bay': 'Hoşça kalın! 👋 Size yardımcı olmaktan memnuniyet duyduk.',
+};
+
+// Bot yanıtı bul
+const findBotResponse = (message: string): string | null => {
+  const lowerMessage = message.toLowerCase().trim();
+  
+  // Anahtar kelime eşleştirme
+  for (const [key, response] of Object.entries(botResponses)) {
+    if (lowerMessage.includes(key)) {
+      return response;
+    }
+  }
+  
+  // Varsayılan yanıtlar
+  const defaultResponses = [
+    'Anladım, konuyu netleştirmek için bir temsilcimiz size yardımcı olabilir. Temsilciye bağlanmak ister misiniz?',
+    'Bu konuda size daha detaylı yardımcı olmak için canlı destek temsilcimizle görüşebilirsiniz. Bağlanmak ister misiniz?',
+    'Sorunuzu anladım. Size en iyi şekilde yardımcı olmak için biraz daha detay paylaşabilir misiniz?',
+  ];
+  
+  return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
+};
 
 export function ChatWidget() {
-  const { 
-    messages, 
-    isOpen, 
-    unreadCount, 
-    isAgentTyping,
-    isConnected,
-    connectionStatus,
-    agentName,
-    queuePosition,
-    waitingForAgent,
-
-    setIsOpen, 
-    clearChat,
-    connect,
-    disconnect,
-    sendMessage,
-    sendTyping,
-    closeSession,
-    requestAgent
-  } = useChatStore();
-  
-  const { user, isAuthenticated } = useAuthStore();
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [position, setPosition] = useState<{ y: number | null }>({ y: null });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ y: 0 });
-  const [hasDragged, setHasDragged] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showQuickReplies, setShowQuickReplies] = useState(true);
+  const [isAgentMode, setIsAgentMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Connect WebSocket when chat opens
+  // İlk mesajı göster
   useEffect(() => {
-    if (isOpen && !isConnected) {
-      const userId = isAuthenticated && user ? user.id : `guest_${Date.now()}`;
-      connect(userId, 'customer');
+    if (messages.length === 0) {
+      const welcomeMessage: Message = {
+        id: 'welcome',
+        text: 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?',
+        sender: 'bot',
+        timestamp: new Date(),
+      };
+      setMessages([welcomeMessage]);
     }
-  }, [isOpen, isConnected, connect, isAuthenticated, user]);
+  }, []);
 
-  // Disconnect when component unmounts
-  useEffect(() => {
-    return () => {
-      disconnect();
-    };
-  }, [disconnect]);
-
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isAgentTyping]);
+  }, [messages, isTyping]);
 
-  // Focus input when chat opens
+  // Focus input when opened
   useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
+      setUnreadCount(0);
     }
   }, [isOpen]);
 
-  // Send typing indicator
-  const handleTyping = () => {
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    sendTyping();
-    typingTimeoutRef.current = setTimeout(() => {
-      // Typing stopped
-    }, 3000);
-  };
-
-  // Drag handlers
-  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    if (isOpen) return;
-    
-    setIsDragging(true);
-    setHasDragged(false);
-    
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const button = buttonRef.current;
-    
-    if (button) {
-      const rect = button.getBoundingClientRect();
-      const currentY = position.y === null ? rect.top : position.y;
-      setDragStart({ y: clientY - currentY });
-      if (position.y === null) {
-        setPosition({ y: rect.top });
+  // Increment unread when closed
+  useEffect(() => {
+    if (!isOpen && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.sender !== 'user') {
+        setUnreadCount((prev) => prev + 1);
       }
     }
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent | TouchEvent) => {
-      if (!isDragging) return;
-      
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const newY = clientY - dragStart.y;
-      
-      setHasDragged(true);
-      
-      const minY = 100;
-      const maxY = window.innerHeight - 150;
-      
-      const clampedY = Math.max(minY, Math.min(maxY, newY));
-      setPosition({ y: clampedY });
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-      window.addEventListener('touchmove', handleMouseMove);
-      window.addEventListener('touchend', handleMouseUp);
-    }
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('touchmove', handleMouseMove);
-      window.removeEventListener('touchend', handleMouseUp);
-    };
-  }, [isDragging, dragStart]);
+  }, [messages, isOpen]);
 
   const handleSend = () => {
     if (!inputMessage.trim()) return;
-    
-    sendMessage(inputMessage.trim());
+
+    // Kullanıcı mesajı
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      text: inputMessage.trim(),
+      sender: 'user',
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
     setInputMessage('');
+    setShowQuickReplies(false);
+    setIsTyping(true);
+
+    // Bot yanıtı (simülasyon)
+    setTimeout(() => {
+      const botResponse = findBotResponse(userMessage.text);
+      
+      const botMessage: Message = {
+        id: `bot-${Date.now()}`,
+        text: botResponse || 'Size yardımcı olmak için buradayım. Daha detaylı bilgi için bir temsilcimizle görüşmek ister misiniz?',
+        sender: 'bot',
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, botMessage]);
+      setIsTyping(false);
+    }, 1000 + Math.random() * 1000);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
-    } else {
-      handleTyping();
     }
   };
 
-  const handleClear = () => {
-    closeSession();
-    clearChat();
-    toast.info('Sohbet sonlandırıldı');
+  const handleQuickReply = (reply: QuickReply) => {
+    // Kullanıcı mesajı
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      text: reply.label,
+      sender: 'user',
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setShowQuickReplies(false);
+    setIsTyping(true);
+
+    // Bot yanıtı
+    setTimeout(() => {
+      const botMessage: Message = {
+        id: `bot-${Date.now()}`,
+        text: reply.response,
+        sender: 'bot',
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, botMessage]);
+      setIsTyping(false);
+    }, 800);
   };
 
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString('tr-TR', {
+  const requestAgent = () => {
+    setIsTyping(true);
+    
+    setTimeout(() => {
+      const agentMessage: Message = {
+        id: `agent-${Date.now()}`,
+        text: 'Bir temsilcimiz en kısa sürede sizinle ilgilenecektir. Lütfen bekleyin... 🕐',
+        sender: 'agent',
+        timestamp: new Date(),
+      };
+      
+      setMessages((prev) => [...prev, agentMessage]);
+      setIsAgentMode(true);
+      setIsTyping(false);
+      toast.success('Canlı destek talebiniz alındı');
+    }, 1000);
+  };
+
+  const clearChat = () => {
+    setMessages([]);
+    setShowQuickReplies(true);
+    setIsAgentMode(false);
+    toast.info('Sohbet temizlendi');
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('tr-TR', {
       hour: '2-digit',
       minute: '2-digit',
     });
   };
 
-  const getStatusIcon = () => {
-    switch (connectionStatus) {
-      case 'connecting':
-        return <Clock className="w-3 h-3 animate-spin" />;
-      case 'waiting':
-        return <Clock className="w-3 h-3 text-yellow-400" />;
-      case 'active':
-        return <Wifi className="w-3 h-3 text-green-400" />;
-      case 'closed':
-        return <WifiOff className="w-3 h-3 text-gray-400" />;
-      default:
-        return null;
-    }
-  };
-
-  const getStatusText = () => {
-    if (waitingForAgent && connectionStatus !== 'active') {
-      return queuePosition ? `Sırada: ${queuePosition}. sıra` : 'Temsilci Bekleniyor...';
-    }
-    switch (connectionStatus) {
-      case 'connecting':
-        return 'Bağlanıyor...';
-      case 'waiting':
-        return 'Beklemede';
-      case 'active':
-        return agentName || 'Temsilci Çevrimiçi';
-      case 'closed':
-        return 'Sohbet Kapandı';
-      default:
-        return 'Çevrimdışı';
-    }
-  };
-
-  // Quick reply buttons
-  const quickReplies = [
-    'Sipariş takibi',
-    'Kargo bilgisi',
-    'İade/Değişim',
-    'Ödeme seçenekleri',
-  ];
-
-  // CLOSED STATE - Draggable button
+  // Kapalı durum - Yüzer buton
   if (!isOpen) {
     return (
       <button
-        ref={buttonRef}
-        onClick={() => {
-          if (!hasDragged) {
-            setIsOpen(true);
-          }
-        }}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleMouseDown}
-        style={{ 
-          top: position.y !== null ? position.y : 'auto', 
-          bottom: position.y !== null ? 'auto' : '20px'
-        }}
+        onClick={() => setIsOpen(true)}
         className={cn(
-          "fixed right-0 z-50 w-12 h-14 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-l-2xl shadow-lg hover:shadow-xl flex flex-col items-center justify-center",
-          isDragging ? "cursor-grabbing shadow-2xl scale-105 transition-none" : "cursor-grab hover:translate-x-0.5 transition-all duration-200"
+          "fixed bottom-6 right-6 z-50 flex items-center gap-3",
+          "bg-gradient-to-r from-orange-500 to-orange-600",
+          "text-white px-5 py-3.5 rounded-full shadow-2xl",
+          "hover:shadow-orange-500/30 hover:scale-105",
+          "transition-all duration-300 ease-out"
         )}
-        title="Canlı Destek - Sürüklemek için tutun"
       >
-        <GripVertical className="w-3 h-3 text-white/50 absolute left-1" />
-        
-        {unreadCount > 0 ? (
-          <div className="relative">
-            <MessageCircle className="w-5 h-5" />
-            <Badge className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] h-5 w-5 flex items-center justify-center p-0 animate-pulse">
+        <div className="relative">
+          <MessageCircle className="w-6 h-6" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
               {unreadCount}
-            </Badge>
-          </div>
-        ) : (
-          <ChevronLeft className="w-5 h-5" />
-        )}
-        
-        <div className="flex gap-0.5 mt-1">
-          <span className="w-1 h-1 bg-white/40 rounded-full" />
-          <span className="w-1 h-1 bg-white/40 rounded-full" />
+            </span>
+          )}
         </div>
+        <span className="font-medium text-sm">Canlı Destek</span>
+        
+        {/* Online göstergesi */}
+        <span className="relative flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+        </span>
       </button>
     );
   }
 
-  // OPEN STATE - Chat window
+  // Açık durum - Chat penceresi
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-[22rem] shadow-2xl">
-      {/* Chat Header - Compact */}
-      <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl p-2 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-            <MessageCircle className="w-3 h-3" />
+    <div className="fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-3rem)] shadow-2xl animate-in slide-in-from-bottom-5 duration-300">
+      {/* Header - Profesyonel */}
+      <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-2xl p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Profil fotoğrafı placeholder */}
+            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+              {isAgentMode ? (
+                <Headphones className="w-6 h-6" />
+              ) : (
+                <Bot className="w-6 h-6" />
+              )}
+            </div>
+            <div>
+              <h3 className="font-semibold text-base">
+                {isAgentMode ? 'Müşteri Temsilcisi' : 'AtusHome Asistan'}
+              </h3>
+              <div className="flex items-center gap-1.5 text-white/80 text-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400"></span>
+                </span>
+                <span>{isAgentMode ? 'Şu an çevrimiçi' : 'AI Asistan - Çevrimiçi'}</span>
+              </div>
+            </div>
           </div>
-          <div>
-            <h3 className="font-medium text-[10px]">Canlı Destek</h3>
-            <p className="text-[9px] text-white/70 flex items-center gap-1">
-              {getStatusIcon()}
-              {getStatusText()}
-            </p>
+          
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={clearChat}
+              className="text-white/70 hover:text-white hover:bg-white/20 h-9 w-9"
+              title="Sohbeti Temizle"
+            >
+              <RefreshCcw className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(false)}
+              className="text-white/70 hover:text-white hover:bg-white/20 h-9 w-9"
+            >
+              <Minimize2 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(false)}
+              className="text-white/70 hover:text-white hover:bg-white/20 h-9 w-9"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
-        </div>
-        <div className="flex items-center gap-0.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleClear}
-            className="text-white/70 hover:text-white hover:bg-white/20 h-6 w-6"
-            title="Sohbeti Sonlandır"
-          >
-            <CheckCheck className="w-3 h-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsOpen(false)}
-            className="text-white/70 hover:text-white hover:bg-white/20 h-6 w-6"
-          >
-            <X className="w-3 h-3" />
-          </Button>
         </div>
       </div>
 
-      {/* Chat Messages */}
-      <div className="bg-card dark:bg-gray-900 border-x border-border dark:border-gray-800">
+      {/* Mesajlar Alanı */}
+      <div className="bg-white dark:bg-gray-900 border-x border-gray-200 dark:border-gray-800">
         <div 
-          className="h-56 sm:h-72 overflow-y-auto p-3" 
           ref={scrollRef}
+          className="h-[400px] overflow-y-auto p-4 space-y-4"
           style={{ scrollBehavior: 'smooth' }}
         >
-          <div className="space-y-2">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  'flex',
-                  message.sender === 'user' ? 'flex-row-reverse' : ''
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={cn(
+                'flex gap-3',
+                message.sender === 'user' ? 'flex-row-reverse' : ''
+              )}
+            >
+              {/* Avatar */}
+              <div className={cn(
+                'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+                message.sender === 'user' 
+                  ? 'bg-orange-100 text-orange-600' 
+                  : message.sender === 'agent'
+                  ? 'bg-blue-100 text-blue-600'
+                  : 'bg-purple-100 text-purple-600'
+              )}>
+                {message.sender === 'user' ? (
+                  <User className="w-4 h-4" />
+                ) : message.sender === 'agent' ? (
+                  <Headphones className="w-4 h-4" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
                 )}
-              >
-                {/* Message Bubble - No Avatar */}
-                <div
-                  className={cn(
-                    'max-w-[85%] rounded-lg px-2.5 py-1.5 text-[10px] leading-4',
-                    message.sender === 'user'
-                      ? 'bg-orange-500 text-white rounded-br-md ml-auto'
-                      : message.sender === 'agent'
-                      ? 'bg-blue-500 text-white rounded-bl-md'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-md'
-                  )}
-                >
-                  <p className="whitespace-pre-line">{message.text}</p>
-                  <span className="text-[8px] opacity-40 block mt-0.5">
-                    {formatTime(message.timestamp)}
-                  </span>
-                </div>
               </div>
-            ))}
 
-            {/* Agent Typing Indicator */}
-            {isAgentTyping && (
-              <div className="flex">
-                <div className="bg-blue-500 rounded-md rounded-bl-sm px-2 py-1">
-                  <div className="flex gap-1">
-                    <span className="w-1 h-1 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1 h-1 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1 h-1 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
+              {/* Mesaj Balonu */}
+              <div className={cn(
+                'max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
+                message.sender === 'user'
+                  ? 'bg-orange-500 text-white rounded-br-md'
+                  : message.sender === 'agent'
+                  ? 'bg-blue-500 text-white rounded-bl-md'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-md'
+              )}>
+                <p>{message.text}</p>
+                <div className={cn(
+                  'flex items-center gap-1 mt-1.5 text-xs',
+                  message.sender === 'user' ? 'text-orange-100' : 'text-gray-400'
+                )}>
+                  <span>{formatTime(message.timestamp)}</span>
+                  {message.sender === 'user' && (
+                    <CheckCheck className="w-3.5 h-3.5" />
+                  )}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          ))}
+
+          {/* Yazıyor animasyonu */}
+          {isTyping && (
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3">
+                <div className="flex gap-1.5">
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Quick Replies & Connect Button */}
-        {connectionStatus !== 'active' && !waitingForAgent && (
-          <div className="px-3 pb-2 space-y-2">
-            <button
-              onClick={requestAgent}
-              className="w-full text-[10px] px-2.5 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-1.5"
-            >
-              <User className="w-4 h-4" />
-              Temsilciye Bağlan
-            </button>
-            <div className="flex flex-wrap gap-1.5">
+        {/* Hızlı Yanıtlar */}
+        {showQuickReplies && !isTyping && (
+          <div className="px-4 pb-3">
+            <p className="text-xs text-gray-500 mb-2 font-medium">Sıkça Sorulanlar:</p>
+            <div className="grid grid-cols-2 gap-2">
               {quickReplies.map((reply) => (
                 <button
-                  key={reply}
-                  onClick={() => sendMessage(reply)}
-                  className="text-[10px] px-2 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+                  key={reply.id}
+                  onClick={() => handleQuickReply(reply)}
+                  className={cn(
+                    "flex items-center gap-2 p-2.5 rounded-xl text-xs font-medium",
+                    "bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300",
+                    "hover:bg-orange-100 dark:hover:bg-orange-900/30",
+                    "transition-colors border border-orange-200 dark:border-orange-800"
+                  )}
                 >
-                  {reply}
+                  {reply.icon}
+                  <span>{reply.label}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Queue Status */}
-        {waitingForAgent && connectionStatus !== 'active' && (
-          <div className="px-2.5 pb-2">
-            <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-md p-2">
-              <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-                <Clock className="w-3 h-3 animate-pulse" />
-                <span className="text-[10px] font-medium">Temsilciye bağlanılıyor...</span>
-              </div>
-              {queuePosition !== null && queuePosition > 0 && (
-                <p className="text-[9px] text-blue-500 dark:text-blue-400 mt-0.5">
-                  Sırada {queuePosition}. sıradasınız.
-                </p>
+        {/* Temsilci bağlanma butonu */}
+        {!isAgentMode && !isTyping && (
+          <div className="px-4 pb-3">
+            <button
+              onClick={requestAgent}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 p-3 rounded-xl",
+                "bg-gradient-to-r from-blue-500 to-blue-600 text-white",
+                "hover:from-blue-600 hover:to-blue-700",
+                "transition-all text-sm font-medium shadow-lg shadow-blue-500/25"
               )}
-            </div>
+            >
+              <Headphones className="w-4 h-4" />
+              <span>Canlı Temsilciyle Görüş</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         )}
       </div>
 
-      {/* Chat Input - Compact */}
-      <div className="bg-card dark:bg-gray-900 border border-t-0 border-border dark:border-gray-800 rounded-b-xl p-2">
-        <div className="flex gap-1.5">
+      {/* Input Alanı */}
+      <div className="bg-white dark:bg-gray-900 border border-t-0 border-gray-200 dark:border-gray-800 rounded-b-2xl p-4">
+        <div className="flex gap-2">
           <Input
             ref={inputRef}
             type="text"
-            placeholder="Mesaj yazın..."
+            placeholder="Mesajınızı yazın..."
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            disabled={false}
-            className="flex-1 h-8 text-[10px] bg-gray-50 dark:bg-gray-800 border-0 focus-visible:ring-1 focus-visible:ring-orange-500 placeholder:text-[10px]"
+            className="flex-1 h-11 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus-visible:ring-orange-500"
           />
           <Button
             onClick={handleSend}
             disabled={!inputMessage.trim()}
-            className="bg-orange-500 hover:bg-orange-600 px-2.5 h-8"
+            className={cn(
+              "h-11 px-4 bg-orange-500 hover:bg-orange-600",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
           >
-            <Send className="w-3 h-3" />
+            <Send className="w-4 h-4" />
           </Button>
         </div>
-        <p className="text-[8px] text-gray-200 text-center mt-0.5">
-          {connectionStatus === 'active' 
-            ? 'Canlı destek'
-            : waitingForAgent
-            ? 'Bağlanılıyor...'
-            : connectionStatus === 'waiting'
-            ? 'Beklemede'
-            : connectionStatus === 'closed'
-            ? 'Bot modu aktif'
-            : 'Yardımcı olmaya hazır'
-          }
+        <p className="text-center text-xs text-gray-400 mt-2">
+          AtusHome AI Asistan • 7/24 Hizmetinizde
         </p>
       </div>
     </div>

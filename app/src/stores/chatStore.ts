@@ -1,450 +1,200 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export interface ChatMessage {
+interface Message {
   id: string;
   text: string;
   sender: 'user' | 'bot' | 'agent';
   timestamp: string;
   isRead?: boolean;
-  sessionId?: string;
 }
 
-export type ChatStatus = 'idle' | 'connecting' | 'waiting' | 'active' | 'closed';
-
 interface ChatState {
-  // WebSocket & Connection
-  ws: WebSocket | null;
-  isConnected: boolean;
-  connectionStatus: ChatStatus;
-  sessionId: string | null;
-  agentId: string | null;
-  agentName: string | null;
-  
-  // Queue & Waiting
-  queuePosition: number | null;
-  waitingForAgent: boolean;
-  totalWaitingCustomers: number;
-  
-  // Messages & UI
-  messages: ChatMessage[];
+  messages: Message[];
   isOpen: boolean;
   unreadCount: number;
-  isTyping: boolean;
   isAgentTyping: boolean;
+  isConnected: boolean;
+  connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected';
+  agentName: string | null;
+  queuePosition: number | null;
+  waitingForAgent: boolean;
   
   // Actions
-  connect: (userId: string, userType?: 'customer' | 'agent') => void;
+  setIsOpen: (isOpen: boolean) => void;
+  addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
+  clearChat: () => void;
+  setAgentTyping: (isTyping: boolean) => void;
+  connect: (userId: string, type: 'customer' | 'agent') => void;
   disconnect: () => void;
   sendMessage: (text: string) => void;
   sendTyping: () => void;
-  markAsRead: (messageIds: string[]) => void;
-  addMessage: (text: string, sender: 'user' | 'bot' | 'agent') => void;
-  setIsOpen: (isOpen: boolean) => void;
-  setIsTyping: (isTyping: boolean) => void;
-  setIsAgentTyping: (isTyping: boolean) => void;
-  clearChat: () => void;
-  assignAgent: (agentId: string, agentName?: string) => void;
   closeSession: () => void;
   requestAgent: () => void;
-  updateQueuePosition: (position: number, total: number) => void;
+  markAsRead: () => void;
 }
 
-// WebSocket endpoint - Doğrudan URL (env sorununu çözmek için)
-const WS_ENDPOINT = 'wss://faj6241vp7.execute-api.eu-west-1.amazonaws.com/prod';
+// Mock bot responses
+const botResponses: Record<string, string> = {
+  'merhaba': 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?',
+  'selam': 'Selam! 👋 Size nasıl yardımcı olabilirim?',
+  'nasılsın': 'Teşekkür ederim, ben bir yapay zeka asistanıyım ve size yardımcı olmak için buradayım! 😊',
+  'sipariş': 'Siparişinizle ilgili yardımcı olmaktan memnuniyet duyarım. Lütfen sipariş numaranızı paylaşın.',
+  'kargo': 'Kargo takibi için takip numaranızı yazabilir veya sipariş numaranızı paylaşabilirsiniz.',
+  'iade': 'İade işlemleri için ürünü orijinal ambalajında, faturasıyla birlikte göndermeniz gerekmektedir. Detaylı bilgi için temsilcimizle görüşebilirsiniz.',
+  'değişim': 'Değişim işlemi için ürünü orijinal ambalajında göndermeniz gerekiyor.',
+  'şifre': 'Şifrenizi sıfırlamak için "Şifremi Unuttum" sayfasını kullanabilirsiniz.',
+  'ödeme': 'Kredi kartı, banka havalesi ve kapıda ödeme seçeneklerimiz bulunmaktadır.',
+  'teşekkür': 'Rica ederim! 😊 Başka bir konuda yardımcı olabilir miyim?',
+  'sağol': 'Rica ederim! Yardımcı olabileceğim başka bir konu var mı?',
+  'görüşürüz': 'Görüşmek üzere! 👋 AtusHome\'u tercih ettiğiniz için teşekkür ederiz!',
+};
 
-console.log('[Chat] WebSocket URL:', WS_ENDPOINT);
-
-// Auto-responses for common questions (fallback when no agent connected)
-const autoResponses: Record<string, string> = {
-  'merhaba': 'Merhaba! Sipariş, kargo, iade veya ödeme hakkında yardımcı olabilirim.',
-  'selam': 'Merhaba! Size nasıl yardımcı olabilirim?',
-  'sipariş': 'Siparişlerinizi hesabınızdan takip edebilirsiniz.',
-  'kargo': '500₺+ siparişlerde kargo bedava. 1-3 günde kargoya verilir.',
-  'iade': '14 gün içinde koşulsuz iade yapabilirsiniz.',
-  'ödeme': 'Kredi kartı, havale/EFT ile ödeme yapabilirsiniz.',
-  'indirim': 'Kampanyalarımızı ana sayfadan takip edebilirsiniz.',
-  'stok': 'Stok bilgisini ürün sayfasında görebilirsiniz.',
-  'yardım': 'Sipariş, kargo, iade ve ödeme hakkında bilgi verebilirim.',
+const findBotResponse = (message: string): string => {
+  const lowerMessage = message.toLowerCase().trim();
+  
+  for (const [key, response] of Object.entries(botResponses)) {
+    if (lowerMessage.includes(key)) {
+      return response;
+    }
+  }
+  
+  return 'Bu konuda size daha detaylı yardımcı olmak için bir temsilcimizle görüşmenizi öneririm. Canlı destek butonuna tıklayarak bağlanabilirsiniz.';
 };
 
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
-      // Initial state
-      ws: null,
-      isConnected: false,
-      connectionStatus: 'idle',
-      sessionId: null,
-      agentId: null,
-      agentName: null,
-      messages: [
-        {
-          id: 'welcome',
-          text: 'Merhaba! 👋 Sipariş, kargo, iade veya ödeme hakkında yardımcı olabilirim.',
-          sender: 'bot',
-          timestamp: new Date().toISOString(),
-          isRead: true,
-        }
-      ],
+      messages: [],
       isOpen: false,
       unreadCount: 0,
-      isTyping: false,
       isAgentTyping: false,
+      isConnected: false,
+      connectionStatus: 'idle',
+      agentName: null,
       queuePosition: null,
       waitingForAgent: false,
-      totalWaitingCustomers: 0,
 
-      // Connect to WebSocket
-      connect: (userId: string, userType: 'customer' | 'agent' = 'customer') => {
-        const { ws, sessionId } = get();
-        
-        // Don't reconnect if already connected
-        if (ws?.readyState === WebSocket.OPEN) return;
-        
-        // Check if WebSocket URL is configured
-        if (!WS_ENDPOINT) {
-          console.error('[Chat] Cannot connect: VITE_CHAT_WS_URL is not set');
-          set({ 
-            connectionStatus: 'closed',
-            messages: [...get().messages, {
-              id: 'error-' + Date.now(),
-              text: '⚠️ Canlı destek şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin veya iletişim formunu kullanın.',
-              sender: 'bot',
-              timestamp: new Date().toISOString(),
-              isRead: true,
-            }]
-          });
-          return;
-        }
-
-        set({ connectionStatus: 'connecting' });
-        
-        console.log('[Chat] Connecting to:', WS_ENDPOINT);
-
-        // Build connection URL with query params
-        const url = new URL(WS_ENDPOINT);
-        url.searchParams.append('userId', userId);
-        url.searchParams.append('userType', userType);
-        if (sessionId) {
-          url.searchParams.append('sessionId', sessionId);
-        }
-
-        const newWs = new WebSocket(url.toString());
-
-        newWs.onopen = () => {
-          console.log('WebSocket connected');
-          set({ 
-            ws: newWs, 
-            isConnected: true,
-            connectionStatus: 'waiting'
-          });
-        };
-
-        newWs.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          console.log('WebSocket message:', data);
-
-          switch (data.type) {
-            case 'session_created':
-              set({ 
-                sessionId: data.sessionId,
-                connectionStatus: 'waiting'
-              });
-              get().addMessage(data.message, 'bot');
-              break;
-
-            case 'agent_assigned':
-            case 'agent_joined':
-              set({ 
-                agentId: data.agentId,
-                connectionStatus: 'active',
-                waitingForAgent: false,
-                queuePosition: null
-              });
-              get().addMessage(data.message, 'agent');
-              break;
-
-            case 'agent_left':
-              set({ 
-                agentId: null,
-                connectionStatus: 'waiting'
-              });
-              get().addMessage(data.message, 'bot');
-              break;
-
-            case 'new_message':
-              const msg = data.message;
-              get().addMessage(msg.content, msg.senderType === 'agent' ? 'agent' : 'user');
-              break;
-
-            case 'typing':
-              if (data.userType === 'agent') {
-                set({ isAgentTyping: true });
-                setTimeout(() => set({ isAgentTyping: false }), 3000);
-              }
-              break;
-
-            case 'message_sent':
-              // Message confirmed by server
-              break;
-
-            case 'queue_status':
-              set({ 
-                queuePosition: data.position,
-                totalWaitingCustomers: data.total,
-                waitingForAgent: true
-              });
-              if (data.message) {
-                get().addMessage(data.message, 'bot');
-              }
-              break;
-
-            case 'chat_closed':
-              set({ 
-                connectionStatus: 'closed',
-                agentId: null,
-                waitingForAgent: false,
-                queuePosition: null
-              });
-              get().addMessage(data.message, 'bot');
-              break;
-
-            case 'error':
-              console.error('Chat error:', data.message);
-              get().addMessage('Bir hata oluştu: ' + data.message, 'bot');
-              break;
-          }
-        };
-
-        newWs.onclose = (event) => {
-          console.log('[Chat] WebSocket disconnected:', event.code, event.reason);
-          
-          // Handle specific error codes - don't show error message, just update status
-          // System message will be shown via connectionStatus
-          
-          set({ 
-            ws: null, 
-            isConnected: false,
-            connectionStatus: 'closed'
-          });
-        };
-
-        newWs.onerror = (error) => {
-          console.error('[Chat] WebSocket error:', error);
-          // Don't show error message here, let onclose handle it
-        };
-
-        set({ ws: newWs });
-      },
-
-      // Disconnect WebSocket
-      disconnect: () => {
-        const { ws } = get();
-        if (ws) {
-          ws.close();
-          set({ 
-            ws: null, 
-            isConnected: false,
-            connectionStatus: 'idle',
-            sessionId: null,
-            agentId: null
-          });
-        }
-      },
-
-      // Send message via WebSocket or fallback to auto-response
-      sendMessage: (text: string) => {
-        const { ws, sessionId, isConnected, agentId, connectionStatus } = get();
-
-        // Always add user message to UI
-        get().addMessage(text, 'user');
-
-        // Try to send via WebSocket if connected
-        if (isConnected && ws?.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            action: 'send_message',
-            message: text,
-            sessionId
-          }));
-        } else if (connectionStatus === 'closed' || connectionStatus === 'idle') {
-          // WebSocket not connected - auto-response without system message
-        }
-
-        // Always provide auto-response (works even without WebSocket)
-        if (!agentId) {
-          set({ isTyping: true });
-          
-          setTimeout(() => {
-            const lowerText = text.toLowerCase();
-            let response = '';
-
-            for (const [keyword, reply] of Object.entries(autoResponses)) {
-              if (lowerText.includes(keyword)) {
-                response = reply;
-                break;
-              }
-            }
-
-            if (!response) {
-              response = 'Bu konuda yardımcı olamadım. Sipariş, kargo, iade veya ödeme hakkında bilgi alabilirsiniz.';
-            }
-
-            set({ isTyping: false });
-            get().addMessage(response, 'bot');
-          }, 800 + Math.random() * 800);
-        }
-      },
-
-      // Send typing indicator
-      sendTyping: () => {
-        const { ws, sessionId, isConnected } = get();
-        if (isConnected && ws?.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            action: 'typing',
-            sessionId
-          }));
-        }
-      },
-
-      // Mark messages as read
-      markAsRead: (messageIds: string[]) => {
-        const { ws, isConnected } = get();
-        if (isConnected && ws?.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            action: 'mark_read',
-            messageIds
-          }));
-        }
-
-        set((state) => ({
-          messages: state.messages.map((m) => 
-            messageIds.includes(m.id) ? { ...m, isRead: true } : m
-          ),
-        }));
-      },
-
-      // Add message to state
-      addMessage: (text: string, sender: 'user' | 'bot' | 'agent') => {
-        const newMessage: ChatMessage = {
-          id: Date.now().toString(),
-          text,
-          sender,
-          timestamp: new Date().toISOString(),
-          isRead: get().isOpen,
-          sessionId: get().sessionId || undefined,
-        };
-
-        set((state) => ({
-          messages: [...state.messages, newMessage],
-          unreadCount: sender !== 'user' && !state.isOpen ? state.unreadCount + 1 : state.unreadCount,
-        }));
-      },
-
-      setIsOpen: (isOpen: boolean) => {
+      setIsOpen: (isOpen) => {
         set({ isOpen });
         if (isOpen) {
-          set({ unreadCount: 0 });
-          set((state) => ({
-            messages: state.messages.map((m) => ({ ...m, isRead: true })),
-          }));
+          get().markAsRead();
         }
       },
 
-      setIsTyping: (isTyping: boolean) => {
-        set({ isTyping });
-      },
-
-      setIsAgentTyping: (isAgentTyping: boolean) => {
-        set({ isAgentTyping });
-      },
-
-      assignAgent: (agentId: string, agentName?: string) => {
-        set({ 
-          agentId,
-          agentName: agentName || 'Temsilci',
-          connectionStatus: 'active'
-        });
-      },
-
-      closeSession: () => {
-        const { ws, sessionId, isConnected } = get();
+      addMessage: (message) => {
+        const newMessage: Message = {
+          ...message,
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: new Date().toISOString(),
+        };
         
-        if (isConnected && ws?.readyState === WebSocket.OPEN && sessionId) {
-          ws.send(JSON.stringify({
-            action: 'close_chat',
-            sessionId
-          }));
-        }
-
-        set({
-          connectionStatus: 'closed',
-          agentId: null,
-          agentName: null,
-          sessionId: null,
-          queuePosition: null,
-          waitingForAgent: false,
-        });
-      },
-
-      // Request agent connection
-      requestAgent: () => {
-        const { ws, isConnected, sessionId } = get();
-        
-        if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
-          get().addMessage('Bağlantı hatası. Lütfen sayfayı yenileyin.', 'bot');
-          return;
-        }
-
-        ws.send(JSON.stringify({
-          action: 'request_agent',
-          sessionId
+        set((state) => ({
+          messages: [...state.messages, newMessage],
         }));
-
-        set({ 
-          waitingForAgent: true,
-          queuePosition: null
-        });
-
-        get().addMessage('🔄 Müşteri temsilcisine bağlanıyorsunuz...\n\nSize beklerken yardımcı olabilir miyim?', 'bot');
-      },
-
-      // Update queue position
-      updateQueuePosition: (position: number, total: number) => {
-        set({ 
-          queuePosition: position,
-          totalWaitingCustomers: total
-        });
       },
 
       clearChat: () => {
-        get().disconnect();
-        set({
-          messages: [
-            {
-              id: 'welcome',
-              text: 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?\n\nBir temsilciye bağlanmak için mesaj gönderin.',
-              sender: 'bot',
-              timestamp: new Date().toISOString(),
-              isRead: true,
-            }
-          ],
-          unreadCount: 0,
-          sessionId: null,
-          agentId: null,
-          agentName: null,
+        set({ 
+          messages: [],
           connectionStatus: 'idle',
+          agentName: null,
           queuePosition: null,
           waitingForAgent: false,
-          totalWaitingCustomers: 0,
         });
+      },
+
+      setAgentTyping: (isTyping) => {
+        set({ isAgentTyping: isTyping });
+      },
+
+      connect: (_userId, _type) => {
+        set({ 
+          isConnected: true, 
+          connectionStatus: 'connected',
+        });
+        
+        // Eğer mesaj yoksa karşılama mesajı ekle
+        const { messages } = get();
+        if (messages.length === 0) {
+          setTimeout(() => {
+            get().addMessage({
+              text: 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?',
+              sender: 'bot',
+            });
+          }, 500);
+        }
+      },
+
+      disconnect: () => {
+        set({ 
+          isConnected: false, 
+          connectionStatus: 'disconnected',
+          agentName: null,
+        });
+      },
+
+      sendMessage: (text) => {
+        // Kullanıcı mesajını ekle
+        get().addMessage({
+          text,
+          sender: 'user',
+        });
+
+        const { waitingForAgent } = get();
+        
+        // Eğer temsilci beklenmiyorsa bot yanıt verir
+        if (!waitingForAgent) {
+          set({ isAgentTyping: true });
+          
+          setTimeout(() => {
+            const response = findBotResponse(text);
+            get().addMessage({
+              text: response,
+              sender: 'bot',
+            });
+            set({ isAgentTyping: false });
+          }, 1000 + Math.random() * 1000);
+        }
+      },
+
+      sendTyping: () => {
+        // Typing indicator logic
+      },
+
+      closeSession: () => {
+        set({
+          connectionStatus: 'disconnected',
+          agentName: null,
+          queuePosition: null,
+          waitingForAgent: false,
+        });
+      },
+
+      requestAgent: () => {
+        set({ 
+          waitingForAgent: true, 
+          queuePosition: 1,
+        });
+        
+        // Simülasyon: Temsilci yanıtı
+        setTimeout(() => {
+          get().addMessage({
+            text: 'Bir temsilcimiz en kısa sürede sizinle ilgilenecektir. Lütfen bekleyin... 🕐',
+            sender: 'agent',
+          });
+        }, 1000);
+      },
+
+      markAsRead: () => {
+        set({ unreadCount: 0 });
       },
     }),
     {
       name: 'chat-storage',
-      // Don't persist messages - start fresh on each session
       partialize: (state) => ({ 
-        sessionId: state.sessionId 
+        messages: state.messages,
+        unreadCount: state.unreadCount,
       }),
     }
   )
