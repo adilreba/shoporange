@@ -442,8 +442,8 @@ export const useChatStore = create<ChatState>()(
     }),
     {
       name: 'chat-storage',
+      // Don't persist messages - start fresh on each session
       partialize: (state) => ({ 
-        messages: state.messages.filter(m => m.id !== 'welcome'),
         sessionId: state.sessionId 
       }),
     }
