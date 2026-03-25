@@ -294,7 +294,7 @@ export function ChatWidget() {
           ref={scrollRef}
           style={{ scrollBehavior: 'smooth' }}
         >
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -303,40 +303,42 @@ export function ChatWidget() {
                   message.sender === 'user' ? 'flex-row-reverse' : ''
                 )}
               >
-                {/* Message Bubble - No Avatar */}
-                <div
-                  className={cn(
-                    'max-w-[82%] rounded-lg px-2 py-1 text-[8px] leading-3.5',
-                    message.sender === 'user'
-                      ? 'bg-orange-500 text-white rounded-br-sm ml-auto'
-                      : message.sender === 'agent'
-                      ? 'bg-blue-500 text-white rounded-bl-sm'
-                      : message.sender === 'bot' && message.text.includes('Bot modu')
-                      ? 'bg-transparent text-gray-400 italic text-center w-full'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-sm'
-                  )}
-                >
-                  <p className="whitespace-pre-line">{message.text}</p>
-                  {message.sender !== 'bot' || !message.text.includes('Bot modu') ? (
+                {/* System Message - Bot Mode */}
+                {message.sender === 'bot' && message.text.includes('Bot modu') ? (
+                  <div className="w-full text-center py-0.5">
+                    <span className="text-[7px] text-gray-300 italic">
+                      {message.text}
+                    </span>
+                  </div>
+                ) : (
+                  /* Message Bubble - No Avatar */
+                  <div
+                    className={cn(
+                      'max-w-[85%] rounded-md px-2 py-1 text-[8px] leading-3',
+                      message.sender === 'user'
+                        ? 'bg-orange-500 text-white rounded-br-sm ml-auto'
+                        : message.sender === 'agent'
+                        ? 'bg-blue-500 text-white rounded-bl-sm'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-sm'
+                    )}
+                  >
+                    <p className="whitespace-pre-line">{message.text}</p>
                     <span className="text-[7px] opacity-40 block mt-0.5">
                       {formatTime(message.timestamp)}
                     </span>
-                  ) : null}
-                </div>
+                  </div>
+                )}
               </div>
             ))}
 
             {/* Agent Typing Indicator */}
             {isAgentTyping && (
-              <div className="flex gap-2">
-                <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
-                  <div className="text-[10px] font-bold text-blue-600">T</div>
-                </div>
-                <div className="bg-blue-500 rounded-2xl rounded-bl-none px-3 py-2">
+              <div className="flex">
+                <div className="bg-blue-500 rounded-md rounded-bl-sm px-2 py-1">
                   <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="w-1 h-1 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1 h-1 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1 h-1 bg-blue-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               </div>
@@ -344,22 +346,22 @@ export function ChatWidget() {
           </div>
         </div>
 
-        {/* Quick Replies & Connect Button - Compact */}
+        {/* Quick Replies & Connect Button - Ultra Compact */}
         {connectionStatus !== 'active' && !waitingForAgent && (
-          <div className="px-2 pb-1.5 space-y-1">
+          <div className="px-2 pb-1 space-y-0.5">
             <button
               onClick={requestAgent}
-              className="w-full text-[10px] px-2 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-1 shadow-sm"
+              className="w-full text-[9px] px-2 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-1"
             >
-              <User className="w-3 h-3" />
+              <User className="w-2.5 h-2.5" />
               Temsilciye Bağlan
             </button>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-0.5">
               {quickReplies.map((reply) => (
                 <button
                   key={reply}
                   onClick={() => sendMessage(reply)}
-                  className="text-[8px] px-1.5 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+                  className="text-[7px] px-1.5 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
                 >
                   {reply}
                 </button>
@@ -397,17 +399,17 @@ export function ChatWidget() {
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={false}
-            className="flex-1 h-7 text-[9px] bg-gray-50 dark:bg-gray-800 border-0 focus-visible:ring-1 focus-visible:ring-orange-500 placeholder:text-[9px]"
+            className="flex-1 h-6 text-[9px] bg-gray-50 dark:bg-gray-800 border-0 focus-visible:ring-1 focus-visible:ring-orange-500 placeholder:text-[9px]"
           />
           <Button
             onClick={handleSend}
             disabled={!inputMessage.trim()}
-            className="bg-orange-500 hover:bg-orange-600 px-2 h-7"
+            className="bg-orange-500 hover:bg-orange-600 px-2 h-6"
           >
             <Send className="w-3 h-3" />
           </Button>
         </div>
-        <p className="text-[8px] text-gray-300 text-center mt-1">
+        <p className="text-[7px] text-gray-200 text-center mt-0.5">
           {connectionStatus === 'active' 
             ? 'Canlı destek'
             : waitingForAgent
