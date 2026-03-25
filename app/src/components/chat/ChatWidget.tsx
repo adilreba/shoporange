@@ -259,8 +259,8 @@ export function ChatWidget() {
             <MessageCircle className="w-3 h-3" />
           </div>
           <div>
-            <h3 className="font-medium text-[11px]">Canlı Destek</h3>
-            <p className="text-[8px] text-white/70 flex items-center gap-1">
+            <h3 className="font-medium text-[10px]">Canlı Destek</h3>
+            <p className="text-[9px] text-white/70 flex items-center gap-1">
               {getStatusIcon()}
               {getStatusText()}
             </p>
@@ -306,7 +306,7 @@ export function ChatWidget() {
                 {/* Message Bubble - No Avatar */}
                 <div
                   className={cn(
-                    'max-w-[85%] rounded-lg px-3 py-2 text-[11px] leading-4',
+                    'max-w-[85%] rounded-lg px-2.5 py-1.5 text-[10px] leading-4',
                     message.sender === 'user'
                       ? 'bg-orange-500 text-white rounded-br-md ml-auto'
                       : message.sender === 'agent'
@@ -315,7 +315,7 @@ export function ChatWidget() {
                   )}
                 >
                   <p className="whitespace-pre-line">{message.text}</p>
-                  <span className="text-[9px] opacity-40 block mt-1">
+                  <span className="text-[8px] opacity-40 block mt-0.5">
                     {formatTime(message.timestamp)}
                   </span>
                 </div>
@@ -342,7 +342,7 @@ export function ChatWidget() {
           <div className="px-3 pb-2 space-y-2">
             <button
               onClick={requestAgent}
-              className="w-full text-[12px] px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-2"
+              className="w-full text-[10px] px-2.5 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-1.5"
             >
               <User className="w-4 h-4" />
               Temsilciye Bağlan
@@ -352,7 +352,7 @@ export function ChatWidget() {
                 <button
                   key={reply}
                   onClick={() => sendMessage(reply)}
-                  className="text-[10px] px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+                  className="text-[10px] px-2 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
                 >
                   {reply}
                 </button>
@@ -367,10 +367,10 @@ export function ChatWidget() {
             <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-md p-2">
               <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
                 <Clock className="w-3 h-3 animate-pulse" />
-                <span className="text-[11px] font-medium">Temsilciye bağlanılıyor...</span>
+                <span className="text-[10px] font-medium">Temsilciye bağlanılıyor...</span>
               </div>
               {queuePosition !== null && queuePosition > 0 && (
-                <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-0.5">
+                <p className="text-[9px] text-blue-500 dark:text-blue-400 mt-0.5">
                   Sırada {queuePosition}. sıradasınız.
                 </p>
               )}
@@ -390,17 +390,17 @@ export function ChatWidget() {
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={false}
-            className="flex-1 h-9 text-[11px] bg-gray-50 dark:bg-gray-800 border-0 focus-visible:ring-1 focus-visible:ring-orange-500 placeholder:text-[11px]"
+            className="flex-1 h-8 text-[10px] bg-gray-50 dark:bg-gray-800 border-0 focus-visible:ring-1 focus-visible:ring-orange-500 placeholder:text-[10px]"
           />
           <Button
             onClick={handleSend}
             disabled={!inputMessage.trim()}
-            className="bg-orange-500 hover:bg-orange-600 px-3 h-9"
+            className="bg-orange-500 hover:bg-orange-600 px-2.5 h-8"
           >
             <Send className="w-3 h-3" />
           </Button>
         </div>
-        <p className="text-[7px] text-gray-200 text-center mt-0.5">
+        <p className="text-[8px] text-gray-200 text-center mt-0.5">
           {connectionStatus === 'active' 
             ? 'Canlı destek'
             : waitingForAgent
