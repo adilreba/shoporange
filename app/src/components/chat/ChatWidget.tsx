@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, Send, User, Bot, X, ChevronLeft, GripVertical, Wifi, WifiOff, Clock, CheckCheck } from 'lucide-react';
+import { MessageCircle, Send, User, X, ChevronLeft, GripVertical, Wifi, WifiOff, Clock, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -252,15 +252,15 @@ export function ChatWidget() {
   // OPEN STATE - Chat window
   return (
     <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-[22rem] shadow-2xl">
-      {/* Chat Header */}
-      <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl p-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center">
-            <MessageCircle className="w-3.5 h-3.5" />
+      {/* Chat Header - Compact */}
+      <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl p-2 flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+            <MessageCircle className="w-3 h-3" />
           </div>
           <div>
-            <h3 className="font-medium text-xs">Canlı Destek</h3>
-            <p className="text-[9px] text-white/70 flex items-center gap-1">
+            <h3 className="font-medium text-[11px]">Canlı Destek</h3>
+            <p className="text-[8px] text-white/70 flex items-center gap-1">
               {getStatusIcon()}
               {getStatusText()}
             </p>
@@ -271,18 +271,18 @@ export function ChatWidget() {
             variant="ghost"
             size="icon"
             onClick={handleClear}
-            className="text-white/70 hover:text-white hover:bg-white/20 h-7 w-7"
+            className="text-white/70 hover:text-white hover:bg-white/20 h-6 w-6"
             title="Sohbeti Sonlandır"
           >
-            <CheckCheck className="w-3.5 h-3.5" />
+            <CheckCheck className="w-3 h-3" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsOpen(false)}
-            className="text-white/70 hover:text-white hover:bg-white/20 h-7 w-7"
+            className="text-white/70 hover:text-white hover:bg-white/20 h-6 w-6"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3 h-3" />
           </Button>
         </div>
       </div>
@@ -290,60 +290,38 @@ export function ChatWidget() {
       {/* Chat Messages */}
       <div className="bg-card dark:bg-gray-900 border-x border-border dark:border-gray-800">
         <div 
-          className="h-56 sm:h-72 overflow-y-auto p-2.5" 
+          className="h-52 sm:h-64 overflow-y-auto p-2" 
           ref={scrollRef}
           style={{ scrollBehavior: 'smooth' }}
         >
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={cn(
-                  'flex gap-1.5',
+                  'flex',
                   message.sender === 'user' ? 'flex-row-reverse' : ''
                 )}
               >
-                {/* Avatar */}
+                {/* Message Bubble - No Avatar */}
                 <div
                   className={cn(
-                    'w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5',
+                    'max-w-[82%] rounded-lg px-2 py-1 text-[8px] leading-3.5',
                     message.sender === 'user'
-                      ? 'bg-orange-100 text-orange-600'
+                      ? 'bg-orange-500 text-white rounded-br-sm ml-auto'
                       : message.sender === 'agent'
-                      ? 'bg-blue-100 text-blue-600'
-                      : 'bg-gray-100 text-gray-500'
-                  )}
-                >
-                  {message.sender === 'user' ? (
-                    <User className="w-2 h-2" />
-                  ) : message.sender === 'agent' ? (
-                    <div className="text-[7px] font-medium">T</div>
-                  ) : (
-                    <Bot className="w-2 h-2" />
-                  )}
-                </div>
-
-                {/* Message Bubble */}
-                <div
-                  className={cn(
-                    'max-w-[78%] rounded-xl px-2 py-1.5 text-[9px] leading-4',
-                    message.sender === 'user'
-                      ? 'bg-orange-500 text-white rounded-br-md'
-                      : message.sender === 'agent'
-                      ? 'bg-blue-500 text-white rounded-bl-md'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-md'
+                      ? 'bg-blue-500 text-white rounded-bl-sm'
+                      : message.sender === 'bot' && message.text.includes('Bot modu')
+                      ? 'bg-transparent text-gray-400 italic text-center w-full'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-sm'
                   )}
                 >
                   <p className="whitespace-pre-line">{message.text}</p>
-                  <span
-                    className={cn(
-                      'text-[8px] mt-0.5 block opacity-50',
-                      message.sender === 'user' ? 'text-white/60' : 
-                      message.sender === 'agent' ? 'text-white/60' : 'text-gray-400'
-                    )}
-                  >
-                    {formatTime(message.timestamp)}
-                  </span>
+                  {message.sender !== 'bot' || !message.text.includes('Bot modu') ? (
+                    <span className="text-[7px] opacity-40 block mt-0.5">
+                      {formatTime(message.timestamp)}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -366,12 +344,12 @@ export function ChatWidget() {
           </div>
         </div>
 
-        {/* Quick Replies & Connect Button */}
+        {/* Quick Replies & Connect Button - Compact */}
         {connectionStatus !== 'active' && !waitingForAgent && (
-          <div className="px-2.5 pb-2 space-y-1.5">
+          <div className="px-2 pb-1.5 space-y-1">
             <button
               onClick={requestAgent}
-              className="w-full text-[11px] px-2.5 py-1.5 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-1.5 shadow-sm"
+              className="w-full text-[10px] px-2 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-1 shadow-sm"
             >
               <User className="w-3 h-3" />
               Temsilciye Bağlan
@@ -380,10 +358,8 @@ export function ChatWidget() {
               {quickReplies.map((reply) => (
                 <button
                   key={reply}
-                  onClick={() => {
-                    sendMessage(reply);
-                  }}
-                  className="text-[10px] px-2 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+                  onClick={() => sendMessage(reply)}
+                  className="text-[8px] px-1.5 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
                 >
                   {reply}
                 </button>
@@ -410,8 +386,8 @@ export function ChatWidget() {
         )}
       </div>
 
-      {/* Chat Input */}
-      <div className="bg-card dark:bg-gray-900 border border-t-0 border-border dark:border-gray-800 rounded-b-xl p-2.5">
+      {/* Chat Input - Compact */}
+      <div className="bg-card dark:bg-gray-900 border border-t-0 border-border dark:border-gray-800 rounded-b-xl p-2">
         <div className="flex gap-1.5">
           <Input
             ref={inputRef}
@@ -421,17 +397,17 @@ export function ChatWidget() {
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={false}
-            className="flex-1 h-8 text-xs bg-gray-50 dark:bg-gray-800 border-0 focus-visible:ring-1 focus-visible:ring-orange-500"
+            className="flex-1 h-7 text-[9px] bg-gray-50 dark:bg-gray-800 border-0 focus-visible:ring-1 focus-visible:ring-orange-500 placeholder:text-[9px]"
           />
           <Button
             onClick={handleSend}
             disabled={!inputMessage.trim()}
-            className="bg-orange-500 hover:bg-orange-600 px-2.5 h-8"
+            className="bg-orange-500 hover:bg-orange-600 px-2 h-7"
           >
-            <Send className="w-3.5 h-3.5" />
+            <Send className="w-3 h-3" />
           </Button>
         </div>
-        <p className="text-[9px] text-gray-400 text-center mt-1.5">
+        <p className="text-[8px] text-gray-300 text-center mt-1">
           {connectionStatus === 'active' 
             ? 'Canlı destek'
             : waitingForAgent
