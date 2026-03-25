@@ -50,8 +50,10 @@ interface ChatState {
   updateQueuePosition: (position: number, total: number) => void;
 }
 
-// WebSocket endpoint
-const WS_ENDPOINT = import.meta.env.VITE_CHAT_WS_URL || 'wss://your-api.execute-api.eu-west-1.amazonaws.com/prod';
+// WebSocket endpoint - Doğrudan URL (env sorununu çözmek için)
+const WS_ENDPOINT = 'wss://faj6241vp7.execute-api.eu-west-1.amazonaws.com/prod';
+
+console.log('[Chat] WebSocket URL:', WS_ENDPOINT);
 
 // Auto-responses for common questions (fallback when no agent connected)
 const autoResponses: Record<string, string> = {
@@ -99,8 +101,26 @@ export const useChatStore = create<ChatState>()(
         
         // Don't reconnect if already connected
         if (ws?.readyState === WebSocket.OPEN) return;
+        
+        // Check if WebSocket URL is configured
+        if (!WS_ENDPOINT) {
+          console.error('[Chat] Cannot connect: VITE_CHAT_WS_URL is not set');
+          set({ 
+            connectionStatus: 'closed',
+            messages: [...get().messages, {
+              id: 'error-' + Date.now(),
+              text: '⚠️ Canlı destek şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin veya iletişim formunu kullanın.',
+              sender: 'bot',
+              timestamp: new Date().toISOString(),
+              isRead: true,
+            }]
+          });
+          return;
+        }
 
         set({ connectionStatus: 'connecting' });
+        
+        console.log('[Chat] Connecting to:', WS_ENDPOINT);
 
         // Build connection URL with query params
         const url = new URL(WS_ENDPOINT);
@@ -197,8 +217,22 @@ export const useChatStore = create<ChatState>()(
           }
         };
 
-        newWs.onclose = () => {
-          console.log('WebSocket disconnected');
+        newWs.onclose = (event) => {
+          console.log('[Chat] WebSocket disconnected:', event.code, event.reason);
+          
+          // Show error message if connection failed (not intentional close)
+          if (event.code !== 1000 && event.code !== 1001) {
+            set({ 
+              messages: [...get().messages, {
+                id: 'closed-' + Date.now(),
+                text: 'Bağlantı kesildi. Yeniden bağlanmak için pencereyi kapatıp açın.',
+                sender: 'bot',
+                timestamp: new Date().toISOString(),
+                isRead: true,
+              }]
+            });
+          }
+          
           set({ 
             ws: null, 
             isConnected: false,
@@ -207,8 +241,18 @@ export const useChatStore = create<ChatState>()(
         };
 
         newWs.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          set({ connectionStatus: 'idle' });
+          console.error('[Chat] WebSocket error:', error);
+          set({ 
+            connectionStatus: 'closed',
+            isConnected: false,
+            messages: [...get().messages, {
+              id: 'error-' + Date.now(),
+              text: 'Bağlantı hatası oluştu. Lütfen sayfayı yenileyip tekrar deneyin.',
+              sender: 'bot',
+              timestamp: new Date().toISOString(),
+              isRead: true,
+            }]
+          });
         };
 
         set({ ws: newWs });

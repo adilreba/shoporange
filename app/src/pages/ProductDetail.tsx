@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
-import { SEO } from '@/components/common/SEO';
+import { SEO, generateProductSEO, generateBreadcrumbs } from '@/components/common/SEO';
 import { ProductCard } from '@/components/product/ProductCard';
 import { ProductReviews } from '@/components/product/ProductReviews';
 import { getProductById, products } from '@/data/mockData';
@@ -296,10 +296,12 @@ export function ProductDetail() {
     <div className="min-h-screen bg-background">
       {product && (
         <SEO 
-          title={product.name}
-          description={product.description.substring(0, 160)}
-          keywords={`${product.name}, ${product.brand}, ${product.category}, satın al, fiyat`}
-          image={product.images[0]}
+          {...generateProductSEO(product)}
+          url={`/product/${product.id}`}
+          breadcrumbs={generateBreadcrumbs([
+            { name: product.category, url: `/products?category=${product.category}` },
+            { name: product.name, url: `/product/${product.id}` },
+          ])}
         />
       )}
       <Header />

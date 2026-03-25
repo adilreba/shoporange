@@ -1,9 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/sonner';
-import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore, initializeAuth } from '@/stores/authStore';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import { ScrollToTop } from '@/components/common/ScrollToTop';
+import { useEffect } from 'react';
 
 // Pages
 import { Home } from '@/pages/Home';
@@ -65,6 +66,11 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
 }
 
 function App() {
+  useEffect(() => {
+    // Uygulama başladığında auth'u initialize et
+    initializeAuth();
+  }, []);
+
   return (
     <HelmetProvider>
     <Router>

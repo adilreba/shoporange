@@ -1,27 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, LoginCredentials, RegisterData } from '@/types';
-import { mockUser, mockAdminUser } from '@/data/mockData';
-
-// Check if API URL is configured
-const API_URL = import.meta.env.VITE_API_URL;
-// AWS Backend aktif - Stok yönetimi için gerçek API kullan
-const USE_AWS_API = API_URL && !API_URL.includes('your-api-gateway');
-
-// Placeholder API objects (to be replaced with real implementation from '@/services/api')
-const authApi = {
-  verifyToken: async (_token: string) => {},
-  login: async (_email: string, _password: string) => ({ user: mockUser, token: 'mock_token' }),
-  register: async (_data: any) => ({ user: mockUser, token: 'mock_token' }),
-  socialLogin: async (_provider: string, _token?: string) => ({ user: mockUser, token: 'mock_token' }),
-};
-
-const usersApi = {
-  update: async (_id: string, data: any) => data,
-  addAddress: async (_id: string, _address: any) => {},
-  deleteAddress: async (_id: string, _addressId: string) => {},
-  updateAddress: async (_id: string, _addressId: string, _data: any) => {},
-};
+import { authApi, userApi } from '@/services/api';
 
 interface Address {
   id: string;
@@ -46,35 +26,64 @@ interface AuthState {
   // Actions
   login: (credentials: LoginCredentials) => Promise<boolean>;
   register: (data: RegisterData) => Promise<boolean>;
-  logout: () => void;
-  socialLogin: (provider: 'google' | 'facebook', token?: string, userData?: any) => Promise<boolean>;
+  logout: () => Promise<void>;
+  socialLogin: (provider: 'google' | 'facebook', token?: string, _userData?: any) => Promise<boolean>;
   updateUser: (userData: Partial<User>) => Promise<boolean>;
   addAddress: (address: Omit<Address, 'id'>) => Promise<boolean>;
   removeAddress: (addressId: string) => Promise<boolean>;
   setDefaultAddress: (addressId: string) => Promise<boolean>;
   clearError: () => void;
-  initAuth: () => void;
+  initAuth: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<boolean>;
+  resetPassword: (token: string, password: string) => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      token: null,
+      token: localStorage.getItem('auth_token'),
       isAuthenticated: false,
       isLoading: false,
       error: null,
 
-      initAuth: () => {
-        const { token, user } = get();
-        if (token && user) {
-          // Verify token with backend if using AWS API
-          if (USE_AWS_API) {
-            authApi.verifyToken(token).catch(() => {
-              // Token invalid, logout
-              get().logout();
+      initAuth: async () => {
+        const { token } = get();
+        if (!token) {
+          set({ isAuthenticated: false });
+          return;
+        }
+
+        try {
+          set({ isLoading: true });
+          // Token'ı doğrula ve kullanıcı bilgilerini al
+          const response = await authApi.verifyToken(token);
+          
+          if (response.user) {
+            set({ 
+              user: response.user, 
+              isAuthenticated: true,
+              isLoading: false 
+            });
+          } else {
+            // Token geçersiz
+            localStorage.removeItem('auth_token');
+            set({ 
+              user: null, 
+              token: null, 
+              isAuthenticated: false,
+              isLoading: false 
             });
           }
+        } catch (error) {
+          console.error('Token verification failed:', error);
+          localStorage.removeItem('auth_token');
+          set({ 
+            user: null, 
+            token: null, 
+            isAuthenticated: false,
+            isLoading: false 
+          });
         }
       },
 
@@ -82,46 +91,23 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          if (USE_AWS_API) {
-            // Use AWS API
-            const response = await authApi.login(credentials.email, credentials.password);
+          const response = await authApi.login(credentials.email, credentials.password);
+          
+          if (response.token && response.user) {
+            localStorage.setItem('auth_token', response.token);
             set({ 
-              user: response.user as User, 
+              user: response.user, 
               token: response.token,
               isAuthenticated: true, 
               isLoading: false 
             });
             return true;
           } else {
-            // Use mock data (development mode)
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            if (credentials.email === 'admin@shoporange.com' && credentials.password === 'admin123') {
-              set({ 
-                user: mockAdminUser, 
-                token: 'mock_token_admin',
-                isAuthenticated: true, 
-                isLoading: false 
-              });
-              return true;
-            } else if (credentials.email && credentials.password.length >= 6) {
-              set({ 
-                user: { 
-                  ...mockUser, 
-                  email: credentials.email 
-                }, 
-                token: 'mock_token_user',
-                isAuthenticated: true, 
-                isLoading: false 
-              });
-              return true;
-            } else {
-              set({ 
-                error: 'Geçersiz email veya şifre', 
-                isLoading: false 
-              });
-              return false;
-            }
+            set({ 
+              error: 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.', 
+              isLoading: false 
+            });
+            return false;
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Giriş yapılırken bir hata oluştu';
@@ -137,41 +123,28 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          if (USE_AWS_API) {
-            // Use AWS API
-            const response = await authApi.register({
-              email: data.email,
-              password: data.password,
-              name: data.name,
-              phone: data.phone
-            });
+          const response = await authApi.register({
+            email: data.email,
+            password: data.password,
+            name: data.name,
+            phone: data.phone
+          });
+          
+          if (response.token && response.user) {
+            localStorage.setItem('auth_token', response.token);
             set({ 
-              user: response.user as User, 
+              user: response.user, 
               token: response.token,
               isAuthenticated: true, 
               isLoading: false 
             });
             return true;
           } else {
-            // Use mock data (development mode)
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            const newUser: User = {
-              id: `u${Date.now()}`,
-              email: data.email,
-              name: data.name,
-              phone: data.phone || '',
-              createdAt: new Date().toISOString(),
-              role: 'user'
-            };
-            
             set({ 
-              user: newUser, 
-              token: 'mock_token_user',
-              isAuthenticated: true, 
+              error: 'Kayıt başarısız oldu.', 
               isLoading: false 
             });
-            return true;
+            return false;
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Kayıt olurken bir hata oluştu';
@@ -183,49 +156,52 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: () => {
-        set({ 
-          user: null, 
-          token: null,
-          isAuthenticated: false, 
-          error: null 
-        });
+      logout: async () => {
+        try {
+          // Backend'e logout isteği gönder (opsiyonel)
+          await authApi.logout().catch(() => {
+            // Hata olsa bile devam et
+          });
+        } finally {
+          localStorage.removeItem('auth_token');
+          set({ 
+            user: null, 
+            token: null,
+            isAuthenticated: false, 
+            error: null 
+          });
+        }
       },
 
-      socialLogin: async (provider: 'google' | 'facebook', token?: string, userData?: any) => {
+      socialLogin: async (provider: 'google' | 'facebook', token?: string, _userData?: any) => {
         set({ isLoading: true, error: null });
         
         try {
-          if (USE_AWS_API && token && userData) {
-            // Use AWS API
-            const response = await authApi.socialLogin(provider, token);
+          if (!token) {
             set({ 
-              user: response.user as User, 
+              error: 'Sosyal medya token bulunamadı', 
+              isLoading: false 
+            });
+            return false;
+          }
+          
+          const response = await authApi.socialLogin(provider, token);
+          
+          if (response.token && response.user) {
+            localStorage.setItem('auth_token', response.token);
+            set({ 
+              user: response.user, 
               token: response.token,
               isAuthenticated: true, 
               isLoading: false 
             });
             return true;
           } else {
-            // Use mock data (development mode)
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            const socialUser: User = {
-              id: `social_${Date.now()}`,
-              email: `user@${provider}.com`,
-              name: `${provider.charAt(0).toUpperCase() + provider.slice(1)} Kullanıcı`,
-              avatar: `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200`,
-              createdAt: new Date().toISOString(),
-              role: 'user'
-            };
-            
             set({ 
-              user: socialUser, 
-              token: `mock_token_${provider}`,
-              isAuthenticated: true, 
+              error: `${provider} ile giriş başarısız oldu`, 
               isLoading: false 
             });
-            return true;
+            return false;
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : `${provider} ile giriş yapılırken hata oluştu`;
@@ -237,20 +213,57 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      forgotPassword: async (email: string) => {
+        set({ isLoading: true, error: null });
+        
+        try {
+          await authApi.forgotPassword(email);
+          set({ isLoading: false });
+          return true;
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Şifre sıfırlama isteği gönderilirken hata oluştu';
+          set({ 
+            error: errorMessage, 
+            isLoading: false 
+          });
+          return false;
+        }
+      },
+
+      resetPassword: async (token: string, password: string) => {
+        set({ isLoading: true, error: null });
+        
+        try {
+          await authApi.resetPassword(token, password);
+          set({ isLoading: false });
+          return true;
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Şifre sıfırlanırken hata oluştu';
+          set({ 
+            error: errorMessage, 
+            isLoading: false 
+          });
+          return false;
+        }
+      },
+
       updateUser: async (userData: Partial<User>) => {
-        const { user, token } = get();
+        const { user } = get();
         if (!user) return false;
 
         try {
-          if (USE_AWS_API && token) {
-            const updatedUser = await usersApi.update(user.id, userData);
-            set({ user: { ...user, ...updatedUser } });
-          } else {
-            set({ user: { ...user, ...userData } });
-          }
+          set({ isLoading: true });
+          const updatedUser = await userApi.updateProfile(userData);
+          set({ 
+            user: { ...user, ...updatedUser },
+            isLoading: false 
+          });
           return true;
         } catch (error) {
-          set({ error: 'Profil güncellenirken hata oluştu' });
+          set({ 
+            error: 'Profil güncellenirken hata oluştu',
+            isLoading: false 
+          });
           return false;
         }
       },
@@ -267,9 +280,8 @@ export const useAuthStore = create<AuthState>()(
           
           const updatedAddresses = [...(user.address || []), newAddress];
           
-          if (USE_AWS_API) {
-            await usersApi.addAddress(user.id, newAddress);
-          }
+          // Backend'e adres ekleme isteği gönder
+          await userApi.updateProfile({ address: updatedAddresses });
           
           set({ 
             user: { 
@@ -289,11 +301,11 @@ export const useAuthStore = create<AuthState>()(
         if (!user || !user.address) return false;
 
         try {
-          if (USE_AWS_API) {
-            await usersApi.deleteAddress(user.id, addressId);
-          }
-          
           const updatedAddresses = user.address.filter(a => a.id !== addressId);
+          
+          // Backend'e adres silme isteği gönder
+          await userApi.updateProfile({ address: updatedAddresses });
+          
           set({ 
             user: { 
               ...user, 
@@ -317,9 +329,8 @@ export const useAuthStore = create<AuthState>()(
             isDefault: a.id === addressId
           }));
           
-          if (USE_AWS_API) {
-            await usersApi.updateAddress(user.id, addressId, { isDefault: true });
-          }
+          // Backend'e güncelleme isteği gönder
+          await userApi.updateProfile({ address: updatedAddresses });
           
           set({ 
             user: { 
@@ -344,7 +355,18 @@ export const useAuthStore = create<AuthState>()(
         user: state.user, 
         token: state.token,
         isAuthenticated: state.isAuthenticated 
-      })
+      }),
+      onRehydrateStorage: () => (state) => {
+        // Persist storage yeniden yüklenince token'ı localStorage'a yaz
+        if (state?.token) {
+          localStorage.setItem('auth_token', state.token);
+        }
+      }
     }
   )
 );
+
+// Uygulama başladığında auth'u initialize et (App.tsx'te kullanılacak)
+export const initializeAuth = async () => {
+  await useAuthStore.getState().initAuth();
+};

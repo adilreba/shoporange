@@ -5,7 +5,9 @@ import {
   Grid3X3,
   LayoutList,
   X,
-  Filter
+  Filter,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,8 +20,10 @@ import { SEO } from '@/components/common/SEO';
 import { ProductCard } from '@/components/product/ProductCard';
 import { cn } from '@/lib/utils';
 import { ProductGridSkeleton } from '@/components/product/ProductCardSkeleton';
-import { products, categories, brands, subcategories } from '@/data/mockData';
-import type { Category } from '@/types';
+import { products as mockProducts, categories, brands, subcategories } from '@/data/mockData';
+import { productsApi } from '@/services/api';
+import type { Category, Product } from '@/types';
+import { toast } from 'sonner';
 
 const sortOptions = [
   { value: 'popular', label: 'Popülerlik' },
@@ -47,14 +51,44 @@ export function Products() {
   const [sortBy, setSortBy] = useState('popular');
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [isLoading, setIsLoading] = useState(true);
+  
+  // API state
+  const [products, setProducts] = useState<Product[]>([]);
+  const [apiError, setApiError] = useState<string | null>(null);
 
-  // Sayfa yüklendiğinde loading state'i kapat
+  // Ürünleri API'den çek
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchProducts = async () => {
+      setIsLoading(true);
+      setApiError(null);
+      
+      try {
+        // API'den ürünleri çek
+        const data = await productsApi.getAll({
+          category: selectedCategory || undefined,
+          search: searchQuery || undefined,
+          limit: 100
+        });
+        
+        if (data.products && Array.isArray(data.products)) {
+          setProducts(data.products);
+        } else {
+          // API boş döndüyse mock veri kullan
+          setProducts(mockProducts);
+        }
+      } catch (error) {
+        console.error('Failed to fetch products:', error);
+        setApiError('Ürünler yüklenirken bir hata oluştu. Demo moduna geçildi.');
+        // Hata durumunda mock veri kullan
+        setProducts(mockProducts);
+        toast.error('API bağlantı hatası. Demo verileri gösteriliyor.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [selectedCategory, searchQuery]);
 
   // URL parametreleri değiştiğinde state'leri güncelle
   useEffect(() => {
@@ -677,6 +711,24 @@ export function Products() {
 
           {/* Products Grid */}
           <div className="flex-1 min-w-0">
+            {apiError && (
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center gap-2 text-amber-800">
+                  <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                  <p className="text-sm flex-1">{apiError}</p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => window.location.reload()}
+                    className="text-amber-800 hover:text-amber-900"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Yenile
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12 sm:py-16">
                 <div className="w-20 h-20 sm:w-24 sm:h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">

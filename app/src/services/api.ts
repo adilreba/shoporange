@@ -28,6 +28,98 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
 }
 
 // ====================
+// Auth API
+// ====================
+export const authApi = {
+  login: (email: string, password: string) =>
+    fetchApi('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  register: (data: {
+    email: string;
+    password: string;
+    name: string;
+    phone?: string;
+  }) =>
+    fetchApi('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  logout: () =>
+    fetchApi('/auth/logout', {
+      method: 'POST',
+    }),
+
+  verifyToken: (token: string) =>
+    fetchApi('/auth/verify', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+
+  forgotPassword: (email: string) =>
+    fetchApi('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, password: string) =>
+    fetchApi('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    }),
+
+  socialLogin: (provider: 'google' | 'facebook', token: string) =>
+    fetchApi(`/auth/${provider}`, {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+};
+
+// ====================
+// Categories API
+// ====================
+export const categoriesApi = {
+  getAll: () => fetchApi('/categories'),
+  getBySlug: (slug: string) => fetchApi(`/categories/${slug}`),
+  getById: (id: string) => fetchApi(`/categories/${id}`),
+};
+
+// ====================
+// Reviews API
+// ====================
+export const reviewsApi = {
+  getByProduct: (productId: string) =>
+    fetchApi(`/reviews?productId=${productId}`),
+
+  getByUser: (userId: string) =>
+    fetchApi(`/reviews?userId=${userId}`),
+
+  create: (data: {
+    productId: string;
+    rating: number;
+    comment: string;
+    userName: string;
+  }) =>
+    fetchApi('/reviews', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  markHelpful: (reviewId: string) =>
+    fetchApi(`/reviews/${reviewId}/helpful`, {
+      method: 'POST',
+    }),
+
+  delete: (reviewId: string) =>
+    fetchApi(`/reviews/${reviewId}`, {
+      method: 'DELETE',
+    }),
+};
+
+// ====================
 // Products API
 // ====================
 export const productsApi = {
