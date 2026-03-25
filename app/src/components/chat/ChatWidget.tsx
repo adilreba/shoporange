@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   MessageCircle, 
   Send, 
-  X, 
-  Minimize2,
+  X,
   Bot,
   User,
   CheckCheck,
@@ -14,8 +13,7 @@ import {
   Truck,
   RefreshCcw,
   CreditCard,
-  GripVertical,
-  Maximize2
+  ChevronLeft
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,31 +100,8 @@ const findBotResponse = (message: string): string | null => {
   return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
 };
 
-// LocalStorage'dan pozisyon oku
-const getSavedPosition = () => {
-  try {
-    const saved = localStorage.getItem('chatWidgetPosition');
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (e) {
-    console.error('Position read error:', e);
-  }
-  return null;
-};
-
-// LocalStorage'a pozisyon kaydet
-const savePosition = (x: number, y: number) => {
-  try {
-    localStorage.setItem('chatWidgetPosition', JSON.stringify({ x, y }));
-  } catch (e) {
-    console.error('Position save error:', e);
-  }
-};
-
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -134,18 +109,8 @@ export function ChatWidget() {
   const [showQuickReplies, setShowQuickReplies] = useState(true);
   const [isAgentMode, setIsAgentMode] = useState(false);
   
-  // Sürükleme state'leri
-  const [position, setPosition] = useState(() => {
-    const saved = getSavedPosition();
-    return saved || { x: window.innerWidth - 420, y: window.innerHeight - 600 };
-  });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const widgetRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
 
   // İlk mesajı göster
   useEffect(() => {
@@ -169,92 +134,21 @@ export function ChatWidget() {
 
   // Focus input when opened
   useEffect(() => {
-    if (isOpen && !isMinimized && inputRef.current) {
+    if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
       setUnreadCount(0);
     }
-  }, [isOpen, isMinimized]);
+  }, [isOpen]);
 
-  // Sürükleme olayları
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (!headerRef.current) return;
-    
-    // Sadece header'dan sürüklemeye izin ver
-    const target = e.target as HTMLElement;
-    if (target.closest('button')) return; // Butonlardan sürüklemeyi engelle
-    
-    setIsDragging(true);
-    setDragOffset({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
-    });
-  }, [position]);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (!headerRef.current) return;
-    
-    const touch = e.touches[0];
-    setIsDragging(true);
-    setDragOffset({
-      x: touch.clientX - position.x,
-      y: touch.clientY - position.y,
-    });
-  }, [position]);
-
+  // Increment unread when closed
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      
-      const newX = e.clientX - dragOffset.x;
-      const newY = e.clientY - dragOffset.y;
-      
-      // Ekran sınırları
-      const maxX = window.innerWidth - (isOpen ? 400 : 200);
-      const maxY = window.innerHeight - (isOpen ? 600 : 80);
-      
-      const clampedX = Math.max(20, Math.min(maxX, newX));
-      const clampedY = Math.max(20, Math.min(maxY, newY));
-      
-      setPosition({ x: clampedX, y: clampedY });
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isDragging) return;
-      
-      const touch = e.touches[0];
-      const newX = touch.clientX - dragOffset.x;
-      const newY = touch.clientY - dragOffset.y;
-      
-      const maxX = window.innerWidth - (isOpen ? 400 : 200);
-      const maxY = window.innerHeight - (isOpen ? 600 : 80);
-      
-      const clampedX = Math.max(20, Math.min(maxX, newX));
-      const clampedY = Math.max(20, Math.min(maxY, newY));
-      
-      setPosition({ x: clampedX, y: clampedY });
-    };
-
-    const handleMouseUp = () => {
-      if (isDragging) {
-        setIsDragging(false);
-        savePosition(position.x, position.y);
+    if (!isOpen && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.sender !== 'user') {
+        setUnreadCount((prev) => prev + 1);
       }
-    };
-
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-      window.addEventListener('touchmove', handleTouchMove);
-      window.addEventListener('touchend', handleMouseUp);
     }
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleMouseUp);
-    };
-  }, [isDragging, dragOffset, position, isOpen]);
+  }, [messages, isOpen]);
 
   const handleSend = () => {
     if (!inputMessage.trim()) return;
@@ -347,10 +241,6 @@ export function ChatWidget() {
     toast.info('Sohbet temizlendi');
   };
 
-  const toggleMinimize = () => {
-    setIsMinimized(!isMinimized);
-  };
-
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('tr-TR', {
       hour: '2-digit',
@@ -358,151 +248,106 @@ export function ChatWidget() {
     });
   };
 
-  // Kapalı durum - Sürüklenebilir buton
-  if (!isOpen) {
-    return (
-      <button
-        ref={widgetRef as any}
-        onClick={() => setIsOpen(true)}
-        style={{ 
-          position: 'fixed',
-          left: `${position.x}px`, 
-          top: `${position.y}px`,
-          right: 'auto',
-          bottom: 'auto',
-          zIndex: 50
-        }}
-        className={cn(
-          "flex items-center gap-3",
-          "bg-gradient-to-r from-orange-500 to-orange-600",
-          "text-white px-5 py-3.5 rounded-full shadow-2xl",
-          "hover:shadow-orange-500/30",
-          "transition-shadow duration-300",
-          isDragging && "cursor-grabbing scale-105",
-          !isDragging && "cursor-grab hover:scale-105"
-        )}
-      >
-        <div className="relative">
-          <MessageCircle className="w-6 h-6" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
-              {unreadCount}
-            </span>
-          )}
-        </div>
-        <span className="font-medium text-sm">Canlı Destek</span>
-        <span className="relative flex h-3 w-3">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-        </span>
-      </button>
-    );
-  }
-
-  // Açık durum - Sürüklenebilir pencere
   return (
-    <div
-      ref={widgetRef}
-      style={{ 
-        position: 'fixed',
-        left: `${position.x}px`, 
-        top: `${position.y}px`,
-        right: 'auto',
-        bottom: 'auto',
-        zIndex: 50
-      }}
-      className={cn(
-        "w-[380px] max-w-[calc(100vw-2rem)] shadow-2xl rounded-2xl overflow-hidden bg-white dark:bg-gray-900",
-        "transition-all duration-300",
-        isDragging && "shadow-orange-500/20"
+    <>
+      {/* Arkaplan overlay - açıkken tıklanınca kapatır */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 z-40 transition-opacity"
+          onClick={() => setIsOpen(false)}
+        />
       )}
-    >
-      {/* Header - Sürüklenebilir alan */}
-      <div 
-        ref={headerRef}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
-        className={cn(
-          "bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4",
-          "select-none",
-          isDragging ? "cursor-grabbing" : "cursor-grab"
-        )}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Tutamaç ikonu */}
-            <div className="text-white/50 hover:text-white/80 transition-colors">
-              <GripVertical className="w-5 h-5" />
-            </div>
-            
-            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-              {isAgentMode ? (
-                <Headphones className="w-6 h-6" />
-              ) : (
-                <Bot className="w-6 h-6" />
+
+      {/* Ana Container - Sağdan slide */}
+      <div className="fixed right-0 top-0 h-full z-50 pointer-events-none">
+        {/* Kapalı durum - Sağda gizli buton */}
+        {!isOpen && (
+          <button
+            onClick={() => setIsOpen(true)}
+            className={cn(
+              "absolute right-0 top-1/2 -translate-y-1/2",
+              "flex items-center gap-2",
+              "bg-gradient-to-r from-orange-500 to-orange-600",
+              "text-white pl-4 pr-3 py-4",
+              "rounded-l-2xl shadow-2xl",
+              "hover:pr-5 transition-all duration-300",
+              "pointer-events-auto"
+            )}
+          >
+            <div className="relative">
+              <MessageCircle className="w-6 h-6" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {unreadCount}
+                </span>
               )}
             </div>
-            <div>
-              <h3 className="font-semibold text-base">
-                {isAgentMode ? 'Müşteri Temsilcisi' : 'AtusHome Asistan'}
-              </h3>
-              <div className="flex items-center gap-1.5 text-white/80 text-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400"></span>
-                </span>
-                <span>{isAgentMode ? 'Şu an çevrimiçi' : 'AI Asistan - Çevrimiçi'}</span>
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Açık durum - Sağdan slide panel */}
+        <div
+          className={cn(
+            "h-full bg-white dark:bg-gray-900 shadow-2xl pointer-events-auto",
+            "transition-transform duration-300 ease-out",
+            "flex flex-col",
+            isOpen ? "translate-x-0" : "translate-x-full",
+            "w-[400px] max-w-[100vw]"
+          )}
+        >
+          {/* Header */}
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                  {isAgentMode ? (
+                    <Headphones className="w-6 h-6" />
+                  ) : (
+                    <Bot className="w-6 h-6" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base">
+                    {isAgentMode ? 'Müşteri Temsilcisi' : 'AtusHome Asistan'}
+                  </h3>
+                  <div className="flex items-center gap-1.5 text-white/80 text-sm">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400"></span>
+                    </span>
+                    <span>{isAgentMode ? 'Şu an çevrimiçi' : 'AI Asistan - Çevrimiçi'}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={clearChat}
+                  className="text-white/70 hover:text-white hover:bg-white/20 h-9 w-9"
+                  title="Sohbeti Temizle"
+                >
+                  <RefreshCcw className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsOpen(false)}
+                  className="text-white/70 hover:text-white hover:bg-white/20 h-9 w-9"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           </div>
-          
-          <div className="flex items-center gap-1">
-            {/* Minimize butonu */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleMinimize}
-              className="text-white/70 hover:text-white hover:bg-white/20 h-9 w-9"
-              title={isMinimized ? "Genişlet" : "Küçült"}
-            >
-              {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={clearChat}
-              className="text-white/70 hover:text-white hover:bg-white/20 h-9 w-9"
-              title="Sohbeti Temizle"
-            >
-              <RefreshCcw className="w-4 h-4" />
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(false)}
-              className="text-white/70 hover:text-white hover:bg-white/20 h-9 w-9"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-        
-        {/* Sürükleme ipucu */}
-        <p className="text-[10px] text-white/60 text-center mt-2">
-          Konumunu değiştirmek için tutup sürükleyin
-        </p>
-      </div>
 
-      {/* İçerik alanı - Küçültüldüğünde gizlenir */}
-      {!isMinimized && (
-        <>
-          {/* Mesajlar Alanı */}
-          <div className="bg-white dark:bg-gray-900">
+          {/* Mesajlar Alanı - Esnek yükseklik */}
+          <div className="flex-1 overflow-hidden flex flex-col">
             <div 
               ref={scrollRef}
-              className="h-[320px] overflow-y-auto p-4 space-y-4"
+              className="flex-1 overflow-y-auto p-4 space-y-4"
               style={{ scrollBehavior: 'smooth' }}
             >
               {messages.map((message) => (
@@ -573,7 +418,7 @@ export function ChatWidget() {
 
             {/* Hızlı Yanıtlar */}
             {showQuickReplies && !isTyping && (
-              <div className="px-4 pb-3">
+              <div className="px-4 pb-3 flex-shrink-0">
                 <p className="text-xs text-gray-500 mb-2 font-medium">Sıkça Sorulanlar:</p>
                 <div className="grid grid-cols-2 gap-2">
                   {quickReplies.map((reply) => (
@@ -597,7 +442,7 @@ export function ChatWidget() {
 
             {/* Temsilci bağlanma butonu */}
             {!isAgentMode && !isTyping && (
-              <div className="px-4 pb-3">
+              <div className="px-4 pb-3 flex-shrink-0">
                 <button
                   onClick={requestAgent}
                   className={cn(
@@ -616,7 +461,7 @@ export function ChatWidget() {
           </div>
 
           {/* Input Alanı */}
-          <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-4">
+          <div className="border-t border-gray-200 dark:border-gray-800 p-4 flex-shrink-0">
             <div className="flex gap-2">
               <Input
                 ref={inputRef}
@@ -642,8 +487,8 @@ export function ChatWidget() {
               AtusHome AI Asistan • 7/24 Hizmetinizde
             </p>
           </div>
-        </>
-      )}
-    </div>
+        </div>
+      </div>
+    </>
   );
 }
