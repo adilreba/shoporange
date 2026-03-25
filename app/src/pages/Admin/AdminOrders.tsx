@@ -162,9 +162,21 @@ export default function AdminOrders() {
     setIsShippingModalOpen(true);
   };
 
+  // Otomatik takip numarası oluştur
+  const generateTrackingNumber = (companyId: string) => {
+    const company = companies.find(c => c.id === companyId);
+    if (!company) return '';
+    
+    const prefix = company.type.substring(0, 2).toUpperCase();
+    const timestamp = Date.now().toString().slice(-8);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    
+    return `${prefix}${timestamp}${random}`;
+  };
+
   const handleCreateShipment = async () => {
-    if (!shippingOrder || !trackingNumber.trim() || !selectedShippingCompany) {
-      toast.error('Lütfen kargo bilgilerini eksiksiz doldurun');
+    if (!shippingOrder || !selectedShippingCompany) {
+      toast.error('Lütfen kargo şirketi seçin');
       return;
     }
 
@@ -174,13 +186,12 @@ export default function AdminOrders() {
       // Kargo oluşturma simülasyonu
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Eğer tracking number yoksa otomatik oluştur (test amaçlı)
-      const finalTrackingNumber = trackingNumber.trim() || 
-        `${selectedShippingCompany.toUpperCase().substring(0, 3)}${Date.now().toString().slice(-10)}`;
+      // Takip numarası yoksa otomatik oluştur
+      const finalTrackingNumber = trackingNumber.trim() || generateTrackingNumber(selectedShippingCompany);
       
       await updateTrackingInfo(shippingOrder.id, finalTrackingNumber, selectedShippingCompany);
       
-      toast.success('Kargo oluşturuldu ve sipariş durumu güncellendi');
+      toast.success(`Kargo oluşturuldu. Takip No: ${finalTrackingNumber}`);
       setIsShippingModalOpen(false);
       setShippingOrder(null);
       setTrackingNumber('');
@@ -714,14 +725,26 @@ export default function AdminOrders() {
 
               {/* Tracking Number */}
               <div className="space-y-2">
-                <Label>Takip Numarası *</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Takip Numarası</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTrackingNumber(generateTrackingNumber(selectedShippingCompany))}
+                    disabled={!selectedShippingCompany}
+                  >
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Otomatik Oluştur
+                  </Button>
+                </div>
                 <Input
                   value={trackingNumber}
                   onChange={(e) => setTrackingNumber(e.target.value)}
-                  placeholder="Örn: YT1234567890"
+                  placeholder="Boş bırakırsanız otomatik oluşturulur"
                 />
                 <p className="text-xs text-gray-500">
-                  Kargo şirketinden aldığınız takip numarasını girin
+                  Manuel girebilir veya otomatik oluşturabilirsiniz
                 </p>
               </div>
 
