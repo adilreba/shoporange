@@ -290,11 +290,11 @@ export function ChatWidget() {
       {/* Chat Messages */}
       <div className="bg-card dark:bg-gray-900 border-x border-border dark:border-gray-800">
         <div 
-          className="h-52 sm:h-64 overflow-y-auto p-2" 
+          className="h-56 sm:h-72 overflow-y-auto p-3" 
           ref={scrollRef}
           style={{ scrollBehavior: 'smooth' }}
         >
-          <div className="space-y-1">
+          <div className="space-y-2">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -306,16 +306,16 @@ export function ChatWidget() {
                 {/* Message Bubble - No Avatar */}
                 <div
                   className={cn(
-                    'max-w-[85%] rounded-md px-2 py-1 text-[8px] leading-3',
+                    'max-w-[85%] rounded-lg px-3 py-2 text-[11px] leading-4',
                     message.sender === 'user'
-                      ? 'bg-orange-500 text-white rounded-br-sm ml-auto'
+                      ? 'bg-orange-500 text-white rounded-br-md ml-auto'
                       : message.sender === 'agent'
-                      ? 'bg-blue-500 text-white rounded-bl-sm'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-sm'
+                      ? 'bg-blue-500 text-white rounded-bl-md'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-md'
                   )}
                 >
                   <p className="whitespace-pre-line">{message.text}</p>
-                  <span className="text-[7px] opacity-40 block mt-0.5">
+                  <span className="text-[9px] opacity-40 block mt-1">
                     {formatTime(message.timestamp)}
                   </span>
                 </div>
@@ -337,22 +337,22 @@ export function ChatWidget() {
           </div>
         </div>
 
-        {/* Quick Replies & Connect Button - Ultra Compact */}
+        {/* Quick Replies & Connect Button */}
         {connectionStatus !== 'active' && !waitingForAgent && (
-          <div className="px-2 pb-1 space-y-0.5">
+          <div className="px-3 pb-2 space-y-2">
             <button
               onClick={requestAgent}
-              className="w-full text-[9px] px-2 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-1"
+              className="w-full text-[12px] px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-2"
             >
-              <User className="w-2.5 h-2.5" />
+              <User className="w-4 h-4" />
               Temsilciye Bağlan
             </button>
-            <div className="flex flex-wrap gap-0.5">
+            <div className="flex flex-wrap gap-1.5">
               {quickReplies.map((reply) => (
                 <button
                   key={reply}
                   onClick={() => sendMessage(reply)}
-                  className="text-[7px] px-1.5 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+                  className="text-[10px] px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
                 >
                   {reply}
                 </button>
@@ -390,12 +390,12 @@ export function ChatWidget() {
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={false}
-            className="flex-1 h-6 text-[9px] bg-gray-50 dark:bg-gray-800 border-0 focus-visible:ring-1 focus-visible:ring-orange-500 placeholder:text-[9px]"
+            className="flex-1 h-9 text-[11px] bg-gray-50 dark:bg-gray-800 border-0 focus-visible:ring-1 focus-visible:ring-orange-500 placeholder:text-[11px]"
           />
           <Button
             onClick={handleSend}
             disabled={!inputMessage.trim()}
-            className="bg-orange-500 hover:bg-orange-600 px-2 h-6"
+            className="bg-orange-500 hover:bg-orange-600 px-3 h-9"
           >
             <Send className="w-3 h-3" />
           </Button>
