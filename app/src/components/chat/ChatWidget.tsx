@@ -13,7 +13,7 @@ import {
   Truck,
   RefreshCcw,
   CreditCard,
-  ChevronLeft
+  GripVertical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -100,6 +100,28 @@ const findBotResponse = (message: string): string | null => {
   return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
 };
 
+// LocalStorage'dan pozisyon oku
+const getSavedPosition = () => {
+  try {
+    const saved = localStorage.getItem('chatWidgetYPosition');
+    if (saved) {
+      return parseInt(saved, 10);
+    }
+  } catch (e) {
+    console.error('Position read error:', e);
+  }
+  return null;
+};
+
+// LocalStorage'a pozisyon kaydet
+const savePosition = (y: number) => {
+  try {
+    localStorage.setItem('chatWidgetYPosition', y.toString());
+  } catch (e) {
+    console.error('Position save error:', e);
+  }
+};
+
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -109,8 +131,19 @@ export function ChatWidget() {
   const [showQuickReplies, setShowQuickReplies] = useState(true);
   const [isAgentMode, setIsAgentMode] = useState(false);
   
+  // Y ekseninde pozisyon (varsayılan: orta)
+  const [positionY, setPositionY] = useState(() => {
+    const saved = getSavedPosition();
+    if (saved) return saved;
+    return typeof window !== 'undefined' ? window.innerHeight / 2 - 150 : 300;
+  });
+  
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartY, setDragStartY] = useState(0);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // İlk mesajı göster
   useEffect(() => {
@@ -140,15 +173,70 @@ export function ChatWidget() {
     }
   }, [isOpen]);
 
-  // Increment unread when closed
+  // Sürükleme olayları
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isOpen) return; // Açıkken sürüklemeye izin verme
+    
+    setIsDragging(true);
+    setDragStartY(e.clientY - positionY);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (isOpen) return;
+    
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setDragStartY(touch.clientY - positionY);
+  };
+
   useEffect(() => {
-    if (!isOpen && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.sender !== 'user') {
-        setUnreadCount((prev) => prev + 1);
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      
+      const newY = e.clientY - dragStartY;
+      
+      // Ekran sınırları
+      const minY = 100;
+      const maxY = window.innerHeight - 200;
+      
+      const clampedY = Math.max(minY, Math.min(maxY, newY));
+      setPositionY(clampedY);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging) return;
+      
+      const touch = e.touches[0];
+      const newY = touch.clientY - dragStartY;
+      
+      const minY = 100;
+      const maxY = window.innerHeight - 200;
+      
+      const clampedY = Math.max(minY, Math.min(maxY, newY));
+      setPositionY(clampedY);
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+        savePosition(positionY);
       }
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove);
+      window.addEventListener('touchend', handleMouseUp);
     }
-  }, [messages, isOpen]);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [isDragging, dragStartY, positionY]);
 
   const handleSend = () => {
     if (!inputMessage.trim()) return;
@@ -258,31 +346,59 @@ export function ChatWidget() {
         />
       )}
 
-      {/* Ana Container - Sağdan slide */}
+      {/* Ana Container */}
       <div className="fixed right-0 top-0 h-full z-50 pointer-events-none">
-        {/* Kapalı durum - Sağda gizli buton */}
+        {/* Kapalı durum - Sağda sürüklenebilir buton */}
         {!isOpen && (
           <button
+            ref={buttonRef}
             onClick={() => setIsOpen(true)}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            style={{ 
+              position: 'absolute',
+              right: 0,
+              top: `${positionY}px`,
+              transform: 'translateY(-50%)'
+            }}
             className={cn(
-              "absolute right-0 top-1/2 -translate-y-1/2",
               "flex items-center gap-2",
               "bg-gradient-to-r from-orange-500 to-orange-600",
-              "text-white pl-4 pr-3 py-4",
-              "rounded-l-2xl shadow-2xl",
-              "hover:pr-5 transition-all duration-300",
-              "pointer-events-auto"
+              "text-white pl-3 pr-2 py-4",
+              "rounded-l-xl shadow-2xl",
+              "pointer-events-auto",
+              "transition-all duration-200",
+              isDragging ? "cursor-grabbing scale-105 shadow-orange-500/50" : "cursor-grab hover:pr-3"
             )}
           >
+            {/* Tutamaç ikonu */}
+            <GripVertical className={cn(
+              "w-4 h-4 text-white/60",
+              isDragging && "text-white"
+            )} />
+            
             <div className="relative">
-              <MessageCircle className="w-6 h-6" />
+              <MessageCircle className="w-5 h-5" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
                   {unreadCount}
                 </span>
               )}
             </div>
-            <ChevronLeft className="w-5 h-5" />
+            
+            {/* Dikey yazı */}
+            <span 
+              className="text-xs font-medium writing-mode-vertical"
+              style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+            >
+              Destek
+            </span>
+            
+            {/* Online göstergesi */}
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
           </button>
         )}
 
@@ -293,7 +409,7 @@ export function ChatWidget() {
             "transition-transform duration-300 ease-out",
             "flex flex-col",
             isOpen ? "translate-x-0" : "translate-x-full",
-            "w-[400px] max-w-[100vw]"
+            "w-[380px] max-w-[100vw]"
           )}
         >
           {/* Header */}
@@ -343,7 +459,7 @@ export function ChatWidget() {
             </div>
           </div>
 
-          {/* Mesajlar Alanı - Esnek yükseklik */}
+          {/* Mesajlar Alanı */}
           <div className="flex-1 overflow-hidden flex flex-col">
             <div 
               ref={scrollRef}
