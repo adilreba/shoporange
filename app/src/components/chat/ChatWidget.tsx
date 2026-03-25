@@ -428,12 +428,12 @@ export function ChatWidget() {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            disabled={connectionStatus === 'closed'}
+            disabled={false}
             className="flex-1 h-9 text-sm"
           />
           <Button
             onClick={handleSend}
-            disabled={!inputMessage.trim() || connectionStatus === 'closed'}
+            disabled={!inputMessage.trim()}
             className="gradient-orange px-3 h-9"
           >
             <Send className="w-4 h-4" />
