@@ -124,15 +124,15 @@ export function TestimonialsSection() {
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {testimonials.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentIndex(index)}
-                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                  className={`carousel-dot transition-all duration-300 rounded-full ${
                     index === currentIndex 
-                      ? 'w-8 bg-orange-500' 
-                      : 'bg-gray-300 hover:bg-gray-400'
+                      ? 'w-5 h-1.5 bg-orange-500' 
+                      : 'w-1.5 h-1.5 bg-gray-300 hover:bg-gray-400'
                   }`}
                 />
               ))}
