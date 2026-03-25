@@ -19,7 +19,7 @@ export function ChatWidget() {
     agentName,
     queuePosition,
     waitingForAgent,
-    totalWaitingCustomers,
+
     setIsOpen, 
     clearChat,
     connect,
@@ -251,16 +251,16 @@ export function ChatWidget() {
 
   // OPEN STATE - Chat window
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-[24rem]">
+    <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-[22rem] shadow-2xl">
       {/* Chat Header */}
-      <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-2xl p-3 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl p-2.5 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-            <MessageCircle className="w-4 h-4" />
+          <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center">
+            <MessageCircle className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h3 className="font-semibold text-sm">Canlı Destek</h3>
-            <p className="text-[10px] text-white/80 flex items-center gap-1">
+            <h3 className="font-medium text-xs">Canlı Destek</h3>
+            <p className="text-[9px] text-white/70 flex items-center gap-1">
               {getStatusIcon()}
               {getStatusText()}
             </p>
@@ -271,18 +271,18 @@ export function ChatWidget() {
             variant="ghost"
             size="icon"
             onClick={handleClear}
-            className="text-white/80 hover:text-white hover:bg-white/20 h-8 w-8"
+            className="text-white/70 hover:text-white hover:bg-white/20 h-7 w-7"
             title="Sohbeti Sonlandır"
           >
-            <CheckCheck className="w-4 h-4" />
+            <CheckCheck className="w-3.5 h-3.5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsOpen(false)}
-            className="text-white/80 hover:text-white hover:bg-white/20 h-8 w-8"
+            className="text-white/70 hover:text-white hover:bg-white/20 h-7 w-7"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </Button>
         </div>
       </div>
@@ -290,56 +290,56 @@ export function ChatWidget() {
       {/* Chat Messages */}
       <div className="bg-card dark:bg-gray-900 border-x border-border dark:border-gray-800">
         <div 
-          className="h-64 sm:h-80 overflow-y-auto p-3" 
+          className="h-56 sm:h-72 overflow-y-auto p-2.5" 
           ref={scrollRef}
           style={{ scrollBehavior: 'smooth' }}
         >
-          <div className="space-y-3">
+          <div className="space-y-2">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={cn(
-                  'flex gap-2',
+                  'flex gap-1.5',
                   message.sender === 'user' ? 'flex-row-reverse' : ''
                 )}
               >
                 {/* Avatar */}
                 <div
                   className={cn(
-                    'w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0',
+                    'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5',
                     message.sender === 'user'
                       ? 'bg-orange-100 text-orange-600'
                       : message.sender === 'agent'
                       ? 'bg-blue-100 text-blue-600'
-                      : 'bg-muted text-muted-foreground'
+                      : 'bg-gray-100 text-gray-500'
                   )}
                 >
                   {message.sender === 'user' ? (
-                    <User className="w-3 h-3" />
+                    <User className="w-2.5 h-2.5" />
                   ) : message.sender === 'agent' ? (
-                    <div className="text-[10px] font-bold">T</div>
+                    <div className="text-[8px] font-medium">T</div>
                   ) : (
-                    <Bot className="w-3 h-3" />
+                    <Bot className="w-2.5 h-2.5" />
                   )}
                 </div>
 
                 {/* Message Bubble */}
                 <div
                   className={cn(
-                    'max-w-[75%] rounded-2xl px-3 py-2 text-sm',
+                    'max-w-[80%] rounded-xl px-2.5 py-1.5 text-xs leading-relaxed',
                     message.sender === 'user'
-                      ? 'bg-orange-500 text-white rounded-br-none'
+                      ? 'bg-orange-500 text-white rounded-br-sm'
                       : message.sender === 'agent'
-                      ? 'bg-blue-500 text-white rounded-bl-none'
-                      : 'bg-muted dark:bg-gray-800 text-foreground dark:text-gray-200 rounded-bl-none'
+                      ? 'bg-blue-500 text-white rounded-bl-sm'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-sm'
                   )}
                 >
                   <p className="whitespace-pre-line">{message.text}</p>
                   <span
                     className={cn(
-                      'text-[10px] mt-0.5 block',
+                      'text-[9px] mt-1 block opacity-70',
                       message.sender === 'user' ? 'text-orange-100' : 
-                      message.sender === 'agent' ? 'text-blue-100' : 'text-muted-foreground'
+                      message.sender === 'agent' ? 'text-blue-100' : 'text-gray-400'
                     )}
                   >
                     {formatTime(message.timestamp)}
@@ -368,22 +368,22 @@ export function ChatWidget() {
 
         {/* Quick Replies & Connect Button */}
         {connectionStatus !== 'active' && !waitingForAgent && (
-          <div className="px-3 pb-2 space-y-2">
+          <div className="px-2.5 pb-2 space-y-1.5">
             <button
               onClick={requestAgent}
-              className="w-full text-[12px] px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-colors font-medium flex items-center justify-center gap-2"
+              className="w-full text-[11px] px-2.5 py-1.5 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-1.5 shadow-sm"
             >
-              <User className="w-4 h-4" />
-              Müşteri Temsilcisine Bağlan
+              <User className="w-3 h-3" />
+              Temsilciye Bağlan
             </button>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               {quickReplies.map((reply) => (
                 <button
                   key={reply}
                   onClick={() => {
                     sendMessage(reply);
                   }}
-                  className="text-[11px] px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+                  className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700"
                 >
                   {reply}
                 </button>
@@ -394,61 +394,53 @@ export function ChatWidget() {
 
         {/* Queue Status */}
         {waitingForAgent && connectionStatus !== 'active' && (
-          <div className="px-3 pb-2">
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-                <Clock className="w-4 h-4 animate-pulse" />
-                <span className="text-sm font-medium">Temsilciye bağlanılıyor...</span>
+          <div className="px-2.5 pb-2">
+            <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-md p-2">
+              <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                <Clock className="w-3 h-3 animate-pulse" />
+                <span className="text-[11px] font-medium">Temsilciye bağlanılıyor...</span>
               </div>
               {queuePosition !== null && queuePosition > 0 && (
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                  Önünüzde {queuePosition} kişi var. Lütfen bekleyin.
+                <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-0.5">
+                  Sırada {queuePosition}. sıradasınız.
                 </p>
               )}
-              {totalWaitingCustomers > 0 && queuePosition === null && (
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                  Şu anda {totalWaitingCustomers} kişi bekliyor. Sıranız geldiğinde otomatik bağlanacaksınız.
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground mt-2">
-                Beklerken sorularınızı sorabilirsiniz, bot yardımcı olmaya çalışacak.
-              </p>
             </div>
           </div>
         )}
       </div>
 
       {/* Chat Input */}
-      <div className="bg-card dark:bg-gray-900 border border-t-0 border-border dark:border-gray-800 rounded-b-2xl p-3">
-        <div className="flex gap-2">
+      <div className="bg-card dark:bg-gray-900 border border-t-0 border-border dark:border-gray-800 rounded-b-xl p-2.5">
+        <div className="flex gap-1.5">
           <Input
             ref={inputRef}
             type="text"
-            placeholder="Mesajınızı yazın..."
+            placeholder="Mesaj yazın..."
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={false}
-            className="flex-1 h-9 text-sm"
+            className="flex-1 h-8 text-xs bg-gray-50 dark:bg-gray-800 border-0 focus-visible:ring-1 focus-visible:ring-orange-500"
           />
           <Button
             onClick={handleSend}
             disabled={!inputMessage.trim()}
-            className="gradient-orange px-3 h-9"
+            className="bg-orange-500 hover:bg-orange-600 px-2.5 h-8"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-3.5 h-3.5" />
           </Button>
         </div>
-        <p className="text-[10px] text-muted-foreground text-center mt-1.5">
+        <p className="text-[9px] text-gray-400 text-center mt-1.5">
           {connectionStatus === 'active' 
-            ? 'Müşteri temsilcimizle canlı sohbet ediyorsunuz'
+            ? 'Canlı destek'
             : waitingForAgent
-            ? 'Sıranız geldiğinde otomatik bağlanacaksınız, sorularınızı sorabilirsiniz'
+            ? 'Bağlanılıyor...'
             : connectionStatus === 'waiting'
-            ? 'Bekleme listesindesiniz, temsilcimiz bağlanacak'
+            ? 'Beklemede'
             : connectionStatus === 'closed'
-            ? 'Sohbet sonlandırıldı, yeni sohbet başlatabilirsiniz'
-            : 'Müşteri temsilcimiz en kısa sürede yanıt verecektir'
+            ? 'Bot modu aktif'
+            : 'Yardımcı olmaya hazır'
           }
         </p>
       </div>
