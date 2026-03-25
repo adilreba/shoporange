@@ -57,15 +57,15 @@ console.log('[Chat] WebSocket URL:', WS_ENDPOINT);
 
 // Auto-responses for common questions (fallback when no agent connected)
 const autoResponses: Record<string, string> = {
-  'merhaba': 'Merhaba! AtusHome\'a hoş geldiniz. Size nasıl yardımcı olabilirim?',
+  'merhaba': 'Merhaba! 👋 Size nasıl yardımcı olabilirim?',
   'selam': 'Selam! Size nasıl yardımcı olabilirim?',
-  'sipariş': 'Siparişlerinizi "Hesabım > Siparişlerim" bölümünden takip edebilirsiniz. Yardımcı olmamı ister misiniz?',
-  'kargo': '500₺ üzeri siparişlerinizde kargo ücretsizdir. Siparişleriniz 1-3 iş günü içinde kargoya verilir.',
-  'iade': 'Ürünlerimizi 14 gün içinde koşulsuz iade edebilirsiniz. İade talebi için hesabınızdan başvuru yapabilirsiniz.',
-  'ödeme': 'Kredi kartı, banka kartı ve havale/EFT ile ödeme yapabilirsiniz. Tüm ödemeler 256-bit SSL ile güvence altındadır.',
-  'indirim': 'Güncel kampanyalarımızı ana sayfadaki "İndirimler" bölümünden takip edebilirsiniz. Ayrıca bültenimize abone olarak özel indirimlerden haberdar olabilirsiniz.',
-  'stok': 'Stok durumunu ürün sayfasında görebilirsiniz. Stokta olmayan ürünler için "Stokta Olunca Haber Ver" özelliğini kullanabilirsiniz.',
-  'yardım': 'Size şu konularda yardımcı olabilirim: Sipariş takibi, İade/Değişim, Ödeme seçenekleri, Ürün bilgisi, Kampanyalar',
+  'sipariş': 'Siparişlerinizi "Hesabım > Siparişlerim" bölümünden takip edebilirsiniz.',
+  'kargo': '500₺+ siparişlerde kargo bedava. 1-3 iş gününde kargoya verilir.',
+  'iade': '14 gün içinde koşulsuz iade. Hesabınızdan başvuru yapabilirsiniz.',
+  'ödeme': 'Kredi kartı, banka kartı ve havale/EFT kabul ediyoruz. 256-bit SSL güvenliği.',
+  'indirim': 'Kampanyalarımızı ana sayfadan takip edebilirsiniz.',
+  'stok': 'Stok durumu ürün sayfasında görünür. Stok alarmı kurabilirsiniz.',
+  'yardım': 'Konular: sipariş, kargo, iade, ödeme, stok',
 };
 
 export const useChatStore = create<ChatState>()(
@@ -81,7 +81,7 @@ export const useChatStore = create<ChatState>()(
       messages: [
         {
           id: 'welcome',
-          text: 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?\n\nBir temsilciye bağlanmak için mesaj gönderin.',
+          text: 'Merhaba! 👋 Size nasıl yardımcı olabilirim?\n\n• Sipariş takibi: sipariş\n• Kargo bilgisi: kargo\n• İade işlemleri: iade\n• Ödeme seçenekleri: ödeme',
           sender: 'bot',
           timestamp: new Date().toISOString(),
           isRead: true,
@@ -223,15 +223,15 @@ export const useChatStore = create<ChatState>()(
           // Handle specific error codes
           let errorMessage = 'Bağlantı kesildi.';
           if (event.code === 1006) {
-            errorMessage = '⚠️ Canlı destek sunucusuna bağlanılamadı (Hata 1006). Demo modda devam ediliyor...';
+            errorMessage = '⚠️ Canlı destek kapalı. Bot modunda devam ediliyor.';
           } else if (event.code !== 1000 && event.code !== 1001) {
-            errorMessage = 'Bağlantı hatası oluştu. Demo modda devam ediliyor...';
+            errorMessage = 'Bağlantı hatası. Bot modunda devam ediliyor.';
           }
           
           // Only show error once
           const messages = get().messages;
           const lastMessage = messages[messages.length - 1];
-          if (!lastMessage?.text?.includes('Demo modda')) {
+          if (!lastMessage?.text?.includes('Bot modunda')) {
             set({ 
               messages: [...messages, {
                 id: 'closed-' + Date.now(),
@@ -291,9 +291,9 @@ export const useChatStore = create<ChatState>()(
           // WebSocket not connected - show info message once
           const messages = get().messages;
           const lastMsg = messages[messages.length - 2]; // Before user message
-          if (!lastMsg?.text?.includes('Demo modda')) {
+          if (!lastMsg?.text?.includes('Bot modunda')) {
             get().addMessage(
-              '🤖 Demo mod: Canlı destek sunucusu şu anda bağlı değil. Bot otomatik yanıt veriyor.',
+              '🤖 Bot modu aktif',
               'bot'
             );
           }
@@ -315,7 +315,7 @@ export const useChatStore = create<ChatState>()(
             }
 
             if (!response) {
-              response = 'Anladım. Size yardımcı olmak için elimden geleni yapıyorum.\n\nDaha detaylı bilgi için:\n• Sipariş takibi: sipariş\n• Kargo bilgisi: kargo\n• İade işlemleri: iade\n• Ödeme seçenekleri: ödeme';
+              response = 'Anladım. Size yardımcı olmaya çalışıyorum.\n\nYardımcı olabileceğim konular: sipariş, kargo, iade, ödeme';
             }
 
             set({ isTyping: false });

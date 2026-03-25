@@ -326,12 +326,12 @@ export function ChatWidget() {
                 {/* Message Bubble */}
                 <div
                   className={cn(
-                    'max-w-[80%] rounded-xl px-2.5 py-1.5 text-xs leading-relaxed',
+                    'max-w-[80%] rounded-xl px-2.5 py-1.5 text-[11px] leading-relaxed',
                     message.sender === 'user'
                       ? 'bg-orange-500 text-white rounded-br-sm'
                       : message.sender === 'agent'
                       ? 'bg-blue-500 text-white rounded-bl-sm'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-sm'
+                      : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-bl-sm border border-orange-100 dark:border-orange-800'
                   )}
                 >
                   <p className="whitespace-pre-line">{message.text}</p>
@@ -339,7 +339,7 @@ export function ChatWidget() {
                     className={cn(
                       'text-[9px] mt-1 block opacity-70',
                       message.sender === 'user' ? 'text-orange-100' : 
-                      message.sender === 'agent' ? 'text-blue-100' : 'text-gray-400'
+                      message.sender === 'agent' ? 'text-blue-100' : 'text-orange-400'
                     )}
                   >
                     {formatTime(message.timestamp)}
@@ -383,7 +383,7 @@ export function ChatWidget() {
                   onClick={() => {
                     sendMessage(reply);
                   }}
-                  className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700"
+                  className="text-[10px] px-2 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
                 >
                   {reply}
                 </button>
