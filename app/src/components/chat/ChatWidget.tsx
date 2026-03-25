@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   MessageCircle, 
   Send, 
@@ -13,11 +13,12 @@ import {
   Package,
   Truck,
   RefreshCcw,
-  CreditCard
+  CreditCard,
+  GripVertical,
+  Maximize2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -87,33 +88,64 @@ const botResponses: Record<string, string> = {
 const findBotResponse = (message: string): string | null => {
   const lowerMessage = message.toLowerCase().trim();
   
-  // Anahtar kelime eşleştirme
   for (const [key, response] of Object.entries(botResponses)) {
     if (lowerMessage.includes(key)) {
       return response;
     }
   }
   
-  // Varsayılan yanıtlar
   const defaultResponses = [
     'Anladım, konuyu netleştirmek için bir temsilcimiz size yardımcı olabilir. Temsilciye bağlanmak ister misiniz?',
     'Bu konuda size daha detaylı yardımcı olmak için canlı destek temsilcimizle görüşebilirsiniz. Bağlanmak ister misiniz?',
-    'Sorunuzu anladım. Size en iyi şekilde yardımcı olmak için biraz daha detay paylaşabilir misiniz?',
   ];
   
   return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
 };
 
+// LocalStorage'dan pozisyon oku
+const getSavedPosition = () => {
+  try {
+    const saved = localStorage.getItem('chatWidgetPosition');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Position read error:', e);
+  }
+  return null;
+};
+
+// LocalStorage'a pozisyon kaydet
+const savePosition = (x: number, y: number) => {
+  try {
+    localStorage.setItem('chatWidgetPosition', JSON.stringify({ x, y }));
+  } catch (e) {
+    console.error('Position save error:', e);
+  }
+};
+
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
   const [isAgentMode, setIsAgentMode] = useState(false);
+  
+  // Sürükleme state'leri
+  const [position, setPosition] = useState(() => {
+    const saved = getSavedPosition();
+    return saved || { x: window.innerWidth - 420, y: window.innerHeight - 600 };
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const widgetRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
 
   // İlk mesajı göster
   useEffect(() => {
@@ -137,26 +169,96 @@ export function ChatWidget() {
 
   // Focus input when opened
   useEffect(() => {
-    if (isOpen && inputRef.current) {
+    if (isOpen && !isMinimized && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
       setUnreadCount(0);
     }
-  }, [isOpen]);
+  }, [isOpen, isMinimized]);
 
-  // Increment unread when closed
+  // Sürükleme olayları
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!headerRef.current) return;
+    
+    // Sadece header'dan sürüklemeye izin ver
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return; // Butonlardan sürüklemeyi engelle
+    
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    });
+  }, [position]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!headerRef.current) return;
+    
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setDragOffset({
+      x: touch.clientX - position.x,
+      y: touch.clientY - position.y,
+    });
+  }, [position]);
+
   useEffect(() => {
-    if (!isOpen && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.sender !== 'user') {
-        setUnreadCount((prev) => prev + 1);
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      
+      const newX = e.clientX - dragOffset.x;
+      const newY = e.clientY - dragOffset.y;
+      
+      // Ekran sınırları
+      const maxX = window.innerWidth - (isOpen ? 400 : 200);
+      const maxY = window.innerHeight - (isOpen ? 600 : 80);
+      
+      const clampedX = Math.max(20, Math.min(maxX, newX));
+      const clampedY = Math.max(20, Math.min(maxY, newY));
+      
+      setPosition({ x: clampedX, y: clampedY });
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging) return;
+      
+      const touch = e.touches[0];
+      const newX = touch.clientX - dragOffset.x;
+      const newY = touch.clientY - dragOffset.y;
+      
+      const maxX = window.innerWidth - (isOpen ? 400 : 200);
+      const maxY = window.innerHeight - (isOpen ? 600 : 80);
+      
+      const clampedX = Math.max(20, Math.min(maxX, newX));
+      const clampedY = Math.max(20, Math.min(maxY, newY));
+      
+      setPosition({ x: clampedX, y: clampedY });
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+        savePosition(position.x, position.y);
       }
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove);
+      window.addEventListener('touchend', handleMouseUp);
     }
-  }, [messages, isOpen]);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [isDragging, dragOffset, position, isOpen]);
 
   const handleSend = () => {
     if (!inputMessage.trim()) return;
 
-    // Kullanıcı mesajı
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       text: inputMessage.trim(),
@@ -169,19 +271,22 @@ export function ChatWidget() {
     setShowQuickReplies(false);
     setIsTyping(true);
 
-    // Bot yanıtı (simülasyon)
     setTimeout(() => {
       const botResponse = findBotResponse(userMessage.text);
       
       const botMessage: Message = {
         id: `bot-${Date.now()}`,
-        text: botResponse || 'Size yardımcı olmak için buradayım. Daha detaylı bilgi için bir temsilcimizle görüşmek ister misiniz?',
+        text: botResponse || 'Size yardımcı olmak için buradayım.',
         sender: 'bot',
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, botMessage]);
       setIsTyping(false);
+      
+      if (!isOpen) {
+        setUnreadCount((prev) => prev + 1);
+      }
     }, 1000 + Math.random() * 1000);
   };
 
@@ -193,7 +298,6 @@ export function ChatWidget() {
   };
 
   const handleQuickReply = (reply: QuickReply) => {
-    // Kullanıcı mesajı
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       text: reply.label,
@@ -205,7 +309,6 @@ export function ChatWidget() {
     setShowQuickReplies(false);
     setIsTyping(true);
 
-    // Bot yanıtı
     setTimeout(() => {
       const botMessage: Message = {
         id: `bot-${Date.now()}`,
@@ -244,6 +347,10 @@ export function ChatWidget() {
     toast.info('Sohbet temizlendi');
   };
 
+  const toggleMinimize = () => {
+    setIsMinimized(!isMinimized);
+  };
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('tr-TR', {
       hour: '2-digit',
@@ -251,17 +358,28 @@ export function ChatWidget() {
     });
   };
 
-  // Kapalı durum - Yüzer buton
+  // Kapalı durum - Sürüklenebilir buton
   if (!isOpen) {
     return (
       <button
+        ref={widgetRef as any}
         onClick={() => setIsOpen(true)}
+        style={{ 
+          position: 'fixed',
+          left: `${position.x}px`, 
+          top: `${position.y}px`,
+          right: 'auto',
+          bottom: 'auto',
+          zIndex: 50
+        }}
         className={cn(
-          "fixed bottom-6 right-6 z-50 flex items-center gap-3",
+          "flex items-center gap-3",
           "bg-gradient-to-r from-orange-500 to-orange-600",
           "text-white px-5 py-3.5 rounded-full shadow-2xl",
-          "hover:shadow-orange-500/30 hover:scale-105",
-          "transition-all duration-300 ease-out"
+          "hover:shadow-orange-500/30",
+          "transition-shadow duration-300",
+          isDragging && "cursor-grabbing scale-105",
+          !isDragging && "cursor-grab hover:scale-105"
         )}
       >
         <div className="relative">
@@ -273,8 +391,6 @@ export function ChatWidget() {
           )}
         </div>
         <span className="font-medium text-sm">Canlı Destek</span>
-        
-        {/* Online göstergesi */}
         <span className="relative flex h-3 w-3">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
           <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
@@ -283,14 +399,42 @@ export function ChatWidget() {
     );
   }
 
-  // Açık durum - Chat penceresi
+  // Açık durum - Sürüklenebilir pencere
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-3rem)] shadow-2xl animate-in slide-in-from-bottom-5 duration-300">
-      {/* Header - Profesyonel */}
-      <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-2xl p-4">
+    <div
+      ref={widgetRef}
+      style={{ 
+        position: 'fixed',
+        left: `${position.x}px`, 
+        top: `${position.y}px`,
+        right: 'auto',
+        bottom: 'auto',
+        zIndex: 50
+      }}
+      className={cn(
+        "w-[380px] max-w-[calc(100vw-2rem)] shadow-2xl rounded-2xl overflow-hidden bg-white dark:bg-gray-900",
+        "transition-all duration-300",
+        isDragging && "shadow-orange-500/20"
+      )}
+    >
+      {/* Header - Sürüklenebilir alan */}
+      <div 
+        ref={headerRef}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        className={cn(
+          "bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4",
+          "select-none",
+          isDragging ? "cursor-grabbing" : "cursor-grab"
+        )}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Profil fotoğrafı placeholder */}
+            {/* Tutamaç ikonu */}
+            <div className="text-white/50 hover:text-white/80 transition-colors">
+              <GripVertical className="w-5 h-5" />
+            </div>
+            
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
               {isAgentMode ? (
                 <Headphones className="w-6 h-6" />
@@ -313,6 +457,17 @@ export function ChatWidget() {
           </div>
           
           <div className="flex items-center gap-1">
+            {/* Minimize butonu */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleMinimize}
+              className="text-white/70 hover:text-white hover:bg-white/20 h-9 w-9"
+              title={isMinimized ? "Genişlet" : "Küçült"}
+            >
+              {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+            </Button>
+            
             <Button
               variant="ghost"
               size="icon"
@@ -322,14 +477,7 @@ export function ChatWidget() {
             >
               <RefreshCcw className="w-4 h-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(false)}
-              className="text-white/70 hover:text-white hover:bg-white/20 h-9 w-9"
-            >
-              <Minimize2 className="w-4 h-4" />
-            </Button>
+            
             <Button
               variant="ghost"
               size="icon"
@@ -340,152 +488,162 @@ export function ChatWidget() {
             </Button>
           </div>
         </div>
-      </div>
-
-      {/* Mesajlar Alanı */}
-      <div className="bg-white dark:bg-gray-900 border-x border-gray-200 dark:border-gray-800">
-        <div 
-          ref={scrollRef}
-          className="h-[400px] overflow-y-auto p-4 space-y-4"
-          style={{ scrollBehavior: 'smooth' }}
-        >
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn(
-                'flex gap-3',
-                message.sender === 'user' ? 'flex-row-reverse' : ''
-              )}
-            >
-              {/* Avatar */}
-              <div className={cn(
-                'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
-                message.sender === 'user' 
-                  ? 'bg-orange-100 text-orange-600' 
-                  : message.sender === 'agent'
-                  ? 'bg-blue-100 text-blue-600'
-                  : 'bg-purple-100 text-purple-600'
-              )}>
-                {message.sender === 'user' ? (
-                  <User className="w-4 h-4" />
-                ) : message.sender === 'agent' ? (
-                  <Headphones className="w-4 h-4" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
-              </div>
-
-              {/* Mesaj Balonu */}
-              <div className={cn(
-                'max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
-                message.sender === 'user'
-                  ? 'bg-orange-500 text-white rounded-br-md'
-                  : message.sender === 'agent'
-                  ? 'bg-blue-500 text-white rounded-bl-md'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-md'
-              )}>
-                <p>{message.text}</p>
-                <div className={cn(
-                  'flex items-center gap-1 mt-1.5 text-xs',
-                  message.sender === 'user' ? 'text-orange-100' : 'text-gray-400'
-                )}>
-                  <span>{formatTime(message.timestamp)}</span>
-                  {message.sender === 'user' && (
-                    <CheckCheck className="w-3.5 h-3.5" />
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Yazıyor animasyonu */}
-          {isTyping && (
-            <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3">
-                <div className="flex gap-1.5">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Hızlı Yanıtlar */}
-        {showQuickReplies && !isTyping && (
-          <div className="px-4 pb-3">
-            <p className="text-xs text-gray-500 mb-2 font-medium">Sıkça Sorulanlar:</p>
-            <div className="grid grid-cols-2 gap-2">
-              {quickReplies.map((reply) => (
-                <button
-                  key={reply.id}
-                  onClick={() => handleQuickReply(reply)}
-                  className={cn(
-                    "flex items-center gap-2 p-2.5 rounded-xl text-xs font-medium",
-                    "bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300",
-                    "hover:bg-orange-100 dark:hover:bg-orange-900/30",
-                    "transition-colors border border-orange-200 dark:border-orange-800"
-                  )}
-                >
-                  {reply.icon}
-                  <span>{reply.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Temsilci bağlanma butonu */}
-        {!isAgentMode && !isTyping && (
-          <div className="px-4 pb-3">
-            <button
-              onClick={requestAgent}
-              className={cn(
-                "w-full flex items-center justify-center gap-2 p-3 rounded-xl",
-                "bg-gradient-to-r from-blue-500 to-blue-600 text-white",
-                "hover:from-blue-600 hover:to-blue-700",
-                "transition-all text-sm font-medium shadow-lg shadow-blue-500/25"
-              )}
-            >
-              <Headphones className="w-4 h-4" />
-              <span>Canlı Temsilciyle Görüş</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Input Alanı */}
-      <div className="bg-white dark:bg-gray-900 border border-t-0 border-gray-200 dark:border-gray-800 rounded-b-2xl p-4">
-        <div className="flex gap-2">
-          <Input
-            ref={inputRef}
-            type="text"
-            placeholder="Mesajınızı yazın..."
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            className="flex-1 h-11 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus-visible:ring-orange-500"
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!inputMessage.trim()}
-            className={cn(
-              "h-11 px-4 bg-orange-500 hover:bg-orange-600",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
-        <p className="text-center text-xs text-gray-400 mt-2">
-          AtusHome AI Asistan • 7/24 Hizmetinizde
+        
+        {/* Sürükleme ipucu */}
+        <p className="text-[10px] text-white/60 text-center mt-2">
+          Konumunu değiştirmek için tutup sürükleyin
         </p>
       </div>
+
+      {/* İçerik alanı - Küçültüldüğünde gizlenir */}
+      {!isMinimized && (
+        <>
+          {/* Mesajlar Alanı */}
+          <div className="bg-white dark:bg-gray-900">
+            <div 
+              ref={scrollRef}
+              className="h-[320px] overflow-y-auto p-4 space-y-4"
+              style={{ scrollBehavior: 'smooth' }}
+            >
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={cn(
+                    'flex gap-3',
+                    message.sender === 'user' ? 'flex-row-reverse' : ''
+                  )}
+                >
+                  {/* Avatar */}
+                  <div className={cn(
+                    'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+                    message.sender === 'user' 
+                      ? 'bg-orange-100 text-orange-600' 
+                      : message.sender === 'agent'
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-purple-100 text-purple-600'
+                  )}>
+                    {message.sender === 'user' ? (
+                      <User className="w-4 h-4" />
+                    ) : message.sender === 'agent' ? (
+                      <Headphones className="w-4 h-4" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                  </div>
+
+                  {/* Mesaj Balonu */}
+                  <div className={cn(
+                    'max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
+                    message.sender === 'user'
+                      ? 'bg-orange-500 text-white rounded-br-md'
+                      : message.sender === 'agent'
+                      ? 'bg-blue-500 text-white rounded-bl-md'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-md'
+                  )}>
+                    <p>{message.text}</p>
+                    <div className={cn(
+                      'flex items-center gap-1 mt-1.5 text-xs',
+                      message.sender === 'user' ? 'text-orange-100' : 'text-gray-400'
+                    )}>
+                      <span>{formatTime(message.timestamp)}</span>
+                      {message.sender === 'user' && (
+                        <CheckCheck className="w-3.5 h-3.5" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Yazıyor animasyonu */}
+              {isTyping && (
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3">
+                    <div className="flex gap-1.5">
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Hızlı Yanıtlar */}
+            {showQuickReplies && !isTyping && (
+              <div className="px-4 pb-3">
+                <p className="text-xs text-gray-500 mb-2 font-medium">Sıkça Sorulanlar:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {quickReplies.map((reply) => (
+                    <button
+                      key={reply.id}
+                      onClick={() => handleQuickReply(reply)}
+                      className={cn(
+                        "flex items-center gap-2 p-2.5 rounded-xl text-xs font-medium",
+                        "bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300",
+                        "hover:bg-orange-100 dark:hover:bg-orange-900/30",
+                        "transition-colors border border-orange-200 dark:border-orange-800"
+                      )}
+                    >
+                      {reply.icon}
+                      <span>{reply.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Temsilci bağlanma butonu */}
+            {!isAgentMode && !isTyping && (
+              <div className="px-4 pb-3">
+                <button
+                  onClick={requestAgent}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-2 p-3 rounded-xl",
+                    "bg-gradient-to-r from-blue-500 to-blue-600 text-white",
+                    "hover:from-blue-600 hover:to-blue-700",
+                    "transition-all text-sm font-medium shadow-lg shadow-blue-500/25"
+                  )}
+                >
+                  <Headphones className="w-4 h-4" />
+                  <span>Canlı Temsilciyle Görüş</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Input Alanı */}
+          <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-4">
+            <div className="flex gap-2">
+              <Input
+                ref={inputRef}
+                type="text"
+                placeholder="Mesajınızı yazın..."
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="flex-1 h-11 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus-visible:ring-orange-500"
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!inputMessage.trim()}
+                className={cn(
+                  "h-11 px-4 bg-orange-500 hover:bg-orange-600",
+                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                )}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+            <p className="text-center text-xs text-gray-400 mt-2">
+              AtusHome AI Asistan • 7/24 Hizmetinizde
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
