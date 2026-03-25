@@ -364,8 +364,8 @@ export function ChatWidget() {
             }}
             className={cn(
               "w-14 h-14 flex items-center justify-center",
-              "bg-gradient-to-br from-orange-500/90 to-orange-600/90",
-              "hover:from-orange-500 hover:to-orange-600",
+              "bg-gradient-to-br from-orange-400/70 to-orange-500/70",
+              "hover:from-orange-400/90 hover:to-orange-500/90",
               "text-white rounded-l-2xl shadow-lg",
               "pointer-events-auto",
               "transition-all duration-200",
