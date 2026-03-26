@@ -430,10 +430,10 @@ export function Products() {
   };
 
   const FilterContent = () => (
-    <div className="space-y-6 pb-20">
-      <div className="border-b border-border pb-4">
-        <h4 className="font-semibold mb-3 text-foreground text-sm">Kategoriler</h4>
-        <div className="space-y-2">
+    <div className="space-y-4 sm:space-y-6 pb-4">
+      <div className="border-b border-border pb-3 sm:pb-4">
+        <h4 className="font-semibold mb-2 text-foreground text-sm">Kategoriler</h4>
+        <div className="space-y-1.5">
           {categories.map(cat => {
             const count = facets.categoryCounts[cat.id] || 0;
             const isDisabled = count === 0 && !selectedCategories.includes(cat.id);
@@ -441,7 +441,7 @@ export function Products() {
               <label 
                 key={cat.id} 
                 className={cn(
-                  "flex items-center gap-3 cursor-pointer group py-1",
+                  "flex items-center gap-2 cursor-pointer group py-0.5",
                   isDisabled && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -467,14 +467,14 @@ export function Products() {
 
       {/* Alt Kategoriler - Tüm seçili kategorilerin alt kategorilerini göster */}
       {selectedCategories.length > 0 && (
-        <div className="border-b border-border pb-4">
-          <h4 className="font-semibold mb-3 text-foreground text-sm">Alt Kategoriler</h4>
-          <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+        <div className="border-b border-border pb-3 sm:pb-4">
+          <h4 className="font-semibold mb-2 text-foreground text-sm">Alt Kategoriler</h4>
+          <div className="space-y-1.5 max-h-48 sm:max-h-64 overflow-y-auto pr-2 custom-scrollbar">
             {selectedCategories.flatMap(catId => 
               subcategories[catId as keyof typeof subcategories] || []
             ).filter((sub, index, self) => self.indexOf(sub) === index) // Benzersiz
               .map(sub => (
-                <label key={sub} className="flex items-center gap-3 cursor-pointer group py-1">
+                <label key={sub} className="flex items-center gap-2 cursor-pointer group py-0.5">
                   <Checkbox
                     checked={selectedSubcategories.includes(sub)}
                     onCheckedChange={() => toggleSubcategory(sub)}
@@ -488,8 +488,8 @@ export function Products() {
         </div>
       )}
 
-      <div className="border-b border-border pb-4">
-        <div className="flex items-center justify-between mb-3">
+      <div className="border-b border-border pb-3 sm:pb-4">
+        <div className="flex items-center justify-between mb-2">
           <h4 className="font-semibold text-foreground text-sm">Fiyat Aralığı</h4>
           {(priceRange[0] > 0 || priceRange[1] < 100000) && (
             <button 
@@ -565,9 +565,9 @@ export function Products() {
         </div>
       </div>
 
-      <div className="border-b border-border pb-4">
-        <h4 className="font-semibold mb-3 text-foreground text-sm">Markalar</h4>
-        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+      <div className="border-b border-border pb-3 sm:pb-4">
+        <h4 className="font-semibold mb-2 text-foreground text-sm">Markalar</h4>
+        <div className="space-y-1.5 max-h-40 sm:max-h-48 overflow-y-auto pr-2 custom-scrollbar">
           {brands.map(brand => {
             const count = facets.brandCounts[brand] || 0;
             const isDisabled = count === 0 && !selectedBrands.includes(brand);
@@ -575,7 +575,7 @@ export function Products() {
               <label 
                 key={brand} 
                 className={cn(
-                  "flex items-center gap-3 cursor-pointer group py-1",
+                  "flex items-center gap-2 cursor-pointer group py-0.5",
                   isDisabled && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -599,9 +599,9 @@ export function Products() {
         </div>
       </div>
 
-      <div className="border-b border-border pb-4">
-        <h4 className="font-semibold mb-3 text-foreground text-sm">Puan Aralığı</h4>
-        <div className="space-y-2">
+      <div className="border-b border-border pb-3 sm:pb-4">
+        <h4 className="font-semibold mb-2 text-foreground text-sm">Puan Aralığı</h4>
+        <div className="space-y-1.5">
           {[5, 4, 3, 2, 1].map(rating => {
             const count = facets.ratingCounts[rating] || 0;
             const isDisabled = count === 0 && !selectedRatings.includes(rating);
@@ -609,7 +609,7 @@ export function Products() {
               <label 
                 key={rating} 
                 className={cn(
-                  "flex items-center gap-3 cursor-pointer group py-1",
+                  "flex items-center gap-2 cursor-pointer group py-0.5",
                   isDisabled && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -644,10 +644,10 @@ export function Products() {
       </div>
 
       <div>
-        <h4 className="font-semibold mb-3 text-foreground text-sm">Diğer Filtreler</h4>
-        <div className="space-y-3">
+        <h4 className="font-semibold mb-2 text-foreground text-sm">Diğer Filtreler</h4>
+        <div className="space-y-2">
           <label className={cn(
-            "flex items-center gap-3 cursor-pointer group py-1",
+            "flex items-center gap-2 cursor-pointer group py-0.5",
             facets.discountCount === 0 && !onlyDiscount && "opacity-50 cursor-not-allowed"
           )}>
             <Checkbox
@@ -663,7 +663,7 @@ export function Products() {
             )}>{facets.discountCount}</span>
           </label>
           <label className={cn(
-            "flex items-center gap-3 cursor-pointer group py-1",
+            "flex items-center gap-2 cursor-pointer group py-0.5",
             facets.inStockCount === 0 && !onlyInStock && "opacity-50 cursor-not-allowed"
           )}>
             <Checkbox
@@ -753,17 +753,27 @@ export function Products() {
                   )}
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-[300px] sm:w-[350px] p-0">
+              <SheetContent side="bottom" className="h-[85vh] sm:h-auto sm:w-[320px] sm:side-left p-0 rounded-t-2xl sm:rounded-none">
                 <div className="flex flex-col h-full">
-                  <SheetHeader className="px-5 py-4 border-b border-border bg-card sticky top-0 z-10">
-                    <SheetTitle className="text-lg font-semibold text-foreground">Filtreler</SheetTitle>
+                  <SheetHeader className="px-4 py-3 border-b border-border bg-card sticky top-0 z-10">
+                    <div className="flex items-center justify-between">
+                      <SheetTitle className="text-base font-semibold text-foreground">Filtreler</SheetTitle>
+                      {activeFiltersCount > 0 && (
+                        <button 
+                          onClick={clearFilters}
+                          className="text-xs text-red-500 hover:text-red-600"
+                        >
+                          Temizle
+                        </button>
+                      )}
+                    </div>
                   </SheetHeader>
-                  <div className="flex-1 overflow-y-auto px-5 py-4">
+                  <div className="flex-1 overflow-y-auto px-4 py-3">
                     <FilterContent />
                   </div>
-                  <div className="px-5 py-4 border-t border-border bg-muted sticky bottom-0">
+                  <div className="px-4 py-3 border-t border-border bg-muted sticky bottom-0 safe-area-pb">
                     <Button
-                      className="w-full gradient-orange"
+                      className="w-full gradient-orange h-11 text-sm"
                       onClick={() => setIsFilterOpen(false)}
                     >
                       {filteredProducts.length} Ürünü Göster
