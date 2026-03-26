@@ -430,10 +430,10 @@ export function Products() {
   };
 
   const FilterContent = () => (
-    <div className="space-y-4 sm:space-y-6 pb-4">
-      <div className="border-b border-border pb-3 sm:pb-4">
-        <h4 className="font-semibold mb-2 text-foreground text-sm">Kategoriler</h4>
-        <div className="space-y-1.5">
+    <div className="space-y-6 pb-6">
+      <div className="border-b border-border pb-4">
+        <h4 className="font-semibold mb-3 text-foreground text-sm">Kategoriler</h4>
+        <div className="space-y-2">
           {categories.map(cat => {
             const count = facets.categoryCounts[cat.id] || 0;
             const isDisabled = count === 0 && !selectedCategories.includes(cat.id);
@@ -441,7 +441,7 @@ export function Products() {
               <label 
                 key={cat.id} 
                 className={cn(
-                  "flex items-center gap-2 cursor-pointer group py-0.5",
+                  "flex items-center gap-3 cursor-pointer group py-1",
                   isDisabled && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -449,10 +449,10 @@ export function Products() {
                   checked={selectedCategories.includes(cat.id)}
                   onCheckedChange={() => !isDisabled && toggleCategory(cat.id)}
                   disabled={isDisabled}
-                  className="h-3.5 w-3.5 sm:h-4 sm:w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  className="h-4 w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
                 <span className={cn(
-                  "text-xs sm:text-sm group-hover:text-orange-600 transition-colors",
+                  "text-sm group-hover:text-orange-600 transition-colors",
                   isDisabled ? "text-muted-foreground" : "text-foreground"
                 )}>{cat.name}</span>
                 <span className={cn(
@@ -467,9 +467,9 @@ export function Products() {
 
       {/* Alt Kategoriler - Tüm seçili kategorilerin alt kategorilerini göster */}
       {selectedCategories.length > 0 && (
-        <div className="border-b border-border pb-3 sm:pb-4">
-          <h4 className="font-semibold mb-2 text-foreground text-sm">Alt Kategoriler</h4>
-          <div className="space-y-1.5 max-h-48 sm:max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+        <div className="border-b border-border pb-4">
+          <h4 className="font-semibold mb-3 text-foreground text-sm">Alt Kategoriler</h4>
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
             {selectedCategories.flatMap(catId => 
               subcategories[catId as keyof typeof subcategories] || []
             ).filter((sub, index, self) => self.indexOf(sub) === index) // Benzersiz
@@ -488,8 +488,8 @@ export function Products() {
         </div>
       )}
 
-      <div className="border-b border-border pb-3 sm:pb-4">
-        <div className="flex items-center justify-between mb-2">
+      <div className="border-b border-border pb-4">
+        <div className="flex items-center justify-between mb-3">
           <h4 className="font-semibold text-foreground text-sm">Fiyat Aralığı</h4>
           {(priceRange[0] > 0 || priceRange[1] < 100000) && (
             <button 
@@ -565,9 +565,9 @@ export function Products() {
         </div>
       </div>
 
-      <div className="border-b border-border pb-3 sm:pb-4">
-        <h4 className="font-semibold mb-2 text-foreground text-sm">Markalar</h4>
-        <div className="space-y-1.5 max-h-40 sm:max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+      <div className="border-b border-border pb-4">
+        <h4 className="font-semibold mb-3 text-foreground text-sm">Markalar</h4>
+        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
           {brands.map(brand => {
             const count = facets.brandCounts[brand] || 0;
             const isDisabled = count === 0 && !selectedBrands.includes(brand);
@@ -575,7 +575,7 @@ export function Products() {
               <label 
                 key={brand} 
                 className={cn(
-                  "flex items-center gap-2 cursor-pointer group py-0.5",
+                  "flex items-center gap-3 cursor-pointer group py-1",
                   isDisabled && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -583,10 +583,10 @@ export function Products() {
                   checked={selectedBrands.includes(brand)}
                   onCheckedChange={() => !isDisabled && toggleBrand(brand)}
                   disabled={isDisabled}
-                  className="h-3.5 w-3.5 sm:h-4 sm:w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  className="h-4 w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
                 <span className={cn(
-                  "text-xs sm:text-sm flex-1 group-hover:text-orange-600 transition-colors",
+                  "text-sm flex-1 group-hover:text-orange-600 transition-colors",
                   isDisabled ? "text-muted-foreground" : "text-foreground"
                 )}>{brand}</span>
                 <span className={cn(
@@ -599,9 +599,9 @@ export function Products() {
         </div>
       </div>
 
-      <div className="border-b border-border pb-3 sm:pb-4">
-        <h4 className="font-semibold mb-2 text-foreground text-sm">Puan Aralığı</h4>
-        <div className="space-y-1.5">
+      <div className="border-b border-border pb-4">
+        <h4 className="font-semibold mb-3 text-foreground text-sm">Puan Aralığı</h4>
+        <div className="space-y-2">
           {[5, 4, 3, 2, 1].map(rating => {
             const count = facets.ratingCounts[rating] || 0;
             const isDisabled = count === 0 && !selectedRatings.includes(rating);
@@ -624,11 +624,11 @@ export function Products() {
                     );
                   }}
                   disabled={isDisabled}
-                  className="h-3.5 w-3.5 sm:h-4 sm:w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  className="h-4 w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
-                <div className="flex items-center gap-0.5 flex-1">
+                <div className="flex items-center gap-1 flex-1">
                   {[...Array(5)].map((_, i) => (
-                    <span key={i} className={`text-sm sm:text-base ${i < rating ? 'text-amber-400' : 'text-gray-200'}`}>
+                    <span key={i} className={`text-base ${i < rating ? 'text-amber-400' : 'text-gray-200'}`}>
                       ★
                     </span>
                   ))}
@@ -644,35 +644,35 @@ export function Products() {
       </div>
 
       <div>
-        <h4 className="font-semibold mb-2 text-foreground text-sm">Diğer Filtreler</h4>
-        <div className="space-y-2">
+        <h4 className="font-semibold mb-3 text-foreground text-sm">Diğer Filtreler</h4>
+        <div className="space-y-3">
           <label className={cn(
-            "flex items-center gap-2 cursor-pointer group py-0.5",
+            "flex items-center gap-3 cursor-pointer group py-1",
             facets.discountCount === 0 && !onlyDiscount && "opacity-50 cursor-not-allowed"
           )}>
             <Checkbox
               checked={onlyDiscount}
               onCheckedChange={(checked) => facets.discountCount > 0 && setOnlyDiscount(checked as boolean)}
               disabled={facets.discountCount === 0 && !onlyDiscount}
-              className="h-3.5 w-3.5 sm:h-4 sm:w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+              className="h-4 w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
             />
-            <span className="text-xs sm:text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece İndirimli</span>
+            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece İndirimli Ürünler</span>
             <span className={cn(
               "text-xs px-2 py-0.5 rounded-full",
               facets.discountCount > 0 ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-400"
             )}>{facets.discountCount}</span>
           </label>
           <label className={cn(
-            "flex items-center gap-2 cursor-pointer group py-0.5",
+            "flex items-center gap-3 cursor-pointer group py-1",
             facets.inStockCount === 0 && !onlyInStock && "opacity-50 cursor-not-allowed"
           )}>
             <Checkbox
               checked={onlyInStock}
               onCheckedChange={(checked) => facets.inStockCount > 0 && setOnlyInStock(checked as boolean)}
               disabled={facets.inStockCount === 0 && !onlyInStock}
-              className="h-3.5 w-3.5 sm:h-4 sm:w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+              className="h-4 w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
             />
-            <span className="text-xs sm:text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece Stokta</span>
+            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece Stoktakiler</span>
             <span className={cn(
               "text-xs px-2 py-0.5 rounded-full",
               facets.inStockCount > 0 ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
@@ -753,27 +753,27 @@ export function Products() {
                   )}
                 </Button>
               </SheetTrigger>
-              <SheetContent side="bottom" className="h-[85vh] sm:h-auto sm:w-[320px] sm:side-left p-0 rounded-t-2xl sm:rounded-none">
+              <SheetContent side="left" className="w-[85vw] sm:w-[320px] p-0">
                 <div className="flex flex-col h-full">
-                  <SheetHeader className="px-4 py-3 border-b border-border bg-card sticky top-0 z-10">
+                  <SheetHeader className="px-5 py-4 border-b border-border bg-card sticky top-0 z-10">
                     <div className="flex items-center justify-between">
-                      <SheetTitle className="text-base font-semibold text-foreground">Filtreler</SheetTitle>
+                      <SheetTitle className="text-lg font-semibold text-foreground">Filtreler</SheetTitle>
                       {activeFiltersCount > 0 && (
                         <button 
                           onClick={clearFilters}
-                          className="text-xs text-red-500 hover:text-red-600"
+                          className="text-sm text-red-500 hover:text-red-600"
                         >
                           Temizle
                         </button>
                       )}
                     </div>
                   </SheetHeader>
-                  <div className="flex-1 overflow-y-auto px-4 py-3">
+                  <div className="flex-1 overflow-y-auto px-5 py-4">
                     <FilterContent />
                   </div>
-                  <div className="px-4 py-3 border-t border-border bg-muted sticky bottom-0 safe-area-pb">
+                  <div className="px-5 py-4 border-t border-border bg-muted sticky bottom-0 safe-area-pb">
                     <Button
-                      className="w-full gradient-orange h-11 text-sm"
+                      className="w-full gradient-orange h-12"
                       onClick={() => setIsFilterOpen(false)}
                     >
                       {filteredProducts.length} Ürünü Göster
