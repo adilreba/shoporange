@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 import { ProductGridSkeleton } from '@/components/product/ProductCardSkeleton';
 import { products as mockProducts, categories, brands, subcategories } from '@/data/mockData';
 import { productsApi } from '@/services/api';
-import type { Category, Product } from '@/types';
+import type { Product } from '@/types';
 import { toast } from 'sonner';
 
 const sortOptions = [
@@ -39,10 +39,12 @@ export function Products() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
-    searchParams.get('category') as Category || null
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    searchParams.get('category') ? [searchParams.get('category')!] : []
   );
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
+    searchParams.get('subcategory') ? [searchParams.get('subcategory')!] : []
+  );
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
   const [minRating, setMinRating] = useState<number>(0);
@@ -65,7 +67,7 @@ export function Products() {
       try {
         // API'den ürünleri çek
         const data = await productsApi.getAll({
-          category: selectedCategory || undefined,
+          category: selectedCategories[0] || undefined,
           search: searchQuery || undefined,
           limit: 100
         });
@@ -88,16 +90,16 @@ export function Products() {
     };
 
     fetchProducts();
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategories, searchQuery]);
 
   // URL parametreleri değiştiğinde state'leri güncelle
   useEffect(() => {
-    const categoryParam = searchParams.get('category') as Category;
+    const categoryParam = searchParams.get('category');
     const subcategoryParam = searchParams.get('subcategory');
     const searchParam = searchParams.get('search') || '';
     
-    setSelectedCategory(categoryParam || null);
-    setSelectedSubcategory(subcategoryParam || null);
+    setSelectedCategories(categoryParam ? [categoryParam] : []);
+    setSelectedSubcategories(subcategoryParam ? [subcategoryParam] : []);
     setSearchQuery(searchParam);
   }, [searchParams]);
 
@@ -115,7 +117,7 @@ export function Products() {
           p.tags?.some(tag => tag.toLowerCase().includes(query))
         )) return false;
       }
-      if (selectedSubcategory && p.subcategory !== selectedSubcategory) return false;
+      if (selectedSubcategories.length > 0 && !selectedSubcategories.includes(p.subcategory || '')) return false;
       if (selectedBrands.length > 0 && !selectedBrands.includes(p.brand)) return false;
       if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
       if (minRating > 0 && p.rating < minRating) return false;
@@ -171,7 +173,7 @@ export function Products() {
       discountCount,
       inStockCount,
     };
-  }, [searchQuery, selectedCategory, selectedSubcategory, selectedBrands, priceRange, minRating, onlyDiscount, onlyInStock]);
+  }, [searchQuery, selectedCategories, selectedSubcategories, selectedBrands, priceRange, minRating, onlyDiscount, onlyInStock]);
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
@@ -186,12 +188,12 @@ export function Products() {
       );
     }
 
-    if (selectedCategory) {
-      result = result.filter(p => p.category === selectedCategory);
+    if (selectedCategories.length > 0) {
+      result = result.filter(p => selectedCategories.includes(p.category));
     }
 
-    if (selectedSubcategory) {
-      result = result.filter(p => p.subcategory === selectedSubcategory);
+    if (selectedSubcategories.length > 0) {
+      result = result.filter(p => selectedSubcategories.includes(p.subcategory || ''));
     }
 
     if (selectedBrands.length > 0) {
@@ -235,7 +237,7 @@ export function Products() {
     }
 
     return result;
-  }, [searchQuery, selectedCategory, selectedSubcategory, selectedBrands, priceRange, minRating, onlyDiscount, onlyInStock, sortBy]);
+  }, [searchQuery, selectedCategories, selectedSubcategories, selectedBrands, priceRange, minRating, onlyDiscount, onlyInStock, sortBy]);
 
   // Did you mean? - Benzer kelime önerileri
   const suggestions = useMemo(() => {
@@ -261,8 +263,8 @@ export function Products() {
   }, [searchQuery, filteredProducts.length]);
 
   const activeFiltersCount = [
-    selectedCategory,
-    selectedSubcategory,
+    ...selectedCategories,
+    ...selectedSubcategories,
     ...selectedBrands,
     priceRange[0] > 0 || priceRange[1] < 100000 ? 'price' : null,
     minRating > 0 ? 'rating' : null,
@@ -271,8 +273,8 @@ export function Products() {
   ].filter(Boolean).length;
 
   const clearFilters = () => {
-    setSelectedCategory(null);
-    setSelectedSubcategory(null);
+    setSelectedCategories([]);
+    setSelectedSubcategories([]);
     setSelectedBrands([]);
     setPriceRange([0, 100000]);
     setMinRating(0);
@@ -290,36 +292,44 @@ export function Products() {
     );
   };
 
-  // Kategori seçildiğinde URL'yi güncelle
-  const handleCategoryChange = (categoryId: string) => {
-    const newCategory = selectedCategory === categoryId ? null : categoryId;
-    setSelectedCategory(newCategory as Category | null);
-    setSelectedSubcategory(null);
-    
-    // URL'yi güncelle
-    const params = new URLSearchParams(searchParams);
-    if (newCategory) {
-      params.set('category', newCategory);
-    } else {
-      params.delete('category');
-    }
-    params.delete('subcategory'); // Alt kategori sıfırla
-    setSearchParams(params);
+  // Kategori seçildiğinde çoklu seçim yap
+  const toggleCategory = (categoryId: string) => {
+    setSelectedCategories(prev => {
+      const newCategories = prev.includes(categoryId)
+        ? prev.filter(c => c !== categoryId)
+        : [...prev, categoryId];
+      
+      // URL'yi güncelle (ilk seçili kategori)
+      const params = new URLSearchParams(searchParams);
+      if (newCategories.length > 0) {
+        params.set('category', newCategories[0]);
+      } else {
+        params.delete('category');
+      }
+      setSearchParams(params);
+      
+      return newCategories;
+    });
   };
 
-  // Alt kategori seçildiğinde URL'yi güncelle
-  const handleSubcategoryChange = (sub: string) => {
-    const newSubcategory = selectedSubcategory === sub ? null : sub;
-    setSelectedSubcategory(newSubcategory);
-    
-    // URL'yi güncelle
-    const params = new URLSearchParams(searchParams);
-    if (newSubcategory) {
-      params.set('subcategory', newSubcategory);
-    } else {
-      params.delete('subcategory');
-    }
-    setSearchParams(params);
+  // Alt kategori seçildiğinde çoklu seçim yap
+  const toggleSubcategory = (sub: string) => {
+    setSelectedSubcategories(prev => {
+      const newSubcategories = prev.includes(sub)
+        ? prev.filter(s => s !== sub)
+        : [...prev, sub];
+      
+      // URL'yi güncelle (ilk seçili alt kategori)
+      const params = new URLSearchParams(searchParams);
+      if (newSubcategories.length > 0) {
+        params.set('subcategory', newSubcategories[0]);
+      } else {
+        params.delete('subcategory');
+      }
+      setSearchParams(params);
+      
+      return newSubcategories;
+    });
   };
 
   const formatPrice = (price: number) => {
@@ -349,7 +359,7 @@ export function Products() {
         <div className="space-y-2">
           {categories.map(cat => {
             const count = facets.categoryCounts[cat.id] || 0;
-            const isDisabled = count === 0 && selectedCategory !== cat.id;
+            const isDisabled = count === 0 && !selectedCategories.includes(cat.id);
             return (
               <label 
                 key={cat.id} 
@@ -359,8 +369,8 @@ export function Products() {
                 )}
               >
                 <Checkbox
-                  checked={selectedCategory === cat.id}
-                  onCheckedChange={() => !isDisabled && handleCategoryChange(cat.id)}
+                  checked={selectedCategories.includes(cat.id)}
+                  onCheckedChange={() => !isDisabled && toggleCategory(cat.id)}
                   disabled={isDisabled}
                   className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
@@ -378,20 +388,25 @@ export function Products() {
         </div>
       </div>
 
-      {selectedCategory && subcategories[selectedCategory] && (
+      {/* Alt Kategoriler - Tüm seçili kategorilerin alt kategorilerini göster */}
+      {selectedCategories.length > 0 && (
         <div className="border-b border-border pb-4">
           <h4 className="font-semibold mb-3 text-foreground text-sm">Alt Kategoriler</h4>
-          <div className="space-y-2">
-            {subcategories[selectedCategory].map(sub => (
-              <label key={sub} className="flex items-center gap-3 cursor-pointer group py-1">
-                <Checkbox
-                  checked={selectedSubcategory === sub}
-                  onCheckedChange={() => handleSubcategoryChange(sub)}
-                  className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
-                />
-                <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors">{sub}</span>
-              </label>
-            ))}
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+            {selectedCategories.flatMap(catId => 
+              subcategories[catId as keyof typeof subcategories] || []
+            ).filter((sub, index, self) => self.indexOf(sub) === index) // Benzersiz
+              .map(sub => (
+                <label key={sub} className="flex items-center gap-3 cursor-pointer group py-1">
+                  <Checkbox
+                    checked={selectedSubcategories.includes(sub)}
+                    onCheckedChange={() => toggleSubcategory(sub)}
+                    className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  />
+                  <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors">{sub}</span>
+                </label>
+              ))
+            }
           </div>
         </div>
       )}
@@ -528,12 +543,12 @@ export function Products() {
 
   const pageTitle = searchQuery 
     ? `"${searchQuery}" Arama Sonuçları`
-    : selectedCategory 
-      ? categories.find(c => c.id === selectedCategory)?.name || 'Ürünler'
+    : selectedCategories.length > 0 
+      ? selectedCategories.map(id => categories.find(c => c.id === id)?.name).join(', ') || 'Ürünler'
       : 'Tüm Ürünler';
 
-  const pageDescription = selectedCategory
-    ? `${categories.find(c => c.id === selectedCategory)?.name} kategorisinde ${filteredProducts.length} ürün bulunuyor. En uygun fiyatlarla ${categories.find(c => c.id === selectedCategory)?.name} ürünleri AtusHome'da!`
+  const pageDescription = selectedCategories.length > 0
+    ? `${selectedCategories.map(id => categories.find(c => c.id === id)?.name).join(', ')} kategorilerinde ${filteredProducts.length} ürün bulunuyor.`
     : `AtusHome'da ${filteredProducts.length} ürün arasından size uygun olanı bulun. Elektronik, moda, ev yaşam ve daha fazlası.`;
 
   return (
@@ -541,7 +556,7 @@ export function Products() {
       <SEO 
         title={pageTitle}
         description={pageDescription}
-        keywords={`${selectedCategory || 'tüm ürünler'}, e-ticaret, alışveriş, online mağaza`}
+        keywords={`${selectedCategories.join(', ') || 'tüm ürünler'}, e-ticaret, alışveriş, online mağaza`}
       />
       <Header />
 
@@ -551,8 +566,8 @@ export function Products() {
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">
             {searchQuery ? (
               <span>"{highlightText(searchQuery, searchQuery)}" Arama Sonuçları</span>
-            ) : selectedCategory ? (
-              categories.find(c => c.id === selectedCategory)?.name
+            ) : selectedCategories.length > 0 ? (
+              selectedCategories.map(id => categories.find(c => c.id === id)?.name).join(', ')
             ) : 'Tüm Ürünler'}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
