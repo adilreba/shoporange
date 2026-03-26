@@ -105,18 +105,17 @@ export function Products() {
 
   // Facets - Dinamik ürün sayıları
   const facets = useMemo(() => {
-    // Facet hesaplarken: Kategori filtrelemesini hariç tut (kendi facet'ini hesaplamak için)
+    // Her facet kendi filtresi HARİÇ tüm filtreler uygulanarak hesaplanır
+    
+    // Kategori facet'leri - SADECE kategori filtresi hariç
     const baseFiltersForCategories = (p: typeof products[0]) => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        if (!(
-          p.name.toLowerCase().includes(query) ||
-          p.brand.toLowerCase().includes(query) ||
-          p.category.toLowerCase().includes(query) ||
-          p.description.toLowerCase().includes(query) ||
-          p.tags?.some(tag => tag.toLowerCase().includes(query))
-        )) return false;
+        if (!(p.name.toLowerCase().includes(query) || p.brand.toLowerCase().includes(query) ||
+              p.category.toLowerCase().includes(query) || p.description.toLowerCase().includes(query) ||
+              p.tags?.some(tag => tag.toLowerCase().includes(query)))) return false;
       }
+      // KATEGORİ filtresi HARİÇ - diğer tüm filtreler dahil
       if (selectedSubcategories.length > 0 && !selectedSubcategories.includes(p.subcategory || '')) return false;
       if (selectedBrands.length > 0 && !selectedBrands.includes(p.brand)) return false;
       if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
@@ -128,29 +127,23 @@ export function Products() {
       if (onlyInStock && p.stock <= 0) return false;
       return true;
     };
-
     const baseProductsForCategories = products.filter(baseFiltersForCategories);
-
-    // Kategori facet'leri - kategori filtresi HARİÇ tutularak hesaplanır
     const categoryCounts: Record<string, number> = {};
     categories.forEach(cat => {
       categoryCounts[cat.id] = baseProductsForCategories.filter(p => p.category === cat.id).length;
     });
 
-    // Marka facet'leri - marka filtresi HARİÇ tutularak hesaplanır
+    // Marka facet'leri - SADECE marka filtresi hariç
     const baseFiltersForBrands = (p: typeof products[0]) => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        if (!(
-          p.name.toLowerCase().includes(query) ||
-          p.brand.toLowerCase().includes(query) ||
-          p.category.toLowerCase().includes(query) ||
-          p.description.toLowerCase().includes(query) ||
-          p.tags?.some(tag => tag.toLowerCase().includes(query))
-        )) return false;
+        if (!(p.name.toLowerCase().includes(query) || p.brand.toLowerCase().includes(query) ||
+              p.category.toLowerCase().includes(query) || p.description.toLowerCase().includes(query) ||
+              p.tags?.some(tag => tag.toLowerCase().includes(query)))) return false;
       }
       if (selectedCategories.length > 0 && !selectedCategories.includes(p.category)) return false;
       if (selectedSubcategories.length > 0 && !selectedSubcategories.includes(p.subcategory || '')) return false;
+      // MARKA filtresi HARİÇ
       if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
       if (selectedRatings.length > 0) {
         const minSelectedRating = Math.min(...selectedRatings);
@@ -161,13 +154,12 @@ export function Products() {
       return true;
     };
     const baseProductsForBrands = products.filter(baseFiltersForBrands);
-    
     const brandCounts: Record<string, number> = {};
     brands.forEach(brand => {
       brandCounts[brand] = baseProductsForBrands.filter(p => p.brand === brand).length;
     });
 
-    // Fiyat aralığı facet'leri - fiyat filtresi HARİÇ tutularak
+    // Fiyat aralığı facet'leri - SADECE fiyat filtresi hariç
     const baseFiltersForPrice = (p: typeof products[0]) => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -178,6 +170,7 @@ export function Products() {
       if (selectedCategories.length > 0 && !selectedCategories.includes(p.category)) return false;
       if (selectedSubcategories.length > 0 && !selectedSubcategories.includes(p.subcategory || '')) return false;
       if (selectedBrands.length > 0 && !selectedBrands.includes(p.brand)) return false;
+      // FİYAT filtresi HARİÇ
       if (selectedRatings.length > 0) {
         const minSelectedRating = Math.min(...selectedRatings);
         if (p.rating < minSelectedRating) return false;
@@ -202,7 +195,7 @@ export function Products() {
       ).length;
     });
 
-    // Puan facet'leri - puan filtresi HARİÇ tutularak
+    // Puan facet'leri - SADECE puan filtresi hariç
     const baseFiltersForRatings = (p: typeof products[0]) => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -214,6 +207,7 @@ export function Products() {
       if (selectedSubcategories.length > 0 && !selectedSubcategories.includes(p.subcategory || '')) return false;
       if (selectedBrands.length > 0 && !selectedBrands.includes(p.brand)) return false;
       if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
+      // PUAN filtresi HARİÇ
       if (onlyDiscount && (!p.discount || p.discount <= 0)) return false;
       if (onlyInStock && p.stock <= 0) return false;
       return true;
@@ -225,7 +219,7 @@ export function Products() {
       ratingCounts[rating] = baseProductsForRatings.filter(p => p.rating >= rating).length;
     });
 
-    // İndirim ve stok - tüm filtreler uygulanarak
+    // İndirim ve stok - tüm filtreler uygulanarak (kendi filtreleri dışında)
     const baseFiltersForOthers = (p: typeof products[0]) => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -241,6 +235,7 @@ export function Products() {
         const minSelectedRating = Math.min(...selectedRatings);
         if (p.rating < minSelectedRating) return false;
       }
+      // İNDİRİM ve STOK filtreleri HARİÇ
       return true;
     };
     const baseProductsForOthers = products.filter(baseFiltersForOthers);
