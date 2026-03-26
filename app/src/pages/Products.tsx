@@ -449,10 +449,10 @@ export function Products() {
                   checked={selectedCategories.includes(cat.id)}
                   onCheckedChange={() => !isDisabled && toggleCategory(cat.id)}
                   disabled={isDisabled}
-                  className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  className="h-3.5 w-3.5 sm:h-4 sm:w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
                 <span className={cn(
-                  "text-sm group-hover:text-orange-600 transition-colors",
+                  "text-xs sm:text-sm group-hover:text-orange-600 transition-colors",
                   isDisabled ? "text-muted-foreground" : "text-foreground"
                 )}>{cat.name}</span>
                 <span className={cn(
@@ -478,7 +478,7 @@ export function Products() {
                   <Checkbox
                     checked={selectedSubcategories.includes(sub)}
                     onCheckedChange={() => toggleSubcategory(sub)}
-                    className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                    className="h-4 w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                   />
                   <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors">{sub}</span>
                 </label>
@@ -583,10 +583,10 @@ export function Products() {
                   checked={selectedBrands.includes(brand)}
                   onCheckedChange={() => !isDisabled && toggleBrand(brand)}
                   disabled={isDisabled}
-                  className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  className="h-3.5 w-3.5 sm:h-4 sm:w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
                 <span className={cn(
-                  "text-sm flex-1 group-hover:text-orange-600 transition-colors",
+                  "text-xs sm:text-sm flex-1 group-hover:text-orange-600 transition-colors",
                   isDisabled ? "text-muted-foreground" : "text-foreground"
                 )}>{brand}</span>
                 <span className={cn(
@@ -624,11 +624,11 @@ export function Products() {
                     );
                   }}
                   disabled={isDisabled}
-                  className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  className="h-3.5 w-3.5 sm:h-4 sm:w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
-                <div className="flex items-center gap-1 flex-1">
+                <div className="flex items-center gap-0.5 flex-1">
                   {[...Array(5)].map((_, i) => (
-                    <span key={i} className={`text-base ${i < rating ? 'text-amber-400' : 'text-gray-200'}`}>
+                    <span key={i} className={`text-sm sm:text-base ${i < rating ? 'text-amber-400' : 'text-gray-200'}`}>
                       ★
                     </span>
                   ))}
@@ -654,9 +654,9 @@ export function Products() {
               checked={onlyDiscount}
               onCheckedChange={(checked) => facets.discountCount > 0 && setOnlyDiscount(checked as boolean)}
               disabled={facets.discountCount === 0 && !onlyDiscount}
-              className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+              className="h-3.5 w-3.5 sm:h-4 sm:w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
             />
-            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece İndirimli Ürünler</span>
+            <span className="text-xs sm:text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece İndirimli</span>
             <span className={cn(
               "text-xs px-2 py-0.5 rounded-full",
               facets.discountCount > 0 ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-400"
@@ -670,9 +670,9 @@ export function Products() {
               checked={onlyInStock}
               onCheckedChange={(checked) => facets.inStockCount > 0 && setOnlyInStock(checked as boolean)}
               disabled={facets.inStockCount === 0 && !onlyInStock}
-              className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+              className="h-3.5 w-3.5 sm:h-4 sm:w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
             />
-            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece Stoktakiler</span>
+            <span className="text-xs sm:text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece Stokta</span>
             <span className={cn(
               "text-xs px-2 py-0.5 rounded-full",
               facets.inStockCount > 0 ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
