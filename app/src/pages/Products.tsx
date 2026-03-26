@@ -429,7 +429,7 @@ export function Products() {
               <label 
                 key={cat.id} 
                 className={cn(
-                  "flex items-center gap-2 cursor-pointer group py-0.5",
+                  "flex items-center gap-1.5 cursor-pointer group",
                   isDisabled && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -437,7 +437,7 @@ export function Products() {
                   checked={selectedCategories.includes(cat.id)}
                   onCheckedChange={() => !isDisabled && toggleCategory(cat.id)}
                   disabled={isDisabled}
-                  className="h-[18px] w-[18px] border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  className="h-4 w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
                 <span className={cn(
                   "text-sm group-hover:text-orange-600 transition-colors",
@@ -462,7 +462,7 @@ export function Products() {
               subcategories[catId as keyof typeof subcategories] || []
             ).filter((sub, index, self) => self.indexOf(sub) === index) // Benzersiz
               .map(sub => (
-                <label key={sub} className="flex items-center gap-2 cursor-pointer group py-0.5">
+                <label key={sub} className="flex items-center gap-1.5 cursor-pointer group">
                   <Checkbox
                     checked={selectedSubcategories.includes(sub)}
                     onCheckedChange={() => toggleSubcategory(sub)}
@@ -563,7 +563,7 @@ export function Products() {
               <label 
                 key={brand} 
                 className={cn(
-                  "flex items-center gap-2 cursor-pointer group py-0.5",
+                  "flex items-center gap-1.5 cursor-pointer group",
                   isDisabled && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -571,7 +571,7 @@ export function Products() {
                   checked={selectedBrands.includes(brand)}
                   onCheckedChange={() => !isDisabled && toggleBrand(brand)}
                   disabled={isDisabled}
-                  className="h-[18px] w-[18px] border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  className="h-4 w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
                 <span className={cn(
                   "text-sm flex-1 group-hover:text-orange-600 transition-colors",
@@ -597,7 +597,7 @@ export function Products() {
               <label 
                 key={rating} 
                 className={cn(
-                  "flex items-center gap-2 cursor-pointer group py-0.5",
+                  "flex items-center gap-1.5 cursor-pointer group",
                   isDisabled && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -612,7 +612,7 @@ export function Products() {
                     );
                   }}
                   disabled={isDisabled}
-                  className="h-[18px] w-[18px] border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  className="h-4 w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
                 <div className="flex items-center gap-0.5 flex-1">
                   {[...Array(5)].map((_, i) => (
@@ -635,14 +635,14 @@ export function Products() {
         <h4 className="font-semibold mb-2 text-foreground text-sm">Diğer Filtreler</h4>
         <div className="space-y-2">
           <label className={cn(
-            "flex items-center gap-2 cursor-pointer group py-0.5",
+            "flex items-center gap-1.5 cursor-pointer group",
             facets.discountCount === 0 && !onlyDiscount && "opacity-50 cursor-not-allowed"
           )}>
             <Checkbox
               checked={onlyDiscount}
               onCheckedChange={(checked) => facets.discountCount > 0 && setOnlyDiscount(checked as boolean)}
               disabled={facets.discountCount === 0 && !onlyDiscount}
-              className="h-[18px] w-[18px] border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+              className="h-4 w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
             />
             <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece İndirimli</span>
             <span className={cn(
@@ -651,14 +651,14 @@ export function Products() {
             )}>{facets.discountCount}</span>
           </label>
           <label className={cn(
-            "flex items-center gap-2 cursor-pointer group py-0.5",
+            "flex items-center gap-1.5 cursor-pointer group",
             facets.inStockCount === 0 && !onlyInStock && "opacity-50 cursor-not-allowed"
           )}>
             <Checkbox
               checked={onlyInStock}
               onCheckedChange={(checked) => facets.inStockCount > 0 && setOnlyInStock(checked as boolean)}
               disabled={facets.inStockCount === 0 && !onlyInStock}
-              className="h-[18px] w-[18px] border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+              className="h-4 w-4 border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
             />
             <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece Stokta</span>
             <span className={cn(
