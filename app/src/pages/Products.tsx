@@ -47,7 +47,7 @@ export function Products() {
   );
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
-  const [minRating, setMinRating] = useState<number>(0);
+  const [selectedRatings, setSelectedRatings] = useState<number[]>([]);
   const [onlyDiscount, setOnlyDiscount] = useState(false);
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [sortBy, setSortBy] = useState('popular');
@@ -120,7 +120,10 @@ export function Products() {
       if (selectedSubcategories.length > 0 && !selectedSubcategories.includes(p.subcategory || '')) return false;
       if (selectedBrands.length > 0 && !selectedBrands.includes(p.brand)) return false;
       if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
-      if (minRating > 0 && p.rating < minRating) return false;
+      if (selectedRatings.length > 0) {
+      const minSelectedRating = Math.min(...selectedRatings);
+      if (p.rating < minSelectedRating) return false;
+    }
       if (onlyDiscount && (!p.discount || p.discount <= 0)) return false;
       if (onlyInStock && p.stock <= 0) return false;
       return true;
@@ -173,7 +176,7 @@ export function Products() {
       discountCount,
       inStockCount,
     };
-  }, [searchQuery, selectedCategories, selectedSubcategories, selectedBrands, priceRange, minRating, onlyDiscount, onlyInStock]);
+  }, [searchQuery, selectedCategories, selectedSubcategories, selectedBrands, priceRange, selectedRatings, onlyDiscount, onlyInStock]);
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
@@ -202,8 +205,10 @@ export function Products() {
 
     result = result.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
 
-    if (minRating > 0) {
-      result = result.filter(p => p.rating >= minRating);
+    if (selectedRatings.length > 0) {
+      // En düşük seçilen puandan yüksek olanları göster
+      const minSelectedRating = Math.min(...selectedRatings);
+      result = result.filter(p => p.rating >= minSelectedRating);
     }
 
     if (onlyDiscount) {
@@ -237,7 +242,7 @@ export function Products() {
     }
 
     return result;
-  }, [searchQuery, selectedCategories, selectedSubcategories, selectedBrands, priceRange, minRating, onlyDiscount, onlyInStock, sortBy]);
+  }, [searchQuery, selectedCategories, selectedSubcategories, selectedBrands, priceRange, selectedRatings, onlyDiscount, onlyInStock, sortBy]);
 
   // Did you mean? - Benzer kelime önerileri
   const suggestions = useMemo(() => {
@@ -267,7 +272,7 @@ export function Products() {
     ...selectedSubcategories,
     ...selectedBrands,
     priceRange[0] > 0 || priceRange[1] < 100000 ? 'price' : null,
-    minRating > 0 ? 'rating' : null,
+    selectedRatings.length > 0 ? 'rating' : null,
     onlyDiscount ? 'discount' : null,
     onlyInStock ? 'stock' : null
   ].filter(Boolean).length;
@@ -277,7 +282,7 @@ export function Products() {
     setSelectedSubcategories([]);
     setSelectedBrands([]);
     setPriceRange([0, 100000]);
-    setMinRating(0);
+    setSelectedRatings([]);
     setOnlyDiscount(false);
     setOnlyInStock(false);
     setSearchQuery('');
@@ -412,7 +417,17 @@ export function Products() {
       )}
 
       <div className="border-b border-border pb-4">
-        <h4 className="font-semibold mb-3 text-foreground text-sm">Fiyat Aralığı</h4>
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="font-semibold text-foreground text-sm">Fiyat Aralığı</h4>
+          {(priceRange[0] > 0 || priceRange[1] < 100000) && (
+            <button 
+              onClick={() => setPriceRange([0, 100000])}
+              className="text-xs text-orange-500 hover:text-orange-600 hover:underline"
+            >
+              Temizle
+            </button>
+          )}
+        </div>
         <div className="px-1">
           <Slider
             value={priceRange}
@@ -464,11 +479,11 @@ export function Products() {
       </div>
 
       <div className="border-b border-border pb-4">
-        <h4 className="font-semibold mb-3 text-foreground text-sm">Minimum Puan</h4>
+        <h4 className="font-semibold mb-3 text-foreground text-sm">Puan Aralığı</h4>
         <div className="space-y-2">
-          {[4, 3, 2, 1].map(rating => {
+          {[5, 4, 3, 2, 1].map(rating => {
             const count = facets.ratingCounts[rating] || 0;
-            const isDisabled = count === 0 && minRating !== rating;
+            const isDisabled = count === 0 && !selectedRatings.includes(rating);
             return (
               <label 
                 key={rating} 
@@ -478,8 +493,15 @@ export function Products() {
                 )}
               >
                 <Checkbox
-                  checked={minRating === rating}
-                  onCheckedChange={() => !isDisabled && setMinRating(minRating === rating ? 0 : rating)}
+                  checked={selectedRatings.includes(rating)}
+                  onCheckedChange={() => {
+                    if (isDisabled) return;
+                    setSelectedRatings(prev => 
+                      prev.includes(rating) 
+                        ? prev.filter(r => r !== rating)
+                        : [...prev, rating]
+                    );
+                  }}
                   disabled={isDisabled}
                   className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
@@ -489,7 +511,6 @@ export function Products() {
                       ★
                     </span>
                   ))}
-                  <span className="text-sm text-muted-foreground ml-2">ve üzeri</span>
                 </div>
                 <span className={cn(
                   "text-xs px-2 py-0.5 rounded-full",
