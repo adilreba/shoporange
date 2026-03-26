@@ -86,6 +86,7 @@ export default function StockManagement() {
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'stock' | 'reserved'>('stock');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [stockFilter, setStockFilter] = useState<'all' | 'sufficient' | 'low' | 'critical' | 'out'>('all');
 
   // Load products
   useEffect(() => {
@@ -117,7 +118,27 @@ export default function StockManagement() {
         p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.brand.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      
+      // Stock status filter
+      let matchesStockFilter = true;
+      switch (stockFilter) {
+        case 'sufficient':
+          matchesStockFilter = p.actualAvailable > p.reorderPoint * 2;
+          break;
+        case 'low':
+          matchesStockFilter = p.actualAvailable > p.reorderPoint && p.actualAvailable <= p.reorderPoint * 2;
+          break;
+        case 'critical':
+          matchesStockFilter = p.actualAvailable > 0 && p.actualAvailable <= p.reorderPoint;
+          break;
+        case 'out':
+          matchesStockFilter = p.actualAvailable === 0;
+          break;
+        default:
+          matchesStockFilter = true;
+      }
+      
+      return matchesSearch && matchesCategory && matchesStockFilter;
     })
     .sort((a, b) => {
       let comparison = 0;
@@ -326,27 +347,63 @@ export default function StockManagement() {
                   Stok Özeti
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+              <CardContent className="space-y-3">
+                <button 
+                  onClick={() => {
+                    setStockFilter('sufficient');
+                    setActiveTab('products');
+                    setSelectedCategory('all');
+                    setSearchTerm('');
+                    toast.info('Yeterli Stok olan ürünler listeleniyor');
+                  }}
+                  className="w-full flex justify-between items-center p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors cursor-pointer"
+                >
                   <span className="text-sm">Yeterli Stok</span>
                   <span className="font-bold text-green-700">
                     {products.filter(p => p.actualAvailable > p.reorderPoint * 2).length} ürün
                   </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
+                </button>
+                <button 
+                  onClick={() => {
+                    setStockFilter('low');
+                    setActiveTab('products');
+                    setSelectedCategory('all');
+                    setSearchTerm('');
+                    toast.info('Düşük Stok olan ürünler listeleniyor');
+                  }}
+                  className="w-full flex justify-between items-center p-3 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors cursor-pointer"
+                >
                   <span className="text-sm">Düşük Stok</span>
                   <span className="font-bold text-yellow-700">
                     {products.filter(p => p.actualAvailable > p.reorderPoint && p.actualAvailable <= p.reorderPoint * 2).length} ürün
                   </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                </button>
+                <button 
+                  onClick={() => {
+                    setStockFilter('critical');
+                    setActiveTab('products');
+                    setSelectedCategory('all');
+                    setSearchTerm('');
+                    toast.info('Kritik Stok olan ürünler listeleniyor');
+                  }}
+                  className="w-full flex justify-between items-center p-3 bg-red-50 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
+                >
                   <span className="text-sm">Kritik Stok</span>
                   <span className="font-bold text-red-700">{stats.lowStock} ürün</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                </button>
+                <button 
+                  onClick={() => {
+                    setStockFilter('out');
+                    setActiveTab('products');
+                    setSelectedCategory('all');
+                    setSearchTerm('');
+                    toast.info('Tükenen ürünler listeleniyor');
+                  }}
+                  className="w-full flex justify-between items-center p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                >
                   <span className="text-sm">Tükenen</span>
                   <span className="font-bold text-gray-700">{stats.outOfStock} ürün</span>
-                </div>
+                </button>
               </CardContent>
             </Card>
           </div>
@@ -357,7 +414,32 @@ export default function StockManagement() {
           <Card>
             <CardContent className="p-0">
               {/* Filters */}
-              <div className="p-4 border-b">
+              <div className="p-4 border-b space-y-4">
+                {/* Active Stock Filter Badge */}
+                {stockFilter !== 'all' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Aktif Filtre:</span>
+                    <Badge 
+                      className={
+                        stockFilter === 'sufficient' ? 'bg-green-100 text-green-700 hover:bg-green-200' :
+                        stockFilter === 'low' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' :
+                        stockFilter === 'critical' ? 'bg-red-100 text-red-700 hover:bg-red-200' :
+                        'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }
+                    >
+                      {stockFilter === 'sufficient' && 'Yeterli Stok'}
+                      {stockFilter === 'low' && 'Düşük Stok'}
+                      {stockFilter === 'critical' && 'Kritik Stok'}
+                      {stockFilter === 'out' && 'Tükenen'}
+                      <button 
+                        onClick={() => setStockFilter('all')}
+                        className="ml-2 hover:text-red-500"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -368,6 +450,19 @@ export default function StockManagement() {
                       className="pl-10"
                     />
                   </div>
+                  <Select value={stockFilter} onValueChange={(v: any) => setStockFilter(v)}>
+                    <SelectTrigger className="w-full md:w-48">
+                      <AlertTriangle className="w-4 h-4 mr-2" />
+                      <SelectValue placeholder="Stok Durumu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tüm Stoklar</SelectItem>
+                      <SelectItem value="sufficient">Yeterli Stok</SelectItem>
+                      <SelectItem value="low">Düşük Stok</SelectItem>
+                      <SelectItem value="critical">Kritik Stok</SelectItem>
+                      <SelectItem value="out">Tükenen</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                     <SelectTrigger className="w-full md:w-48">
                       <Filter className="w-4 h-4 mr-2" />
