@@ -23,7 +23,7 @@ import { ProductGridSkeleton } from '@/components/product/ProductCardSkeleton';
 import { products as mockProducts, categories, brands, subcategories } from '@/data/mockData';
 import { productsApi } from '@/services/api';
 import type { Product } from '@/types';
-import { toast } from 'sonner';
+
 
 const sortOptions = [
   { value: 'popular', label: 'Popülerlik' },
@@ -56,36 +56,29 @@ export function Products() {
   
   // API state
   const [products, setProducts] = useState<Product[]>([]);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiError] = useState<string | null>(null);
 
-  // Ürünleri API'den çek
+  // Ürünleri yükle - Başlangıçta mock verileri hemen göster
   useEffect(() => {
+    // Başlangıçta mock verileri hemen yükle (facets hesaplanabilmesi için)
+    setProducts(mockProducts);
+    setIsLoading(false);
+    
+    // API'den veri çekmeyi dene (arka planda)
     const fetchProducts = async () => {
-      setIsLoading(true);
-      setApiError(null);
-      
       try {
-        // API'den ürünleri çek
         const data = await productsApi.getAll({
           category: selectedCategories[0] || undefined,
           search: searchQuery || undefined,
           limit: 100
         });
         
-        if (data.products && Array.isArray(data.products)) {
+        if (data.products && Array.isArray(data.products) && data.products.length > 0) {
           setProducts(data.products);
-        } else {
-          // API boş döndüyse mock veri kullan
-          setProducts(mockProducts);
         }
       } catch (error) {
-        console.error('Failed to fetch products:', error);
-        setApiError('Ürünler yüklenirken bir hata oluştu. Demo moduna geçildi.');
-        // Hata durumunda mock veri kullan
-        setProducts(mockProducts);
-        toast.error('API bağlantı hatası. Demo verileri gösteriliyor.');
-      } finally {
-        setIsLoading(false);
+        console.error('API error, using mock data:', error);
+        // Zaten mock veriler yüklü, hata göstermeye gerek yok
       }
     };
 
