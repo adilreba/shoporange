@@ -517,11 +517,19 @@ export function Products() {
               type="number"
               min={0}
               max={100000}
-              value={priceRange[0]}
-              onChange={(e) => {
+              defaultValue={priceRange[0]}
+              onBlur={(e) => {
                 const value = parseInt(e.target.value) || 0;
                 if (value <= priceRange[1]) {
                   setPriceRange([value, priceRange[1]]);
+                } else {
+                  // Geçersiz değerse eski değeri geri yaz
+                  e.target.value = priceRange[0].toString();
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  (e.target as HTMLInputElement).blur();
                 }
               }}
               className="w-full pl-5 pr-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -535,11 +543,19 @@ export function Products() {
               type="number"
               min={0}
               max={100000}
-              value={priceRange[1]}
-              onChange={(e) => {
+              defaultValue={priceRange[1]}
+              onBlur={(e) => {
                 const value = parseInt(e.target.value) || 0;
                 if (value >= priceRange[0]) {
                   setPriceRange([priceRange[0], value]);
+                } else {
+                  // Geçersiz değerse eski değeri geri yaz
+                  e.target.value = priceRange[1].toString();
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  (e.target as HTMLInputElement).blur();
                 }
               }}
               className="w-full pl-5 pr-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
