@@ -417,7 +417,9 @@ export function Products() {
     );
   };
 
-  const FilterContent = ({ compact = false }: { compact?: boolean }) => (
+  const FilterContent = (props: { compact?: boolean }) => {
+    const compact = props.compact || false;
+    return (
     <div className={cn("space-y-5 pb-5", compact && "space-y-4 pb-4")}>
       <div className="border-b border-border pb-3">
         <h4 className="font-semibold mb-2 text-foreground text-sm">Kategoriler</h4>
@@ -670,6 +672,7 @@ export function Products() {
       </div>
     </div>
   );
+  };
 
   const pageTitle = searchQuery 
     ? `"${searchQuery}" Arama Sonuçları`
