@@ -373,6 +373,12 @@ export function Header() {
                       <User className="h-4 w-4 mr-2" />
                       Profilim
                     </DropdownMenuItem>
+                    {isAuthenticated && (
+                      <DropdownMenuItem onClick={() => navigate('/admin')}>
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Admin Paneli
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={toggleTheme}>
                       {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
