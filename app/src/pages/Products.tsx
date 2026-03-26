@@ -417,14 +417,6 @@ export function Products() {
     });
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: 'TRY',
-      minimumFractionDigits: 0
-    }).format(price);
-  };
-
   // Highlight search query in text
   const highlightText = (text: string, query: string) => {
     if (!query.trim()) return text;
@@ -517,10 +509,43 @@ export function Products() {
             className="mb-4"
           />
         </div>
-        <div className="flex items-center justify-between text-sm mt-2">
-          <span className="font-medium text-foreground bg-muted px-3 py-1 rounded-lg">{formatPrice(priceRange[0])}</span>
-          <span className="text-muted-foreground">-</span>
-          <span className="font-medium text-foreground bg-muted px-3 py-1 rounded-lg">{formatPrice(priceRange[1])}</span>
+        {/* Manuel Fiyat Girişi */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₺</span>
+            <input
+              type="number"
+              min={0}
+              max={100000}
+              value={priceRange[0]}
+              onChange={(e) => {
+                const value = parseInt(e.target.value) || 0;
+                if (value <= priceRange[1]) {
+                  setPriceRange([value, priceRange[1]]);
+                }
+              }}
+              className="w-full pl-5 pr-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              placeholder="Min"
+            />
+          </div>
+          <span className="text-gray-400">-</span>
+          <div className="relative flex-1">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₺</span>
+            <input
+              type="number"
+              min={0}
+              max={100000}
+              value={priceRange[1]}
+              onChange={(e) => {
+                const value = parseInt(e.target.value) || 0;
+                if (value >= priceRange[0]) {
+                  setPriceRange([priceRange[0], value]);
+                }
+              }}
+              className="w-full pl-5 pr-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              placeholder="Max"
+            />
+          </div>
         </div>
       </div>
 
