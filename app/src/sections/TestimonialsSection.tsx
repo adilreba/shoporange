@@ -49,7 +49,7 @@ export function TestimonialsSection() {
   };
 
   return (
-    <section className="section-padding bg-gradient-to-b from-white to-orange-50/50">
+    <section className="section-padding bg-gradient-to-b from-background to-muted dark:from-gray-900 dark:to-gray-800">
       <div className="container-custom">
         {/* Section Header */}
         <div className="text-center mb-12">
@@ -74,7 +74,7 @@ export function TestimonialsSection() {
                   key={testimonial.id}
                   className="w-full flex-shrink-0 px-4"
                 >
-                  <div className="bg-card rounded-3xl shadow-soft p-8 md:p-12 text-center">
+                  <div className="bg-card dark:bg-gray-800 rounded-3xl shadow-soft dark:shadow-none p-8 md:p-12 text-center border dark:border-gray-700">
                     <Quote className="h-12 w-12 text-orange-200 mx-auto mb-6" />
                     
                     {/* Rating */}
