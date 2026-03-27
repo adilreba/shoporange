@@ -48,7 +48,6 @@ export function ProductDetail() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isZoomed, setIsZoomed] = useState(false);
-  const [showMobileActions, setShowMobileActions] = useState(false);
   
   // Real-time stock state
   const [stockInfo, setStockInfo] = useState<{
@@ -136,15 +135,7 @@ export function ProductDetail() {
     return () => clearInterval(interval);
   }, [id, quantity, checkProductStock]);
 
-  // Scroll listener for mobile sticky actions
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollY = window.scrollY;
-      setShowMobileActions(scrollY > 400);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  
 
   if (!product) {
     return (
@@ -545,54 +536,54 @@ export function ProductDetail() {
           </div>
         </div>
 
-        {/* Mobile Sticky Actions */}
-        <div className={`fixed bottom-0 left-0 right-0 bg-card border-t p-3 sm:p-4 lg:hidden transition-transform duration-300 z-50 safe-area-inset ${showMobileActions ? 'translate-y-0' : 'translate-y-full'}`}>
-          <div className="flex items-center gap-3">
-            {/* Quantity */}
-            <div className="flex items-center border rounded-lg bg-background flex-shrink-0">
+        {/* Mobile Sticky Actions - Always Visible */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 lg:hidden z-50 safe-area-pb shadow-[0_-4px_12px_-2px_rgba(0,0,0,0.15)]">
+          <div className="flex items-center gap-3 max-w-screen-xl mx-auto">
+            {/* Quantity Selector */}
+            <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 flex-shrink-0 h-12">
               <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="p-3 hover:bg-muted transition-colors"
+                className="px-3 h-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors rounded-l-xl disabled:opacity-50"
                 disabled={quantity <= 1 || stockInfo.loading}
               >
-                <Minus className="h-4 w-4" />
+                <Minus className="h-4 w-4 text-gray-600 dark:text-gray-300" />
               </button>
-              <span className="w-10 text-center font-medium text-base">{quantity}</span>
+              <span className="w-10 text-center font-semibold text-base text-gray-900 dark:text-white">{quantity}</span>
               <button
                 onClick={() => setQuantity(Math.min(stockInfo.available, quantity + 1))}
-                className="p-3 hover:bg-muted transition-colors"
+                className="px-3 h-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors rounded-r-xl disabled:opacity-50"
                 disabled={quantity >= stockInfo.available || stockInfo.loading}
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 text-gray-600 dark:text-gray-300" />
               </button>
             </div>
 
-            {/* Add to Cart */}
+            {/* Add to Cart Button */}
             <Button 
-              className="flex-1 gradient-orange h-11 min-w-0"
+              className="flex-1 h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 shadow-lg shadow-orange-500/25 disabled:opacity-50 disabled:shadow-none"
               onClick={handleAddToCart}
               disabled={!stockInfo.canAddToCart || stockInfo.loading}
             >
               {stockInfo.loading ? (
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin flex-shrink-0" />
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
               ) : (
-                <ShoppingCart className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                <ShoppingCart className="h-5 w-5 mr-2" />
               )}
-              <span className="text-sm truncate">
+              <span>
                 {stockInfo.loading 
                   ? 'Kontrol...' 
                   : stockInfo.canAddToCart 
-                    ? `Ekle ${formatPrice(product.price * quantity)}` 
+                    ? 'Sepete Ekle' 
                     : 'Stokta Yok'
                 }
               </span>
             </Button>
 
-            {/* Wishlist */}
+            {/* Wishlist Button */}
             <Button
               variant="outline"
               size="icon"
-              className={`h-11 w-11 ${inWishlist ? 'text-red-500 border-red-500' : ''}`}
+              className={`h-12 w-12 rounded-xl border-2 ${inWishlist ? 'text-red-500 border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
               onClick={handleToggleWishlist}
             >
               <Heart className={`h-5 w-5 ${inWishlist ? 'fill-current' : ''}`} />
@@ -679,8 +670,8 @@ export function ProductDetail() {
 
       <Footer />
 
-      {/* Spacer for mobile sticky actions */}
-      <div className="h-20 lg:hidden" />
+      {/* Spacer for mobile sticky actions - increased height */}
+      <div className="h-24 lg:hidden" />
     </div>
   );
 }
