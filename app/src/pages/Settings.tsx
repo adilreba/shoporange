@@ -76,11 +76,9 @@ export function Settings() {
       <Header />
       
       <main className="container-custom py-8">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-          <Link to="/" className="hover:text-orange-500">Anasayfa</Link>
-          <ChevronRight className="w-4 h-4" />
-          <span className="text-foreground font-medium">Ayarlar</span>
+        {/* Page Title */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-foreground">Ayarlar</h1>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
