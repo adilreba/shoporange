@@ -130,8 +130,8 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 relative">
-      {/* Header - Sabit (Fixed) */}
-      <div className="fixed top-16 left-0 lg:left-64 right-0 z-30 bg-background/95 backdrop-blur-sm py-4 px-4 lg:px-6 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* Header - Sabit (Sticky) */}
+      <div className="sticky top-16 z-30 bg-background/95 backdrop-blur-sm py-4 -mx-4 lg:-mx-6 px-4 lg:px-6 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">İşletmenizin performansına genel bakış</p>
@@ -157,9 +157,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Spacer for fixed header */}
-      <div className="h-20"></div>
-      
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
