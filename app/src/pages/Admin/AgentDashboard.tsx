@@ -302,29 +302,44 @@ export default function AgentDashboard() {
   return (
     <div className="h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="bg-orange-500 p-2 rounded-lg">
-              <MessageCircle className="w-6 h-6 text-white" />
+      <header className="border-b bg-card px-4 sm:px-6 py-4">
+        <div className="flex flex-col gap-3">
+          {/* Üst Satır: Logo + Başlık + Durum */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-orange-500 p-2 rounded-lg">
+                <MessageCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg sm:text-xl font-bold">Canlı Destek Paneli</h1>
+                <p className="text-sm text-muted-foreground">
+                  {isConnected ? (
+                    <span className="flex items-center gap-1 text-green-600">
+                      <CheckCircle className="w-4 h-4" /> Çevrimiçi
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-red-600">
+                      <XCircle className="w-4 h-4" /> Çevrimdışı
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold">Canlı Destek Paneli</h1>
-              <p className="text-sm text-muted-foreground">
-                {isConnected ? (
-                  <span className="flex items-center gap-1 text-green-600">
-                    <CheckCircle className="w-4 h-4" /> Çevrimiçi
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-red-600">
-                    <XCircle className="w-4 h-4" /> Çevrimdışı
-                  </span>
-                )}
-              </p>
+            
+            {/* Desktop: Kullanıcı bilgisi */}
+            <div className="hidden lg:flex items-center gap-2">
+              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-gray-600" />
+              </div>
+              <div className="text-sm">
+                <p className="font-medium">{user?.name || 'Temsilci'}</p>
+                <p className="text-muted-foreground text-xs">{user?.email}</p>
+              </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-4">
+          
+          {/* Alt Satır: Badge'ler (Mobil'de alt alta) */}
+          <div className="flex items-center justify-between sm:justify-start gap-2">
             <div className="flex items-center gap-2 text-sm">
               <Badge variant="secondary" className="gap-1">
                 <Users className="w-3 h-3" />
@@ -334,15 +349,6 @@ export default function AgentDashboard() {
                 <MessageCircle className="w-3 h-3" />
                 {activeChats.length} Aktif
               </Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-gray-600" />
-              </div>
-              <div className="text-sm">
-                <p className="font-medium">{user?.name || 'Temsilci'}</p>
-                <p className="text-muted-foreground text-xs">{user?.email}</p>
-              </div>
             </div>
           </div>
         </div>
