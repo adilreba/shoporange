@@ -74,7 +74,7 @@ export function Settings() {
     <div className="min-h-screen bg-muted">
       <Header />
       
-      <main className="container-custom py-8">
+      <main className="container-custom pt-24 pb-8">
         {/* Page Title */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground">Ayarlar</h1>
