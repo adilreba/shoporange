@@ -239,7 +239,7 @@ export default function StockManagement() {
   const lowStockProducts = products.filter(p => p.actualAvailable <= p.reorderPoint);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -255,7 +255,7 @@ export default function StockManagement() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 min-w-0">
         <Card>
           <CardContent className="p-4">
             <p className="text-2xl font-bold">{stats.totalProducts}</p>
@@ -296,16 +296,16 @@ export default function StockManagement() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
-          <TabsTrigger value="products">Ürünler</TabsTrigger>
-          <TabsTrigger value="reservations">Rezervasyonlar</TabsTrigger>
-          <TabsTrigger value="lowstock">Kritik Stok ({lowStockProducts.length})</TabsTrigger>
+        <TabsList className="mb-4 h-auto flex-wrap gap-1 p-1 w-full">
+          <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 flex-1 sm:flex-none">Genel Bakış</TabsTrigger>
+          <TabsTrigger value="products" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 flex-1 sm:flex-none">Ürünler</TabsTrigger>
+          <TabsTrigger value="reservations" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 flex-1 sm:flex-none">Rezervasyonlar</TabsTrigger>
+          <TabsTrigger value="lowstock" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 flex-1 sm:flex-none">Kritik ({lowStockProducts.length})</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
