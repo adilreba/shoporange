@@ -303,7 +303,7 @@ export function ProductDetail() {
           <div className="space-y-3 sm:space-y-4">
             {/* Main Image */}
             <div 
-              className="relative aspect-square bg-muted rounded-xl sm:rounded-2xl overflow-hidden cursor-zoom-in"
+              className={`relative aspect-square bg-muted rounded-xl sm:rounded-2xl cursor-zoom-in transition-all duration-300 ${isZoomed ? 'overflow-visible z-50' : 'overflow-hidden'}`}
               onClick={() => setIsZoomed(!isZoomed)}
             >
               <img
@@ -536,8 +536,8 @@ export function ProductDetail() {
           </div>
         </div>
 
-        {/* Mobile Sticky Actions - Always Visible */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 lg:hidden z-50 safe-area-pb shadow-[0_-4px_12px_-2px_rgba(0,0,0,0.15)]">
+        {/* Mobile Sticky Actions - Hidden when image zoomed */}
+        <div className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 lg:hidden z-40 safe-area-pb shadow-[0_-4px_12px_-2px_rgba(0,0,0,0.15)] transition-transform duration-300 ${isZoomed ? 'translate-y-full' : 'translate-y-0'}`}>
           <div className="flex items-center gap-3 max-w-screen-xl mx-auto">
             {/* Quantity Selector */}
             <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 flex-shrink-0 h-12">
