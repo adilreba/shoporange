@@ -394,11 +394,11 @@ export default function AdminCoupons() {
       {/* Tabs and Filters */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-          <TabsList>
-            <TabsTrigger value="all">Tümü ({stats.total})</TabsTrigger>
-            <TabsTrigger value="active">Aktif ({stats.active})</TabsTrigger>
-            <TabsTrigger value="expired">Süresi Dolan ({stats.expired})</TabsTrigger>
-            <TabsTrigger value="disabled">Pasif</TabsTrigger>
+          <TabsList className="h-auto flex-wrap gap-1 p-1">
+            <TabsTrigger value="all" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5">Tümü ({stats.total})</TabsTrigger>
+            <TabsTrigger value="active" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5">Aktif ({stats.active})</TabsTrigger>
+            <TabsTrigger value="expired" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5">Süresi Dolan ({stats.expired})</TabsTrigger>
+            <TabsTrigger value="disabled" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5">Pasif</TabsTrigger>
           </TabsList>
           
           <div className="relative">
