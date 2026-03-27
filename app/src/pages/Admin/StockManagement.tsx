@@ -199,15 +199,15 @@ export default function StockManagement() {
 
   const getStockStatusBadge = (item: StockItem) => {
     if (item.actualAvailable === 0) {
-      return <Badge className="bg-red-500">Tükendi</Badge>;
+      return <Badge className="bg-red-500 text-white">Tükendi</Badge>;
     }
     if (item.actualAvailable <= item.reorderPoint) {
-      return <Badge className="bg-red-100 text-red-700">Kritik ({item.actualAvailable})</Badge>;
+      return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">Kritik ({item.actualAvailable})</Badge>;
     }
     if (item.actualAvailable <= item.reorderPoint * 2) {
-      return <Badge className="bg-yellow-100 text-yellow-700">Düşük ({item.actualAvailable})</Badge>;
+      return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">Düşük ({item.actualAvailable})</Badge>;
     }
-    return <Badge className="bg-green-100 text-green-700">Normal ({item.actualAvailable})</Badge>;
+    return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">Normal ({item.actualAvailable})</Badge>;
   };
 
   const exportStockReport = () => {
@@ -244,7 +244,7 @@ export default function StockManagement() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Stok Yönetimi</h1>
-          <p className="text-sm text-gray-500">Gerçek zamanlı stok takibi ve yönetimi</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Gerçek zamanlı stok takibi ve yönetimi</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportStockReport}>
@@ -258,38 +258,38 @@ export default function StockManagement() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 min-w-0">
         <Card>
           <CardContent className="p-4">
-            <p className="text-2xl font-bold">{stats.totalProducts}</p>
-            <p className="text-sm text-gray-500">Toplam Ürün</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalProducts}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Toplam Ürün</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-2xl font-bold">{stats.totalStock}</p>
-            <p className="text-sm text-gray-500">Toplam Stok</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalStock}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Toplam Stok</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-amber-600">{stats.totalReserved}</p>
-            <p className="text-sm text-gray-500">Rezerve</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Rezerve</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-red-600">{stats.lowStock}</p>
-            <p className="text-sm text-gray-500">Kritik Stok</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Kritik Stok</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-red-600">{stats.outOfStock}</p>
-            <p className="text-sm text-gray-500">Tükendi</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Tükendi</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-2xl font-bold">₺{stats.stockValue.toLocaleString()}</p>
-            <p className="text-sm text-gray-500">Stok Değeri</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">₺{stats.stockValue.toLocaleString()}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Stok Değeri</p>
           </CardContent>
         </Card>
       </div>
@@ -315,23 +315,23 @@ export default function StockManagement() {
               </CardHeader>
               <CardContent>
                 {lowStockProducts.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                     <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-green-500" />
-                    <p>Tüm ürünlerde yeterli stok var</p>
+                    <p className="text-gray-500 dark:text-gray-400">Tüm ürünlerde yeterli stok var</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {lowStockProducts.slice(0, 5).map(product => (
-                      <div key={product.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                      <div key={product.id} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/30 rounded-lg">
                         <div>
-                          <p className="font-medium text-sm">{product.name}</p>
-                          <p className="text-xs text-gray-500">{product.sku}</p>
+                          <p className="font-medium text-sm text-gray-900 dark:text-white">{product.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{product.sku}</p>
                         </div>
                         <Badge className="bg-red-500">{product.actualAvailable} adet</Badge>
                       </div>
                     ))}
                     {lowStockProducts.length > 5 && (
-                      <p className="text-center text-sm text-gray-500">
+                      <p className="text-center text-sm text-gray-500 dark:text-gray-400">
                         +{lowStockProducts.length - 5} ürün daha...
                       </p>
                     )}
@@ -356,10 +356,10 @@ export default function StockManagement() {
                     setSearchTerm('');
                     toast.info('Yeterli Stok olan ürünler listeleniyor');
                   }}
-                  className="w-full flex justify-between items-center p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors cursor-pointer"
+                  className="w-full flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 rounded-lg transition-colors cursor-pointer"
                 >
-                  <span className="text-sm">Yeterli Stok</span>
-                  <span className="font-bold text-green-700">
+                  <span className="text-sm text-gray-700 dark:text-gray-200">Yeterli Stok</span>
+                  <span className="font-bold text-green-700 dark:text-green-400">
                     {products.filter(p => p.actualAvailable > p.reorderPoint * 2).length} ürün
                   </span>
                 </button>
@@ -371,10 +371,10 @@ export default function StockManagement() {
                     setSearchTerm('');
                     toast.info('Düşük Stok olan ürünler listeleniyor');
                   }}
-                  className="w-full flex justify-between items-center p-3 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors cursor-pointer"
+                  className="w-full flex justify-between items-center p-3 bg-yellow-50 dark:bg-yellow-900/30 hover:bg-yellow-100 dark:hover:bg-yellow-900/50 rounded-lg transition-colors cursor-pointer"
                 >
-                  <span className="text-sm">Düşük Stok</span>
-                  <span className="font-bold text-yellow-700">
+                  <span className="text-sm text-gray-700 dark:text-gray-200">Düşük Stok</span>
+                  <span className="font-bold text-yellow-700 dark:text-yellow-400">
                     {products.filter(p => p.actualAvailable > p.reorderPoint && p.actualAvailable <= p.reorderPoint * 2).length} ürün
                   </span>
                 </button>
@@ -386,10 +386,10 @@ export default function StockManagement() {
                     setSearchTerm('');
                     toast.info('Kritik Stok olan ürünler listeleniyor');
                   }}
-                  className="w-full flex justify-between items-center p-3 bg-red-50 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
+                  className="w-full flex justify-between items-center p-3 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg transition-colors cursor-pointer"
                 >
-                  <span className="text-sm">Kritik Stok</span>
-                  <span className="font-bold text-red-700">{stats.lowStock} ürün</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-200">Kritik Stok</span>
+                  <span className="font-bold text-red-700 dark:text-red-400">{stats.lowStock} ürün</span>
                 </button>
                 <button 
                   onClick={() => {
@@ -399,10 +399,10 @@ export default function StockManagement() {
                     setSearchTerm('');
                     toast.info('Tükenen ürünler listeleniyor');
                   }}
-                  className="w-full flex justify-between items-center p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                  className="w-full flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
                 >
-                  <span className="text-sm">Tükenen</span>
-                  <span className="font-bold text-gray-700">{stats.outOfStock} ürün</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-200">Tükenen</span>
+                  <span className="font-bold text-gray-700 dark:text-gray-300">{stats.outOfStock} ürün</span>
                 </button>
               </CardContent>
             </Card>
@@ -418,7 +418,7 @@ export default function StockManagement() {
                 {/* Active Stock Filter Badge */}
                 {stockFilter !== 'all' && (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Aktif Filtre:</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Aktif Filtre:</span>
                     <Badge 
                       className={
                         stockFilter === 'sufficient' ? 'bg-green-100 text-green-700 hover:bg-green-200' :
@@ -532,20 +532,20 @@ export default function StockManagement() {
                       <TableRow key={product.id}>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-xs text-gray-500">{product.brand}</p>
+                            <p className="font-medium text-gray-900 dark:text-white">{product.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{product.brand}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm text-gray-500">{product.sku}</TableCell>
+                        <TableCell className="text-sm text-gray-500 dark:text-gray-400">{product.sku}</TableCell>
                         <TableCell>{product.stock}</TableCell>
                         <TableCell>
                           {product.reservedStock > 0 ? (
-                            <span className="text-amber-600">{product.reservedStock}</span>
+                            <span className="text-amber-600 dark:text-amber-400">{product.reservedStock}</span>
                           ) : (
-                            <span className="text-gray-400">0</span>
+                            <span className="text-gray-400 dark:text-gray-500">0</span>
                           )}
                         </TableCell>
-                        <TableCell className="font-medium">{product.actualAvailable}</TableCell>
+                        <TableCell className="font-medium text-gray-900 dark:text-white">{product.actualAvailable}</TableCell>
                         <TableCell>{getStockStatusBadge(product)}</TableCell>
                         <TableCell className="text-right">
                           <Button
@@ -577,25 +577,25 @@ export default function StockManagement() {
             </CardHeader>
             <CardContent>
               {reservations.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>Aktif rezervasyon bulunmuyor</p>
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <Clock className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                  <p className="text-gray-500 dark:text-gray-400">Aktif rezervasyon bulunmuyor</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {reservations.map(res => (
                     <div key={res.reservationId} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">Rezervasyon: {res.reservationId}</span>
+                        <span className="font-medium text-gray-900 dark:text-white">Rezervasyon: {res.reservationId}</span>
                         <Badge>{res.status}</Badge>
                       </div>
-                      <p className="text-sm text-gray-500">Kullanıcı: {res.userId}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Kullanıcı: {res.userId}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         Oluşturulma: {new Date(res.createdAt).toLocaleString('tr-TR')}
                       </p>
                       <div className="mt-2">
                         <p className="text-sm font-medium">Ürünler:</p>
-                        <ul className="text-sm text-gray-600">
+                        <ul className="text-sm text-gray-600 dark:text-gray-400">
                           {res.items.map((item, idx) => (
                             <li key={idx}>• {item.productId}: {item.quantity} adet</li>
                           ))}
@@ -620,9 +620,9 @@ export default function StockManagement() {
             </CardHeader>
             <CardContent>
               {lowStockProducts.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-green-500" />
-                  <p>Kritik stokta ürün bulunmuyor</p>
+                  <p className="text-gray-500 dark:text-gray-400">Kritik stokta ürün bulunmuyor</p>
                 </div>
               ) : (
                 <Table>
@@ -641,14 +641,14 @@ export default function StockManagement() {
                       <TableRow key={product.id}>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-xs text-gray-500">{product.brand}</p>
+                            <p className="font-medium text-gray-900 dark:text-white">{product.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{product.brand}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm text-gray-500">{product.sku}</TableCell>
-                        <TableCell className="text-red-600 font-bold">{product.actualAvailable}</TableCell>
-                        <TableCell>{product.reorderPoint}</TableCell>
-                        <TableCell className="text-red-600">
+                        <TableCell className="text-sm text-gray-500 dark:text-gray-400">{product.sku}</TableCell>
+                        <TableCell className="text-red-600 dark:text-red-400 font-bold">{product.actualAvailable}</TableCell>
+                        <TableCell className="text-gray-900 dark:text-white">{product.reorderPoint}</TableCell>
+                        <TableCell className="text-red-600 dark:text-red-400">
                           +{product.reorderPoint - product.actualAvailable}
                         </TableCell>
                         <TableCell className="text-right">
