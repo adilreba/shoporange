@@ -412,7 +412,7 @@ export function Products() {
     const parts = text.split(new RegExp(`(${query})`, 'gi'));
     return parts.map((part, i) => 
       part.toLowerCase() === query.toLowerCase() ? (
-        <mark key={i} className="bg-orange-200 text-orange-900 px-0.5 rounded">{part}</mark>
+        <mark key={i} className="bg-orange-200 dark:bg-orange-800 text-orange-900 dark:text-orange-100 px-0.5 rounded">{part}</mark>
       ) : part
     );
   };
@@ -422,7 +422,7 @@ export function Products() {
     return (
     <div className={cn("space-y-5 pb-5", compact && "space-y-4 pb-4")}>
       <div className="border-b border-border pb-3">
-        <h4 className="font-semibold mb-2 text-foreground text-sm">Kategoriler</h4>
+        <h4 className="font-semibold mb-2 text-gray-900 dark:text-white text-sm">Kategoriler</h4>
         <div className="space-y-1.5">
           {categories.map(cat => {
             const count = facets.categoryCounts[cat.id] || 0;
@@ -443,11 +443,11 @@ export function Products() {
                 />
                 <span className={cn(
                   "text-sm group-hover:text-orange-600 transition-colors",
-                  isDisabled ? "text-muted-foreground" : "text-foreground"
+                  isDisabled ? "text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-200"
                 )}>{cat.name}</span>
                 <span className={cn(
                   "text-xs ml-auto px-2 py-0.5 rounded-full",
-                  count > 0 ? "bg-muted text-muted-foreground" : "bg-gray-100 text-gray-400"
+                  count > 0 ? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                 )}>{count}</span>
               </label>
             );
@@ -458,7 +458,7 @@ export function Products() {
       {/* Alt Kategoriler - Tüm seçili kategorilerin alt kategorilerini göster */}
       {selectedCategories.length > 0 && (
         <div className="border-b border-border pb-3">
-          <h4 className="font-semibold mb-2 text-foreground text-sm">Alt Kategoriler</h4>
+          <h4 className="font-semibold mb-2 text-gray-900 dark:text-white text-sm">Alt Kategoriler</h4>
           <div className="space-y-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
             {selectedCategories.flatMap(catId => 
               subcategories[catId as keyof typeof subcategories] || []
@@ -470,7 +470,7 @@ export function Products() {
                     onCheckedChange={() => toggleSubcategory(sub)}
                     className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 w-6 h-6"
                   />
-                  <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors">{sub}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-orange-600 transition-colors">{sub}</span>
                 </label>
               ))
             }
@@ -480,7 +480,7 @@ export function Products() {
 
       <div className="border-b border-border pb-3">
         <div className="flex items-center justify-between mb-2">
-          <h4 className="font-semibold text-foreground text-sm">Fiyat Aralığı</h4>
+          <h4 className="font-semibold text-gray-900 dark:text-white text-sm">Fiyat Aralığı</h4>
           {(priceRange[0] > 0 || priceRange[1] < 100000) && (
             <button 
               onClick={() => setPriceRange([0, 100000])}
@@ -522,7 +522,7 @@ export function Products() {
                   (e.target as HTMLInputElement).blur();
                 }
               }}
-              className="w-full pl-5 pr-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full pl-5 pr-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
               placeholder="Min"
             />
           </div>
@@ -548,7 +548,7 @@ export function Products() {
                   (e.target as HTMLInputElement).blur();
                 }
               }}
-              className="w-full pl-5 pr-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full pl-5 pr-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
               placeholder="Max"
             />
           </div>
@@ -556,7 +556,7 @@ export function Products() {
       </div>
 
       <div className="border-b border-border pb-3">
-        <h4 className="font-semibold mb-2 text-foreground text-sm">Markalar</h4>
+        <h4 className="font-semibold mb-2 text-gray-900 dark:text-white text-sm">Markalar</h4>
         <div className="space-y-1.5 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
           {brands.map(brand => {
             const count = facets.brandCounts[brand] || 0;
@@ -577,11 +577,11 @@ export function Products() {
                 />
                 <span className={cn(
                   "text-sm flex-1 group-hover:text-orange-600 transition-colors",
-                  isDisabled ? "text-muted-foreground" : "text-foreground"
+                  isDisabled ? "text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-200"
                 )}>{brand}</span>
                 <span className={cn(
                   "text-xs px-2 py-0.5 rounded-full",
-                  count > 0 ? "bg-muted text-muted-foreground" : "bg-gray-100 text-gray-400"
+                  count > 0 ? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                 )}>{count}</span>
               </label>
             );
@@ -590,7 +590,7 @@ export function Products() {
       </div>
 
       <div className="border-b border-border pb-3">
-        <h4 className="font-semibold mb-2 text-foreground text-sm">Puan Aralığı</h4>
+        <h4 className="font-semibold mb-2 text-gray-900 dark:text-white text-sm">Puan Aralığı</h4>
         <div className="space-y-1.5">
           {[5, 4, 3, 2, 1].map(rating => {
             const count = facets.ratingCounts[rating] || 0;
@@ -618,14 +618,14 @@ export function Products() {
                 />
                 <div className="flex items-center gap-0.5 flex-1">
                   {[...Array(5)].map((_, i) => (
-                    <span key={i} className={`text-sm ${i < rating ? 'text-amber-400' : 'text-gray-200'}`}>
+                    <span key={i} className={`text-sm ${i < rating ? 'text-amber-400' : 'text-gray-200 dark:text-gray-600'}`}>
                       ★
                     </span>
                   ))}
                 </div>
                 <span className={cn(
                   "text-xs px-2 py-0.5 rounded-full",
-                  count > 0 ? "bg-muted text-muted-foreground" : "bg-gray-100 text-gray-400"
+                  count > 0 ? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                 )}>{count}</span>
               </label>
             );
@@ -634,7 +634,7 @@ export function Products() {
       </div>
 
       <div>
-        <h4 className="font-semibold mb-2 text-foreground text-sm">Diğer Filtreler</h4>
+        <h4 className="font-semibold mb-2 text-gray-900 dark:text-white text-sm">Diğer Filtreler</h4>
         <div className="space-y-2">
           <label className={cn(
             "flex items-center gap-1.5 cursor-pointer group",
@@ -646,10 +646,10 @@ export function Products() {
               disabled={facets.discountCount === 0 && !onlyDiscount}
               className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 w-6 h-6"
             />
-            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece İndirimli</span>
+            <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-orange-600 transition-colors flex-1">Sadece İndirimli</span>
             <span className={cn(
               "text-xs px-2 py-0.5 rounded-full",
-              facets.discountCount > 0 ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-400"
+              facets.discountCount > 0 ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
             )}>{facets.discountCount}</span>
           </label>
           <label className={cn(
@@ -662,10 +662,10 @@ export function Products() {
               disabled={facets.inStockCount === 0 && !onlyInStock}
               className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 w-6 h-6"
             />
-            <span className="text-sm text-foreground group-hover:text-orange-600 transition-colors flex-1">Sadece Stokta</span>
+            <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-orange-600 transition-colors flex-1">Sadece Stokta</span>
             <span className={cn(
               "text-xs px-2 py-0.5 rounded-full",
-              facets.inStockCount > 0 ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
+              facets.inStockCount > 0 ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
             )}>{facets.inStockCount}</span>
           </label>
         </div>
@@ -696,21 +696,21 @@ export function Products() {
       <main className="container-custom pt-[42px] pb-6 sm:pt-[42px] sm:pb-8 px-4 sm:px-6 lg:px-8">
         {/* Title & Did You Mean */}
         <div className="mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
             {searchQuery ? (
               <span>"{highlightText(searchQuery, searchQuery)}" Arama Sonuçları</span>
             ) : selectedCategories.length > 0 ? (
               selectedCategories.map(id => categories.find(c => c.id === id)?.name).join(', ')
             ) : 'Tüm Ürünler'}
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
             {filteredProducts.length} ürün bulundu
           </p>
           
           {/* Did you mean? */}
           {suggestions.length > 0 && (
             <div className="mt-3 flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Bunu mu demiştiniz?</span>
+              <span className="text-gray-500 dark:text-gray-400">Bunu mu demiştiniz?</span>
               {suggestions.map((suggestion, idx) => (
                 <button
                   key={idx}
@@ -738,7 +738,7 @@ export function Products() {
                   <Filter className="h-4 w-4 mr-1.5 sm:mr-2" />
                   Filtre
                   {activeFiltersCount > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 sm:ml-2 bg-orange-100 text-orange-700 text-xs">
+                    <Badge variant="secondary" className="ml-1.5 sm:ml-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs">
                       {activeFiltersCount}
                     </Badge>
                   )}
@@ -748,7 +748,7 @@ export function Products() {
                 <div className="flex flex-col h-full">
                   <SheetHeader className="px-4 py-3 border-b border-border bg-card sticky top-0 z-10">
                     <div className="flex items-center justify-between">
-                      <SheetTitle className="text-base font-semibold text-foreground">Filtreler</SheetTitle>
+                      <SheetTitle className="text-base font-semibold text-gray-900 dark:text-white">Filtreler</SheetTitle>
                       {activeFiltersCount > 0 && (
                         <button 
                           onClick={clearFilters}
@@ -782,7 +782,7 @@ export function Products() {
               <SlidersHorizontal className="h-4 w-4 mr-2" />
               {isFilterOpen ? 'Filtreleri Gizle' : 'Filtrele'}
               {activeFiltersCount > 0 && (
-                <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700">
+                <Badge variant="secondary" className="ml-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
                   {activeFiltersCount}
                 </Badge>
               )}
@@ -803,11 +803,11 @@ export function Products() {
 
           <div className="flex items-center gap-2 sm:gap-4 ml-auto">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground hidden sm:inline">Sırala:</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline">Sırala:</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="border rounded-lg px-2 sm:px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-background"
+                className="border rounded-lg px-2 sm:px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
               >
                 {sortOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -842,7 +842,7 @@ export function Products() {
             {isFilterOpen && (
               <div className="sticky top-24 bg-card rounded-xl border border-border p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
-                  <h3 className="font-semibold text-lg text-foreground">Filtreler</h3>
+                  <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Filtreler</h3>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -890,12 +890,12 @@ export function Products() {
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12 sm:py-16">
                 <div className="w-20 h-20 sm:w-24 sm:h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Filter className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground" />
+                  <Filter className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400 dark:text-gray-500" />
                 </div>
-                <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">
                   Ürün Bulunamadı
                 </h3>
-                <p className="text-muted-foreground mb-6 text-sm">
+                <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">
                   Seçtiğiniz filtrelere uygun ürün bulunmuyor.
                 </p>
                 <Button onClick={clearFilters} variant="outline" size="sm">
