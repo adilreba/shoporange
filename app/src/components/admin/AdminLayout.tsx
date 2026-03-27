@@ -57,10 +57,10 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex max-w-[100vw] overflow-x-hidden">
+    <div className="h-screen bg-gray-50 dark:bg-gray-900 flex max-w-[100vw] overflow-x-hidden overflow-y-hidden">
       {/* Sidebar - Desktop */}
       <aside 
-        className={`hidden lg:flex flex-col sticky top-0 h-screen bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
+        className={`hidden lg:flex flex-col h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
           sidebarOpen ? 'w-64' : 'w-20'
         }`}
       >
@@ -87,7 +87,7 @@ export default function AdminLayout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-1">
+        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
           {menuItems.map((item) => (
             <Link
               key={item.path}
@@ -160,9 +160,9 @@ export default function AdminLayout() {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Header - Sabit */}
-        <header className="sticky top-0 z-40 h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 lg:px-6">
+        <header className="flex-none h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
@@ -217,7 +217,7 @@ export default function AdminLayout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto h-[calc(100vh-4rem)] p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <Outlet />
         </main>
       </div>
