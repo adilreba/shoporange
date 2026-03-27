@@ -120,9 +120,9 @@ export function Header() {
 
         {/* Main Header */}
         <div className="container-custom py-[clamp(0.75rem,1.5vw,0.75rem)] sm:py-[clamp(0.75rem,2vw,1rem)]">
-          <div className="flex items-center justify-between w-full lg:gap-8">
+          <div className="grid grid-cols-[auto_1fr_auto] items-center w-full lg:flex lg:gap-8">
             {/* Mobile Menu Button */}
-            <div className="flex items-center">
+            <div className="flex items-center lg:hidden">
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild className="lg:hidden">
                   <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
@@ -214,8 +214,8 @@ export function Header() {
             </div>
 
             {/* Logo - Centered */}
-            <Link to="/" className="absolute left-1/2 -translate-x-1/2 lg:static lg:transform-none lg:flex-shrink-0">
-              <h1 className="text-lg md:text-xl lg:text-3xl font-bold whitespace-nowrap leading-none">
+            <Link to="/" className="flex justify-center lg:static lg:flex-shrink-0 lg:justify-start">
+              <h1 className="text-lg md:text-xl lg:text-3xl font-bold whitespace-nowrap leading-none text-center">
                 <span className="text-gradient">Atus</span>
                 <span className="text-orange-600">Home</span>
               </h1>
@@ -240,7 +240,7 @@ export function Header() {
             </div>
 
             {/* Actions - Right side */}
-            <div className="flex items-center gap-0.5 sm:gap-1 lg:gap-3 ml-auto">
+            <div className="flex items-center justify-end gap-0.5 sm:gap-1 lg:gap-3">
               
               {/* Desktop: Tüm ikonlar ayrı görünür */}
               <div className="hidden lg:flex items-center gap-1">
