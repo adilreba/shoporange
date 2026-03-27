@@ -113,7 +113,7 @@ export function Reviews() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Header />
-      <div className="pt-24 pb-8">
+      <div className="pt-20 md:pt-24 pb-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
