@@ -120,9 +120,9 @@ export function Header() {
 
         {/* Main Header */}
         <div className="container-custom py-[clamp(0.75rem,1.5vw,0.75rem)] sm:py-[clamp(0.75rem,2vw,1rem)]">
-          <div className="grid grid-cols-[auto_1fr_auto] items-center w-full lg:flex lg:gap-8">
-            {/* Mobile Menu Button */}
-            <div className="flex items-center lg:hidden">
+          <div className="flex items-center justify-between w-full gap-4">
+            {/* Left: Mobile Menu Button + Logo */}
+            <div className="flex items-center gap-3 flex-shrink-0">
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild className="lg:hidden">
                   <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
@@ -211,18 +211,17 @@ export function Header() {
                 </div>
               </SheetContent>
               </Sheet>
-            </div>
-
-            {/* Logo - Centered */}
-            <Link to="/" className="flex justify-center lg:static lg:flex-shrink-0 lg:justify-start">
+              {/* Logo */}
+              <Link to="/" className="flex items-center">
               <h1 className="text-lg md:text-xl lg:text-3xl font-bold whitespace-nowrap leading-none text-center">
                 <span className="text-gradient">Atus</span>
                 <span className="text-orange-600">Home</span>
               </h1>
-            </Link>
+              </Link>
+            </div>
 
-            {/* Search Bar - Desktop */}
-            <div className="hidden md:flex flex-1 max-w-xl">
+            {/* Center: Search Bar - Desktop */}
+            <div className="hidden md:flex flex-1 max-w-xl mx-4 lg:mx-8">
               <div 
                 className="relative w-full cursor-pointer"
                 onClick={() => setIsLiveSearchOpen(true)}
@@ -239,11 +238,11 @@ export function Header() {
               </div>
             </div>
 
-            {/* Actions - Right side */}
-            <div className="flex items-center justify-end gap-0.5 sm:gap-1 lg:gap-3">
+            {/* Right: Actions */}
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
               
-              {/* Desktop: Tüm ikonlar ayrı görünür */}
-              <div className="hidden lg:flex items-center gap-1">
+              {/* Desktop: All icons visible with equal spacing */}
+              <div className="hidden lg:flex items-center gap-2">
                 {/* Theme Toggle */}
                 <Button 
                   variant="ghost" 
@@ -300,16 +299,16 @@ export function Header() {
                 </Button>
               </div>
 
-              {/* Tablet/Mobile: Menü içinde toplu görünüm */}
-              <div className="flex lg:hidden items-center gap-0.5 sm:gap-1">
-                {/* Sadece Sepet ayrı görünür */}
+              {/* Tablet: Show more icons */}
+              <div className="flex lg:hidden items-center gap-1">
+                {/* Cart icon */}
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  className="relative h-8 w-8 sm:h-9 sm:w-9"
+                  className="relative h-9 w-9"
                   onClick={() => setIsCartOpen(true)}
                 >
-                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <ShoppingCart className="h-5 w-5" />
                   {cartItemCount > 0 && (
                     <Badge className="absolute -top-0.5 -right-0.5 h-4 w-4 flex items-center justify-center p-0 bg-orange-500 text-[10px]">
                       {cartItemCount}
@@ -317,15 +316,15 @@ export function Header() {
                   )}
                 </Button>
 
-                {/* Diğer ikonlar menüde */}
+                {/* More options menu */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 relative">
+                    <Button variant="ghost" size="icon" className="h-9 w-9 relative">
                       <div className="flex items-center">
                         {(compareCount > 0 || wishlistCount > 0) && (
                           <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-orange-500 rounded-full" />
                         )}
-                        <LayoutGrid className="h-5 w-5 sm:h-5 sm:w-5" />
+                        <LayoutGrid className="h-5 w-5" />
                       </div>
                     </Button>
                   </DropdownMenuTrigger>
@@ -392,7 +391,7 @@ export function Header() {
               {isAuthenticated ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="hidden lg:flex items-center gap-1 h-9 px-2">
+                    <Button variant="ghost" className="hidden lg:flex items-center gap-1 h-9 px-2 ml-1">
                       <div className="w-8 h-8 rounded-full gradient-orange flex items-center justify-center text-white font-medium text-sm">
                         {user?.name?.charAt(0).toUpperCase()}
                       </div>
