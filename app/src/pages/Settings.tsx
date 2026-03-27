@@ -163,7 +163,7 @@ export function Settings() {
                       <select 
                         value={settings.language}
                         onChange={(e) => setSettings({...settings, language: e.target.value})}
-                        className="border rounded-lg px-3 py-2"
+                        className="border rounded-lg px-3 py-2 bg-background text-foreground dark:bg-gray-800 dark:text-white dark:border-gray-600"
                       >
                         <option value="tr">Türkçe</option>
                         <option value="en">English</option>
@@ -184,7 +184,7 @@ export function Settings() {
                       <select 
                         value={settings.currency}
                         onChange={(e) => setSettings({...settings, currency: e.target.value})}
-                        className="border rounded-lg px-3 py-2"
+                        className="border rounded-lg px-3 py-2 bg-background text-foreground dark:bg-gray-800 dark:text-white dark:border-gray-600"
                       >
                         <option value="TRY">TL (₺)</option>
                         <option value="USD">USD ($)</option>
