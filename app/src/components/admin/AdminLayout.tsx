@@ -57,7 +57,7 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex max-w-[100vw] overflow-x-hidden">
       {/* Sidebar - Desktop */}
       <aside 
         className={`hidden lg:flex flex-col sticky top-0 h-screen bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${

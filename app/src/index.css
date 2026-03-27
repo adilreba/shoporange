@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global overflow control - Prevent horizontal scroll */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Allow pinch zoom on content but prevent layout overflow */
+#root {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 @layer base {
   :root {
     /* Orange Theme - Light Mode */
