@@ -349,9 +349,12 @@ export default function AgentDashboard() {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Sidebar - Chat List */}
-        <div className="w-80 border-r bg-card flex flex-col">
+        <div className={cn(
+          "w-full lg:w-80 border-r bg-card flex flex-col absolute lg:relative z-10 h-full transition-transform",
+          selectedSession ? "-translate-x-full lg:translate-x-0" : "translate-x-0"
+        )}>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <TabsList className="grid w-full grid-cols-2 m-4 mb-0">
               <TabsTrigger value="waiting" className="gap-2">
@@ -460,12 +463,23 @@ export default function AgentDashboard() {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col">
+        <div className={cn(
+          "flex-1 flex flex-col absolute lg:relative z-20 bg-background h-full w-full lg:w-auto transition-transform",
+          selectedSession ? "translate-x-0" : "translate-x-full lg:translate-x-0"
+        )}>
           {selectedSession ? (
             <>
               {/* Chat Header */}
               <div className="border-b px-6 py-4 flex items-center justify-between bg-card">
                 <div className="flex items-center gap-3">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="lg:hidden -ml-2"
+                    onClick={() => setSelectedSession(null)}
+                  >
+                    ←
+                  </Button>
                   <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
                     <User className="w-5 h-5 text-orange-600" />
                   </div>
