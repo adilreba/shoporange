@@ -143,14 +143,14 @@ export function Header() {
                   <nav className="flex-1 overflow-y-auto flex flex-col gap-2 p-4">
                     <Link 
                       to="/" 
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 transition-colors text-sm font-medium"
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <span className="text-lg">🏠</span> Ana Sayfa
                     </Link>
                     <Link 
                       to="/products" 
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 transition-colors text-sm font-medium"
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <span className="text-lg">📦</span> Tüm Ürünler
@@ -158,7 +158,7 @@ export function Header() {
                     {isAuthenticated && (
                       <Link 
                         to="/admin" 
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 transition-colors text-sm font-medium text-orange-600"
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors text-sm font-medium text-orange-600"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <span className="text-lg">📊</span> Admin Paneli
@@ -166,7 +166,7 @@ export function Header() {
                     )}
                     <Link 
                       to="/compare" 
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 transition-colors text-sm font-medium text-orange-600"
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors text-sm font-medium text-orange-600"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <span className="text-lg">⚖️</span> Karşılaştırma {compareCount > 0 && `(${compareCount})`}
@@ -175,7 +175,7 @@ export function Header() {
                       <Link 
                         key={cat.id}
                         to={`/products?category=${cat.id}`}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 transition-colors text-sm"
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors text-sm text-gray-700 dark:text-gray-200"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         {cat.icon && isEmoji(cat.icon) && <span className="text-lg w-6">{cat.icon}</span>} {cat.name}
@@ -490,7 +490,7 @@ export function Header() {
               <li>
                 <Link 
                   to="/products" 
-                  className="px-[clamp(0.75rem,2vw,1rem)] py-[clamp(0.375rem,1vw,0.5rem)] rounded-full hover:bg-orange-50 transition-colors font-medium text-[clamp(0.75rem,1vw,0.875rem)]"
+                  className="px-[clamp(0.75rem,2vw,1rem)] py-[clamp(0.375rem,1vw,0.5rem)] rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors font-medium text-[clamp(0.75rem,1vw,0.875rem)] text-gray-700 dark:text-gray-200 hover:text-orange-600 dark:hover:text-orange-400"
                 >
                   Tüm Ürünler
                 </Link>
@@ -499,7 +499,7 @@ export function Header() {
                 <li key={cat.id}>
                   <Link 
                     to={`/products?category=${cat.id}`}
-                    className="px-[clamp(0.75rem,2vw,1rem)] py-[clamp(0.375rem,1vw,0.5rem)] rounded-full hover:bg-orange-50 transition-colors font-medium text-[clamp(0.75rem,1vw,0.875rem)]"
+                    className="px-[clamp(0.75rem,2vw,1rem)] py-[clamp(0.375rem,1vw,0.5rem)] rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors font-medium text-[clamp(0.75rem,1vw,0.875rem)] text-gray-700 dark:text-gray-200 hover:text-orange-600 dark:hover:text-orange-400"
                   >
                     {cat.name}
                   </Link>
@@ -508,7 +508,7 @@ export function Header() {
               <li>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="px-[clamp(0.75rem,2vw,1rem)] py-[clamp(0.375rem,1vw,0.5rem)] rounded-full hover:bg-orange-50 transition-colors font-medium text-[clamp(0.75rem,1vw,0.875rem)] flex items-center gap-[clamp(0.25rem,0.5vw,0.375rem)]">
+                    <button className="px-[clamp(0.75rem,2vw,1rem)] py-[clamp(0.375rem,1vw,0.5rem)] rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors font-medium text-[clamp(0.75rem,1vw,0.875rem)] text-gray-700 dark:text-gray-200 hover:text-orange-600 dark:hover:text-orange-400 flex items-center gap-[clamp(0.25rem,0.5vw,0.375rem)]">
                       Diğer
                       <ChevronDown className="h-[clamp(0.75rem,1vw,1rem)] w-[clamp(0.75rem,1vw,1rem)]" />
                     </button>
