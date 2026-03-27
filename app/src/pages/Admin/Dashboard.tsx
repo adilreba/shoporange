@@ -131,7 +131,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6 relative">
       {/* Header - Sabit (Sticky) */}
-      <div className="sticky top-16 z-30 bg-background/95 backdrop-blur-sm py-4 -mx-4 lg:-mx-6 px-4 lg:px-6 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="sticky top-16 z-30 bg-white dark:bg-gray-800 py-4 -mx-4 lg:-mx-6 px-4 lg:px-6 border-b shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">İşletmenizin performansına genel bakış</p>
