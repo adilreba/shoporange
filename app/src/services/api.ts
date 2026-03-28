@@ -93,7 +93,24 @@ export const authApi = {
     if (isMockMode()) {
       await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
       
-      const user = MOCK_USERS.find(u => u.email === email && u.password === password);
+      // Önce tanımlı mock kullanıcılara bak
+      let user = MOCK_USERS.find(u => u.email === email && u.password === password);
+      
+      // Tanımlı kullanıcı yoksa ve geçerli email/şifre formatındaysa yeni kullanıcı oluştur
+      if (!user && email.includes('@') && password.length >= 6) {
+        user = {
+          id: `user-${Date.now()}`,
+          email: email,
+          password: password,
+          name: email.split('@')[0],
+          role: 'user',
+          phone: '',
+          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+          address: [],
+          createdAt: new Date().toISOString()
+        };
+        MOCK_USERS.push(user);
+      }
       
       if (!user) {
         throw new Error('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
