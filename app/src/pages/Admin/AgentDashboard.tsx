@@ -54,7 +54,7 @@ export default function AgentDashboard() {
   const [inputMessage, setInputMessage] = useState('');
   const [isConnected] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [notifiedRequests, setNotifiedRequests] = useState<Set<string>>(new Set());
+  const notifiedRequestsRef = useRef<Set<string>>(new Set());
 
   // Check if user is admin/agent
   useEffect(() => {
@@ -69,28 +69,34 @@ export default function AgentDashboard() {
     }
   }, [isAuthenticated, user, navigate]);
 
-  // Listen for new agent requests from chat store
+  // Subscribe to chat store changes
   useEffect(() => {
-    console.log('AgentDashboard - agentRequests:', agentRequests);
-    console.log('AgentDashboard - activeSessions:', activeSessions);
-    
-    const pendingRequests = agentRequests.filter(req => req.status === 'pending');
-    console.log('AgentDashboard - pendingRequests:', pendingRequests);
-    
-    // Show toast for new requests
-    pendingRequests.forEach(request => {
-      if (!notifiedRequests.has(request.id)) {
-        toast.info(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">🔔 Yeni Canlı Destek Talebi!</span>
-            <span className="text-sm">{request.userName} ({request.userEmail})</span>
-          </div>,
-          { duration: 8000 }
-        );
-        setNotifiedRequests(prev => new Set([...prev, request.id]));
-      }
+    const unsubscribe = useChatStore.subscribe((state) => {
+      console.log('Subscribe - state changed:', state);
+      const pendingRequests = state.agentRequests.filter((req: any) => req.status === 'pending');
+      
+      // Show toast for new requests
+      pendingRequests.forEach((request: any) => {
+        if (!notifiedRequestsRef.current.has(request.id)) {
+          toast.info(
+            <div className="flex flex-col gap-1">
+              <span className="font-semibold">🔔 Yeni Canlı Destek Talebi!</span>
+              <span className="text-sm">{request.userName} ({request.userEmail})</span>
+            </div>,
+            { duration: 8000 }
+          );
+          notifiedRequestsRef.current.add(request.id);
+        }
+      });
     });
 
+    return () => unsubscribe();
+  }, []);
+
+  // Update waiting and active chats when store changes
+  useEffect(() => {
+    const pendingRequests = agentRequests.filter(req => req.status === 'pending');
+    
     // Convert agentRequests to waitingChats format
     const mockWaitingChats: ChatSession[] = pendingRequests.map(req => ({
       sessionId: req.id,
@@ -128,7 +134,7 @@ export default function AgentDashboard() {
     }));
 
     setActiveChats(mockActiveChats);
-  }, [agentRequests, activeSessions, notifiedRequests]);
+  }, [agentRequests, activeSessions]);
 
   const acceptChat = async (session: ChatSession) => {
     if (!user?.id) return;
