@@ -41,8 +41,9 @@ const MOCK_USERS = [
   }
 ];
 
-// AWS Deploy edildi - Mock mode KAPALI, gerçek API kullanılıyor
-const FORCE_MOCK_MODE = false;
+// Geliştirme/test için Mock mode AÇIK
+// NOT: Production'da false yapılmalı ve AWS Cognito kullanılmalı
+const FORCE_MOCK_MODE = true;
 
 // Check if using mock API (no real backend configured)
 const isMockMode = () => {

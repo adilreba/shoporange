@@ -352,6 +352,11 @@ export function ChatWidget() {
     });
   };
 
+  // Giriş yapmamış kullanıcılar için chat butonunu gösterme
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <>
       {/* Arkaplan overlay - çok hafif şeffaf */}
