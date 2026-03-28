@@ -212,14 +212,55 @@ export default function AgentDashboard() {
     if (!user?.id) return;
 
     try {
-      // Local store'da kabul et
-      acceptRequest(session.sessionId);
-      
-      // AWS'de de kabul et
+      // Önce AWS'de kabul et
       await chatApi.assignAgent(session.sessionId, user.id);
+      
+      // Local store'a da ekle (eğer yoksa)
+      const localRequest = agentRequests.find(req => req.id === session.sessionId);
+      if (!localRequest) {
+        // AWS'den gelen session'ı local store'a ekle
+        const newRequest = {
+          id: session.sessionId,
+          userId: session.customerId,
+          userName: session.customerName || 'Misafir',
+          userEmail: session.customerEmail || '',
+          timestamp: session.createdAt,
+          status: 'pending' as const,
+          messages: [{
+            id: `msg_${Date.now()}`,
+            text: 'Canlı destek talebi oluşturuldu',
+            sender: 'user' as const,
+            timestamp: session.createdAt,
+          }],
+        };
+        // Store'a ekle
+        const currentRequests = useChatStore.getState().agentRequests;
+        useChatStore.setState({ 
+          agentRequests: [...currentRequests, newRequest],
+        });
+      }
+      
+      // Local store'da kabul et (status: active yap)
+      acceptRequest(session.sessionId);
       
       // Listeden kaldır
       setWaitingChats(prev => prev.filter(c => c.sessionId !== session.sessionId));
+      
+      // Aktif chat'e ekle
+      const activeSession = {
+        id: session.sessionId,
+        userId: session.customerId,
+        userName: session.customerName || 'Misafir',
+        userEmail: session.customerEmail || '',
+        timestamp: session.createdAt,
+        status: 'active' as const,
+        messages: [],
+      };
+      
+      const currentActive = useChatStore.getState().activeSessions;
+      useChatStore.setState({
+        activeSessions: [...currentActive, activeSession],
+      });
       
       toast.success('Müşteri kabul edildi');
       setSelectedSession({ ...session, agentId: user.id, status: 'active' });
