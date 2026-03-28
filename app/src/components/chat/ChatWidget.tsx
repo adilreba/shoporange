@@ -125,6 +125,7 @@ const savePosition = (y: number) => {
 
 export function ChatWidget() {
   const { user, isAuthenticated } = useAuthStore();
+  const { requestAgent: storeRequestAgent } = useChatStore();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -312,11 +313,14 @@ export function ChatWidget() {
     setIsTyping(true);
     
     // Chat store'a agent isteği gönder
-    const { requestAgent: storeRequestAgent } = useChatStore.getState();
+    const userId = isAuthenticated && user ? user.id : `guest_${Date.now()}`;
+    const userName = isAuthenticated && user ? user.name : 'Misafir Kullanıcı';
+    const userEmail = isAuthenticated && user ? user.email : 'misafir@atushome.com';
+    
     storeRequestAgent({
-      userId: isAuthenticated && user ? user.id : `guest_${Date.now()}`,
-      userName: isAuthenticated && user ? user.name : 'Misafir Kullanıcı',
-      userEmail: isAuthenticated && user ? user.email : 'misafir@atushome.com',
+      userId,
+      userName,
+      userEmail,
     });
     
     setTimeout(() => {

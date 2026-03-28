@@ -71,17 +71,21 @@ export default function AgentDashboard() {
 
   // Listen for new agent requests from chat store
   useEffect(() => {
+    console.log('AgentDashboard - agentRequests:', agentRequests);
+    console.log('AgentDashboard - activeSessions:', activeSessions);
+    
     const pendingRequests = agentRequests.filter(req => req.status === 'pending');
+    console.log('AgentDashboard - pendingRequests:', pendingRequests);
     
     // Show toast for new requests
     pendingRequests.forEach(request => {
       if (!notifiedRequests.has(request.id)) {
         toast.info(
           <div className="flex flex-col gap-1">
-            <span className="font-semibold">Yeni Canlı Destek Talebi!</span>
+            <span className="font-semibold">🔔 Yeni Canlı Destek Talebi!</span>
             <span className="text-sm">{request.userName} ({request.userEmail})</span>
           </div>,
-          { duration: 5000 }
+          { duration: 8000 }
         );
         setNotifiedRequests(prev => new Set([...prev, request.id]));
       }
