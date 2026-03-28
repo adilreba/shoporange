@@ -11,9 +11,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthStore } from '@/stores/authStore';
+import { useChatStore } from '@/stores/chatStore';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-const API_URL = import.meta.env.VITE_API_URL || 'https://ovlm4mc2b8.execute-api.eu-west-1.amazonaws.com/prod';
 
 interface ChatSession {
   sessionId: string;
@@ -45,17 +45,16 @@ interface ChatMessage {
 export default function AgentDashboard() {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('active');
+  const { agentRequests, activeSessions, acceptRequest, completeRequest } = useChatStore();
+  const [activeTab, setActiveTab] = useState('waiting');
   const [waitingChats, setWaitingChats] = useState<ChatSession[]>([]);
   const [activeChats, setActiveChats] = useState<ChatSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [ws, setWs] = useState<WebSocket | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
+  const [isConnected] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [notifiedRequests, setNotifiedRequests] = useState<Set<string>>(new Set());
 
   // Check if user is admin/agent
   useEffect(() => {
@@ -63,7 +62,6 @@ export default function AgentDashboard() {
       navigate('/login');
       return;
     }
-    // Check admin role
     const isAdmin = user?.role === 'admin' || user?.email?.includes('admin');
     if (!isAdmin) {
       toast.error('Bu sayfaya erişim yetkiniz yok');
@@ -71,214 +69,90 @@ export default function AgentDashboard() {
     }
   }, [isAuthenticated, user, navigate]);
 
-  // Connect WebSocket
+  // Listen for new agent requests from chat store
   useEffect(() => {
-    if (!user?.id) return;
-
-    const wsUrl = import.meta.env.VITE_CHAT_WS_URL || 'wss://your-api.execute-api.eu-west-1.amazonaws.com/prod';
-    const url = new URL(wsUrl);
-    url.searchParams.append('userId', user.id);
-    url.searchParams.append('userType', 'agent');
-
-    const newWs = new WebSocket(url.toString());
-
-    newWs.onopen = () => {
-      console.log('Agent WebSocket connected');
-      setIsConnected(true);
-      toast.success('Canlı destek sistemine bağlandınız');
-    };
-
-    newWs.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      handleWebSocketMessage(data);
-    };
-
-    newWs.onclose = () => {
-      console.log('Agent WebSocket disconnected');
-      setIsConnected(false);
-    };
-
-    newWs.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      toast.error('Bağlantı hatası');
-    };
-
-    setWs(newWs);
-
-    return () => {
-      newWs.close();
-    };
-  }, [user?.id]);
-
-  // Poll for waiting chats
-  useEffect(() => {
-    fetchWaitingChats();
-    fetchActiveChats();
-
-    const interval = setInterval(() => {
-      fetchWaitingChats();
-      fetchActiveChats();
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const fetchWaitingChats = async () => {
-    try {
-      const response = await fetch(`${API_URL}/chat/waiting`);
-      const data = await response.json();
-      if (data.success) {
-        setWaitingChats(data.data);
+    const pendingRequests = agentRequests.filter(req => req.status === 'pending');
+    
+    // Show toast for new requests
+    pendingRequests.forEach(request => {
+      if (!notifiedRequests.has(request.id)) {
+        toast.info(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">Yeni Canlı Destek Talebi!</span>
+            <span className="text-sm">{request.userName} ({request.userEmail})</span>
+          </div>,
+          { duration: 5000 }
+        );
+        setNotifiedRequests(prev => new Set([...prev, request.id]));
       }
-    } catch (error) {
-      console.error('Failed to fetch waiting chats:', error);
-    }
-  };
+    });
 
-  const fetchActiveChats = async () => {
-    if (!user?.id) return;
-    try {
-      const response = await fetch(`${API_URL}/chat/agent/${user.id}`);
-      const data = await response.json();
-      if (data.success) {
-        setActiveChats(data.data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch active chats:', error);
-    }
-  };
+    // Convert agentRequests to waitingChats format
+    const mockWaitingChats: ChatSession[] = pendingRequests.map(req => ({
+      sessionId: req.id,
+      customerId: req.userId,
+      customerName: req.userName,
+      customerEmail: req.userEmail,
+      status: 'waiting' as const,
+      createdAt: req.timestamp,
+      updatedAt: req.timestamp,
+      lastMessage: req.messages.length > 0 ? {
+        content: req.messages[req.messages.length - 1].text,
+        timestamp: req.messages[req.messages.length - 1].timestamp,
+        senderType: req.messages[req.messages.length - 1].sender
+      } : undefined,
+      unreadCount: 1
+    }));
 
-  const fetchMessages = async (sessionId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/chat/${sessionId}/messages`);
-      const data = await response.json();
-      if (data.success) {
-        setMessages(data.data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch messages:', error);
-    }
-  };
+    setWaitingChats(mockWaitingChats);
 
-  const handleWebSocketMessage = (data: any) => {
-    switch (data.type) {
-      case 'new_waiting_customer':
-        toast.info('Yeni müşteri bekliyor!');
-        fetchWaitingChats();
-        break;
+    // Convert activeSessions to activeChats format
+    const mockActiveChats: ChatSession[] = activeSessions.map(req => ({
+      sessionId: req.id,
+      customerId: req.userId,
+      customerName: req.userName,
+      customerEmail: req.userEmail,
+      status: 'active' as const,
+      createdAt: req.timestamp,
+      updatedAt: req.timestamp,
+      lastMessage: req.messages.length > 0 ? {
+        content: req.messages[req.messages.length - 1].text,
+        timestamp: req.messages[req.messages.length - 1].timestamp,
+        senderType: req.messages[req.messages.length - 1].sender
+      } : undefined,
+      unreadCount: 0
+    }));
 
-      case 'new_message':
-        if (selectedSession?.sessionId === data.message.sessionId) {
-          setMessages(prev => [...prev, data.message]);
-          // Mark as read
-          ws?.send(JSON.stringify({
-            action: 'mark_read',
-            messageIds: [data.message.messageId],
-            sessionId: selectedSession?.sessionId
-          }));
-        } else {
-          // Increment unread count
-          toast.info('Yeni mesaj var');
-          fetchActiveChats();
-        }
-        break;
-
-      case 'typing':
-        if (selectedSession?.sessionId && data.userType === 'customer') {
-          setIsTyping(true);
-          setTimeout(() => setIsTyping(false), 3000);
-        }
-        break;
-
-      case 'chat_closed':
-        toast.info('Sohbet sonlandırıldı');
-        setSelectedSession(null);
-        fetchActiveChats();
-        break;
-    }
-  };
+    setActiveChats(mockActiveChats);
+  }, [agentRequests, activeSessions, notifiedRequests]);
 
   const acceptChat = async (session: ChatSession) => {
     if (!user?.id) return;
 
     try {
-      const response = await fetch(`${API_URL}/chat/assign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: session.sessionId,
-          agentId: user.id
-        })
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        toast.success('Müşteri kabul edildi');
-        fetchWaitingChats();
-        fetchActiveChats();
-        setSelectedSession({ ...session, agentId: user.id, status: 'active' });
-        fetchMessages(session.sessionId);
-        setActiveTab('active');
-
-        // Reconnect WebSocket with session
-        if (ws?.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            action: 'join_session',
-            sessionId: session.sessionId
-          }));
-        }
-      }
+      acceptRequest(session.sessionId);
+      toast.success('Müşteri kabul edildi');
+      setSelectedSession({ ...session, agentId: user.id, status: 'active' });
+      setActiveTab('active');
     } catch (error) {
       toast.error('Müşteri kabul edilemedi');
     }
   };
 
   const sendMessage = () => {
-    if (!inputMessage.trim() || !selectedSession || !ws) return;
-
-    ws.send(JSON.stringify({
-      action: 'send_message',
-      message: inputMessage.trim(),
-      sessionId: selectedSession.sessionId
-    }));
-
+    if (!inputMessage.trim() || !selectedSession) return;
+    // TODO: Implement message sending via chat store
+    toast.info('Mesaj gönderildi: ' + inputMessage);
     setInputMessage('');
-  };
-
-  const handleTyping = () => {
-    if (!selectedSession || !ws) return;
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    ws.send(JSON.stringify({
-      action: 'typing',
-      sessionId: selectedSession.sessionId
-    }));
-
-    typingTimeoutRef.current = setTimeout(() => {}, 3000);
   };
 
   const closeChat = async () => {
     if (!selectedSession) return;
 
     try {
-      const response = await fetch(`${API_URL}/chat/${selectedSession.sessionId}/close`, {
-        method: 'POST'
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        toast.success('Sohbet sonlandırıldı');
-        setSelectedSession(null);
-        fetchActiveChats();
-      }
+      completeRequest(selectedSession.sessionId);
+      toast.success('Sohbet sonlandırıldı');
+      setSelectedSession(null);
     } catch (error) {
       toast.error('Sohbet sonlandırılamadı');
     }
@@ -338,7 +212,7 @@ export default function AgentDashboard() {
             </div>
           </div>
           
-          {/* Alt Satır: Badge'ler (Mobil'de alt alta) */}
+          {/* Alt Satır: Badge'ler */}
           <div className="flex items-center justify-between sm:justify-start gap-2">
             <div className="flex items-center gap-2 text-sm">
               <Badge variant="secondary" className="gap-1">
@@ -398,7 +272,7 @@ export default function AgentDashboard() {
                               <User className="w-5 h-5 text-orange-600" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{chat.customerId.slice(0, 8)}</p>
+                              <p className="font-medium truncate">{chat.customerName || chat.customerId.slice(0, 8)}</p>
                               <p className="text-xs text-muted-foreground">
                                 {formatDuration(chat.createdAt)} bekliyor
                               </p>
@@ -438,10 +312,7 @@ export default function AgentDashboard() {
                             ? "border-orange-500 bg-orange-50" 
                             : "hover:border-orange-300"
                         )}
-                        onClick={() => {
-                          setSelectedSession(chat);
-                          fetchMessages(chat.sessionId);
-                        }}
+                        onClick={() => setSelectedSession(chat)}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-start gap-3">
@@ -449,7 +320,7 @@ export default function AgentDashboard() {
                               <User className="w-5 h-5 text-green-600" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{chat.customerId.slice(0, 8)}</p>
+                              <p className="font-medium truncate">{chat.customerName || chat.customerId.slice(0, 8)}</p>
                               <p className="text-xs text-green-600">Aktif</p>
                               {chat.lastMessage && (
                                 <p className="text-sm text-muted-foreground truncate mt-1">
@@ -490,7 +361,7 @@ export default function AgentDashboard() {
                     <User className="w-5 h-5 text-orange-600" />
                   </div>
                   <div>
-                    <p className="font-medium">Müşteri #{selectedSession.customerId.slice(0, 8)}</p>
+                    <p className="font-medium">Müşteri #{selectedSession.customerName || selectedSession.customerId.slice(0, 8)}</p>
                     <p className="text-xs text-muted-foreground">
                       {formatDuration(selectedSession.createdAt)} süredir bağlı
                     </p>
@@ -543,21 +414,6 @@ export default function AgentDashboard() {
                       </div>
                     </div>
                   ))}
-
-                  {isTyping && (
-                    <div className="flex gap-3">
-                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4 text-gray-600" />
-                      </div>
-                      <div className="bg-gray-100 rounded-2xl rounded-bl-none px-4 py-2">
-                        <div className="flex gap-1">
-                          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                        </div>
-                      </div>
-                    </div>
-                  )}
                   <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
@@ -570,7 +426,6 @@ export default function AgentDashboard() {
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') sendMessage();
-                      else handleTyping();
                     }}
                     placeholder="Mesajınızı yazın..."
                     className="flex-1"

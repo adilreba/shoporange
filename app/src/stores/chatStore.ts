@@ -9,6 +9,17 @@ interface Message {
   isRead?: boolean;
 }
 
+// Agent isteği tipi
+interface AgentRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  timestamp: string;
+  status: 'pending' | 'active' | 'completed';
+  messages: Message[];
+}
+
 interface ChatState {
   messages: Message[];
   isOpen: boolean;
@@ -19,6 +30,9 @@ interface ChatState {
   agentName: string | null;
   queuePosition: number | null;
   waitingForAgent: boolean;
+  // Agent requests for admin panel
+  agentRequests: AgentRequest[];
+  activeSessions: AgentRequest[];
   
   // Actions
   setIsOpen: (isOpen: boolean) => void;
@@ -30,8 +44,12 @@ interface ChatState {
   sendMessage: (text: string) => void;
   sendTyping: () => void;
   closeSession: () => void;
-  requestAgent: () => void;
+  requestAgent: (userInfo?: { userId: string; userName: string; userEmail: string }) => void;
   markAsRead: () => void;
+  // Admin actions
+  getAgentRequests: () => AgentRequest[];
+  acceptRequest: (requestId: string) => void;
+  completeRequest: (requestId: string) => void;
 }
 
 // Mock bot responses
@@ -74,6 +92,8 @@ export const useChatStore = create<ChatState>()(
       agentName: null,
       queuePosition: null,
       waitingForAgent: false,
+      agentRequests: [],
+      activeSessions: [],
 
       setIsOpen: (isOpen) => {
         set({ isOpen });
@@ -171,10 +191,31 @@ export const useChatStore = create<ChatState>()(
         });
       },
 
-      requestAgent: () => {
+      requestAgent: (userInfo) => {
+        const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const userId = userInfo?.userId || `guest_${Date.now()}`;
+        const userName = userInfo?.userName || 'Misafir Kullanıcı';
+        const userEmail = userInfo?.userEmail || 'misafir@atushome.com';
+        
+        const newRequest: AgentRequest = {
+          id: requestId,
+          userId,
+          userName,
+          userEmail,
+          timestamp: new Date().toISOString(),
+          status: 'pending',
+          messages: [{
+            id: `msg_${Date.now()}`,
+            text: 'Canlı destek talebi oluşturuldu',
+            sender: 'user',
+            timestamp: new Date().toISOString(),
+          }],
+        };
+        
         set({ 
           waitingForAgent: true, 
           queuePosition: 1,
+          agentRequests: [...get().agentRequests, newRequest],
         });
         
         // Simülasyon: Temsilci yanıtı
@@ -186,6 +227,30 @@ export const useChatStore = create<ChatState>()(
         }, 1000);
       },
 
+      getAgentRequests: () => {
+        return get().agentRequests;
+      },
+
+      acceptRequest: (requestId: string) => {
+        set((state) => ({
+          agentRequests: state.agentRequests.map(req =>
+            req.id === requestId ? { ...req, status: 'active' as const } : req
+          ),
+          activeSessions: [...get().activeSessions, 
+            get().agentRequests.find(req => req.id === requestId)!
+          ].filter(Boolean),
+        }));
+      },
+
+      completeRequest: (requestId: string) => {
+        set((state) => ({
+          agentRequests: state.agentRequests.map(req =>
+            req.id === requestId ? { ...req, status: 'completed' as const } : req
+          ),
+          activeSessions: state.activeSessions.filter(req => req.id !== requestId),
+        }));
+      },
+
       markAsRead: () => {
         set({ unreadCount: 0 });
       },
@@ -195,6 +260,7 @@ export const useChatStore = create<ChatState>()(
       partialize: (state) => ({ 
         messages: state.messages,
         unreadCount: state.unreadCount,
+        agentRequests: state.agentRequests,
       }),
     }
   )

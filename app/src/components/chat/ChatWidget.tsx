@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/stores/authStore';
+import { useChatStore } from '@/stores/chatStore';
 
 // Mesaj tipi
 interface Message {
@@ -122,6 +124,7 @@ const savePosition = (y: number) => {
 };
 
 export function ChatWidget() {
+  const { user, isAuthenticated } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -308,6 +311,14 @@ export function ChatWidget() {
   const requestAgent = () => {
     setIsTyping(true);
     
+    // Chat store'a agent isteği gönder
+    const { requestAgent: storeRequestAgent } = useChatStore.getState();
+    storeRequestAgent({
+      userId: isAuthenticated && user ? user.id : `guest_${Date.now()}`,
+      userName: isAuthenticated && user ? user.name : 'Misafir Kullanıcı',
+      userEmail: isAuthenticated && user ? user.email : 'misafir@atushome.com',
+    });
+    
     setTimeout(() => {
       const agentMessage: Message = {
         id: `agent-${Date.now()}`,
@@ -319,7 +330,7 @@ export function ChatWidget() {
       setMessages((prev) => [...prev, agentMessage]);
       setIsAgentMode(true);
       setIsTyping(false);
-      toast.success('Canlı destek talebiniz alındı');
+      toast.success('Canlı destek talebiniz alındı. Temsilcimiz en kısa sürede bağlanacak.');
     }, 1000);
   };
 
