@@ -222,7 +222,7 @@ export default function AgentDashboard() {
             </div>
           </div>
           
-          {/* Alt Satır: Badge'ler */}
+          {/* Alt Satır: Badge'ler + Test Butonu */}
           <div className="flex items-center justify-between sm:justify-start gap-2">
             <div className="flex items-center gap-2 text-sm">
               <Badge variant="secondary" className="gap-1">
@@ -234,6 +234,23 @@ export default function AgentDashboard() {
                 {activeChats.length} Aktif
               </Badge>
             </div>
+            {/* Test Talep Oluştur Butonu */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                const { requestAgent } = useChatStore.getState();
+                requestAgent({
+                  userId: `test_${Date.now()}`,
+                  userName: 'Test Müşteri',
+                  userEmail: 'test@musteri.com'
+                });
+                toast.success('Test talebi oluşturuldu!');
+              }}
+              className="ml-auto"
+            >
+              + Test Talebi Oluştur
+            </Button>
           </div>
         </div>
       </header>
