@@ -1,10 +1,16 @@
-const AWS = require('aws-sdk');
-const dynamodb = new AWS.DynamoDB.DocumentClient();
-const apiGatewayManagementApi = new AWS.ApiGatewayManagementApi({
-  endpoint: process.env.WEBSOCKET_API_ID 
-    ? `${process.env.WEBSOCKET_API_ID}.execute-api.${process.env.AWS_REGION}.amazonaws.com/prod`
-    : null
-});
+// AWS SDK v3 - Node.js 18+ compatible
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, GetCommand, DeleteCommand, UpdateCommand, ScanCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { ApiGatewayManagementApiClient, PostToConnectionCommand } = require('@aws-sdk/client-apigatewaymanagementapi');
+
+const dynamodbClient = new DynamoDBClient({});
+const dynamodb = DynamoDBDocumentClient.from(dynamodbClient);
+
+const apiGatewayClient = process.env.WEBSOCKET_API_ID 
+  ? new ApiGatewayManagementApiClient({
+      endpoint: `https://${process.env.WEBSOCKET_API_ID}.execute-api.${process.env.AWS_REGION}.amazonaws.com/prod`
+    })
+  : null;
 
 const CONNECTIONS_TABLE = process.env.CONNECTIONS_TABLE;
 const MESSAGES_TABLE = process.env.MESSAGES_TABLE;
@@ -12,20 +18,20 @@ const SESSIONS_TABLE = process.env.SESSIONS_TABLE;
 
 // Helper: Send message to WebSocket connection
 async function sendToConnection(connectionId, data) {
-  if (!apiGatewayManagementApi) return;
+  if (!apiGatewayClient) return;
   
   try {
-    await apiGatewayManagementApi.postToConnection({
+    await apiGatewayClient.send(new PostToConnectionCommand({
       ConnectionId: connectionId,
-      Data: JSON.stringify(data)
-    }).promise();
+      Data: Buffer.from(JSON.stringify(data))
+    }));
   } catch (error) {
-    if (error.statusCode === 410) {
+    if (error.statusCode === 410 || error.name === 'GoneException') {
       // Connection is stale, delete it
-      await dynamodb.delete({
+      await dynamodb.send(new DeleteCommand({
         TableName: CONNECTIONS_TABLE,
         Key: { connectionId }
-      }).promise();
+      }));
     }
     console.error('Error sending message:', error);
   }
@@ -41,8 +47,7 @@ exports.connect = async (event) => {
   console.log('Connect:', { connectionId, userId, userType });
   
   try {
-    // Store connection
-    await dynamodb.put({
+    await dynamodb.send(new PutCommand({
       TableName: CONNECTIONS_TABLE,
       Item: {
         connectionId,
@@ -51,7 +56,7 @@ exports.connect = async (event) => {
         connectedAt: new Date().toISOString(),
         sessionId: null
       }
-    }).promise();
+    }));
     
     return { statusCode: 200, body: 'Connected' };
   } catch (error) {
@@ -67,15 +72,13 @@ exports.disconnect = async (event) => {
   console.log('Disconnect:', connectionId);
   
   try {
-    // Get connection info
-    const { Item: connection } = await dynamodb.get({
+    const { Item: connection } = await dynamodb.send(new GetCommand({
       TableName: CONNECTIONS_TABLE,
       Key: { connectionId }
-    }).promise();
+    }));
     
     if (connection?.sessionId) {
-      // Update session status
-      await dynamodb.update({
+      await dynamodb.send(new UpdateCommand({
         TableName: SESSIONS_TABLE,
         Key: { sessionId: connection.sessionId },
         UpdateExpression: 'SET #status = :status, disconnectedAt = :disconnectedAt',
@@ -84,14 +87,13 @@ exports.disconnect = async (event) => {
           ':status': 'disconnected',
           ':disconnectedAt': new Date().toISOString()
         }
-      }).promise();
+      }));
     }
     
-    // Remove connection
-    await dynamodb.delete({
+    await dynamodb.send(new DeleteCommand({
       TableName: CONNECTIONS_TABLE,
       Key: { connectionId }
-    }).promise();
+    }));
     
     return { statusCode: 200, body: 'Disconnected' };
   } catch (error) {
@@ -115,19 +117,17 @@ exports.sendMessage = async (event) => {
   console.log('SendMessage:', { connectionId, sessionId, message });
   
   try {
-    // Get sender connection info
-    const { Item: senderConnection } = await dynamodb.get({
+    const { Item: senderConnection } = await dynamodb.send(new GetCommand({
       TableName: CONNECTIONS_TABLE,
       Key: { connectionId }
-    }).promise();
+    }));
     
     if (!senderConnection) {
       return { statusCode: 400, body: 'Connection not found' };
     }
     
-    // Store message
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    await dynamodb.put({
+    await dynamodb.send(new PutCommand({
       TableName: MESSAGES_TABLE,
       Item: {
         sessionId,
@@ -138,18 +138,14 @@ exports.sendMessage = async (event) => {
         timestamp: new Date().toISOString(),
         isRead: false
       }
-    }).promise();
+    }));
     
-    // Find all connections in this session
-    const { Items: sessionConnections } = await dynamodb.scan({
+    const { Items: sessionConnections } = await dynamodb.send(new ScanCommand({
       TableName: CONNECTIONS_TABLE,
       FilterExpression: 'sessionId = :sessionId',
-      ExpressionAttributeValues: {
-        ':sessionId': sessionId
-      }
-    }).promise();
+      ExpressionAttributeValues: { ':sessionId': sessionId }
+    }));
     
-    // Broadcast message to all session participants
     const messageData = {
       type: 'new_message',
       message: {
@@ -185,8 +181,7 @@ exports.requestAgent = async (event) => {
   try {
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    // Create new session
-    await dynamodb.put({
+    await dynamodb.send(new PutCommand({
       TableName: SESSIONS_TABLE,
       Item: {
         sessionId,
@@ -198,16 +193,13 @@ exports.requestAgent = async (event) => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
-    }).promise();
+    }));
     
-    // Notify all agents (scan for agent connections)
-    const { Items: agentConnections } = await dynamodb.scan({
+    const { Items: agentConnections } = await dynamodb.send(new ScanCommand({
       TableName: CONNECTIONS_TABLE,
       FilterExpression: 'userType = :userType',
-      ExpressionAttributeValues: {
-        ':userType': 'agent'
-      }
-    }).promise();
+      ExpressionAttributeValues: { ':userType': 'agent' }
+    }));
     
     const notification = {
       type: 'new_waiting_customer',
@@ -230,7 +222,9 @@ exports.requestAgent = async (event) => {
       statusCode: 200,
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true
+        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+        'Access-Control-Allow-Methods': 'OPTIONS,POST',
+        'Access-Control-Allow-Credentials': 'true'
       },
       body: JSON.stringify({
         success: true,
@@ -243,7 +237,8 @@ exports.requestAgent = async (event) => {
     return {
       statusCode: 500,
       headers: {
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type'
       },
       body: JSON.stringify({
         success: false,
@@ -256,25 +251,25 @@ exports.requestAgent = async (event) => {
 // Get waiting sessions (for REST API)
 exports.getWaitingSessions = async (event) => {
   try {
-    const { Items: sessions } = await dynamodb.query({
+    const { Items: sessions } = await dynamodb.send(new QueryCommand({
       TableName: SESSIONS_TABLE,
       IndexName: 'StatusIndex',
       KeyConditionExpression: '#status = :status',
       ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: {
-        ':status': 'waiting'
-      }
-    }).promise();
+      ExpressionAttributeValues: { ':status': 'waiting' }
+    }));
     
     return {
       statusCode: 200,
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true
+        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+        'Access-Control-Allow-Methods': 'OPTIONS,GET',
+        'Access-Control-Allow-Credentials': 'true'
       },
       body: JSON.stringify({
         success: true,
-        data: sessions
+        data: sessions || []
       })
     };
   } catch (error) {
@@ -282,7 +277,8 @@ exports.getWaitingSessions = async (event) => {
     return {
       statusCode: 500,
       headers: {
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type'
       },
       body: JSON.stringify({
         success: false,
@@ -298,7 +294,7 @@ exports.assignAgent = async (event) => {
   const { sessionId, agentId } = body;
   
   try {
-    await dynamodb.update({
+    await dynamodb.send(new UpdateCommand({
       TableName: SESSIONS_TABLE,
       Key: { sessionId },
       UpdateExpression: 'SET agentId = :agentId, #status = :status, updatedAt = :updatedAt',
@@ -308,13 +304,15 @@ exports.assignAgent = async (event) => {
         ':status': 'active',
         ':updatedAt': new Date().toISOString()
       }
-    }).promise();
+    }));
     
     return {
       statusCode: 200,
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true
+        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+        'Access-Control-Allow-Methods': 'OPTIONS,POST',
+        'Access-Control-Allow-Credentials': 'true'
       },
       body: JSON.stringify({
         success: true,
@@ -326,7 +324,8 @@ exports.assignAgent = async (event) => {
     return {
       statusCode: 500,
       headers: {
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type'
       },
       body: JSON.stringify({
         success: false,
