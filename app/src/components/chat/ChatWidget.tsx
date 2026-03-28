@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
+import { chatApi } from '@/services/api';
 
 // Mesaj tipi
 interface Message {
@@ -317,10 +318,21 @@ export function ChatWidget() {
     const userName = isAuthenticated && user ? user.name : 'Misafir Kullanıcı';
     const userEmail = isAuthenticated && user ? user.email : 'misafir@atushome.com';
     
+    // Local store'a kaydet
     storeRequestAgent({
       userId,
       userName,
       userEmail,
+    });
+    
+    // AWS API'ye de gönder (gerçek bildirim için)
+    chatApi.requestAgent({
+      userId,
+      userName,
+      userEmail,
+    }).catch(error => {
+      console.log('AWS API error (mock mode da olabilir):', error);
+      // Hata olsa bile local store'da çalışmaya devam et
     });
     
     setTimeout(() => {

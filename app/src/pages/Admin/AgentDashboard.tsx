@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
+import { chatApi } from '@/services/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -93,7 +94,59 @@ export default function AgentDashboard() {
     return () => unsubscribe();
   }, []);
 
-  // Update waiting and active chats when store changes
+  // AWS API'den bekleyen talepleri çek
+  const fetchWaitingFromAWS = async () => {
+    try {
+      const response = await chatApi.getWaitingSessions();
+      if (response.success && response.data) {
+        // AWS'den gelen verileri ChatSession formatına çevir
+        const awsWaitingChats: ChatSession[] = response.data.map((session: any) => ({
+          sessionId: session.sessionId,
+          customerId: session.customerId,
+          customerName: session.customerName,
+          customerEmail: session.customerEmail,
+          status: 'waiting',
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+          lastMessage: session.lastMessage,
+          unreadCount: 1
+        }));
+        
+        // Local state ile birleştir
+        setWaitingChats(prev => {
+          const existingIds = new Set(prev.map(c => c.sessionId));
+          const newChats = awsWaitingChats.filter((c: ChatSession) => !existingIds.has(c.sessionId));
+          
+          // Yeni talepler için bildirim göster
+          newChats.forEach((chat: ChatSession) => {
+            if (!notifiedRequestsRef.current.has(chat.sessionId)) {
+              toast.info(
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold">🔔 Yeni Canlı Destek Talebi!</span>
+                  <span className="text-sm">{chat.customerName} ({chat.customerEmail})</span>
+                </div>,
+                { duration: 8000 }
+              );
+              notifiedRequestsRef.current.add(chat.sessionId);
+            }
+          });
+          
+          return [...prev, ...newChats];
+        });
+      }
+    } catch (error) {
+      console.log('AWS fetch error:', error);
+    }
+  };
+
+  // Düzenli olarak AWS'den veri çek
+  useEffect(() => {
+    fetchWaitingFromAWS();
+    const interval = setInterval(fetchWaitingFromAWS, 3000); // Her 3 saniyede bir
+    return () => clearInterval(interval);
+  }, []);
+
+  // Update waiting and active chats when store changes (local mock data)
   useEffect(() => {
     const pendingRequests = agentRequests.filter(req => req.status === 'pending');
     
@@ -114,7 +167,26 @@ export default function AgentDashboard() {
       unreadCount: 1
     }));
 
-    setWaitingChats(mockWaitingChats);
+    // Local verileri de ekle (AWS'den gelenlerle birleştir)
+    setWaitingChats(prev => {
+      const existingIds = new Set(prev.map(c => c.sessionId));
+      const newLocalChats = mockWaitingChats.filter(c => !existingIds.has(c.sessionId));
+      
+      newLocalChats.forEach(chat => {
+        if (!notifiedRequestsRef.current.has(chat.sessionId)) {
+          toast.info(
+            <div className="flex flex-col gap-1">
+              <span className="font-semibold">🔔 Yeni Canlı Destek Talebi!</span>
+              <span className="text-sm">{chat.customerName} ({chat.customerEmail})</span>
+            </div>,
+            { duration: 8000 }
+          );
+          notifiedRequestsRef.current.add(chat.sessionId);
+        }
+      });
+      
+      return [...prev, ...newLocalChats];
+    });
 
     // Convert activeSessions to activeChats format
     const mockActiveChats: ChatSession[] = activeSessions.map(req => ({
@@ -140,11 +212,20 @@ export default function AgentDashboard() {
     if (!user?.id) return;
 
     try {
+      // Local store'da kabul et
       acceptRequest(session.sessionId);
+      
+      // AWS'de de kabul et
+      await chatApi.assignAgent(session.sessionId, user.id);
+      
+      // Listeden kaldır
+      setWaitingChats(prev => prev.filter(c => c.sessionId !== session.sessionId));
+      
       toast.success('Müşteri kabul edildi');
       setSelectedSession({ ...session, agentId: user.id, status: 'active' });
       setActiveTab('active');
     } catch (error) {
+      console.error('Accept chat error:', error);
       toast.error('Müşteri kabul edilemedi');
     }
   };
