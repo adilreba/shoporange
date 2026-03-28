@@ -1,0 +1,1561 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AtusHome E-Commerce Backend - Complete Serverless Infrastructure
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs18.x
+    MemorySize: 512
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref ProductsTable
+        ORDERS_TABLE: !Ref OrdersTable
+        USERS_TABLE: !Ref UsersTable
+        REVIEWS_TABLE: !Ref ReviewsTable
+        CATEGORIES_TABLE: !Ref CategoriesTable
+        JWT_SECRET: !Ref JwtSecret
+
+Resources:
+  # ============================================
+  # SECRETS MANAGER - JWT SECRET
+  # ============================================
+  
+  JwtSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub 'atushome/jwt-secret-${AWS::StackName}'
+      Description: JWT Secret for token generation
+      GenerateSecretString:
+        SecretStringTemplate: '{"jwtSecret":""}'
+        GenerateStringKey: jwtSecret
+        PasswordLength: 64
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - Key: Project
+          Value: AtusHome
+
+  # ============================================
+  # WAF (Web Application Firewall) - ENTERPRISE SECURITY
+  # ============================================
+  
+  WAFWebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub 'atushome-waf-${AWS::StackName}'
+      Description: Enterprise WAF for API protection - SQL Injection, XSS, DDoS
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: atushome-waf-metric
+      Rules:
+        # 1. AWS Managed Rules - Common Rule Set (SQL Injection, XSS, etc.)
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 1
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+              RuleActionOverrides:
+                - ActionToUse:
+                    Block: {}
+                  Name: SizeRestrictions_BODY
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesCommonRuleSetMetric
+
+        # 2. AWS Managed Rules - SQL Injection
+        - Name: AWSManagedRulesSQLiRuleSet
+          Priority: 2
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesSQLiRuleSet
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesSQLiRuleSetMetric
+
+        # 3. AWS Managed Rules - Known Bad Inputs
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 3
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesKnownBadInputsRuleSetMetric
+
+        # 4. AWS Managed Rules - Bot Control (Block bad bots)
+        - Name: AWSManagedRulesBotControlRuleSet
+          Priority: 4
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesBotControlRuleSet
+              ManagedRuleGroupConfigs:
+                - AWSManagedRulesBotControlRuleSet:
+                    InspectionLevel: TARGETED
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesBotControlRuleSetMetric
+
+        # 5. Rate Limiting - Aggressive DDoS Protection
+        - Name: RateLimitRule
+          Priority: 5
+          Statement:
+            RateBasedStatement:
+              Limit: 100
+              AggregateKeyType: IP
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: RateLimitMetric
+
+        # 6. Geo-blocking - Block high-risk countries
+        - Name: GeoBlockingRule
+          Priority: 6
+          Statement:
+            GeoMatchStatement:
+              CountryCodes:
+                - KP  # North Korea
+                - IR  # Iran
+                - SY  # Syria
+                - CU  # Cuba
+                - RU  # Russia (optional - remove if you have Russian customers)
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: GeoBlockingMetric
+
+        # 7. Custom XSS Protection
+        - Name: XSSProtectionRule
+          Priority: 7
+          Statement:
+            OrStatement:
+              Statements:
+                - XssMatchStatement:
+                    FieldToMatch:
+                      Body: {}
+                    TextTransformations:
+                      - Priority: 0
+                        Type: URL_DECODE
+                      - Priority: 1
+                        Type: HTML_ENTITY_DECODE
+                - XssMatchStatement:
+                    FieldToMatch:
+                      QueryString: {}
+                    TextTransformations:
+                      - Priority: 0
+                        Type: URL_DECODE
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: XSSProtectionMetric
+
+  # WAF WebACL Association with API Gateway
+  WAFWebACLAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    DependsOn: ApiGatewayprodStage
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/${ApiGateway}/stages/prod'
+      WebACLArn: !GetAtt WAFWebACL.Arn
+
+  # ============================================
+  # DYNAMODB TABLES
+  # ============================================
+  
+  ProductsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Products
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: CategoryIndex
+          KeySchema:
+            - AttributeName: category
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Project
+          Value: AtusHome
+        - Key: Environment
+          Value: Production
+
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Orders
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: AtusHome
+        - Key: Environment
+          Value: Production
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EmailIndex
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: AtusHome
+        - Key: Environment
+          Value: Production
+
+  ReviewsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Reviews
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: productId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ProductIndex
+          KeySchema:
+            - AttributeName: productId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: UserIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: AtusHome
+        - Key: Environment
+          Value: Production
+
+  CategoriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Categories
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: slug
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: SlugIndex
+          KeySchema:
+            - AttributeName: slug
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: AtusHome
+        - Key: Environment
+          Value: Production
+
+  # ============================================
+  # API GATEWAY
+  # ============================================
+  
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+        MaxAge: "'600'"
+      MethodSettings:
+        - ResourcePath: /*
+          HttpMethod: '*'
+          MetricsEnabled: true
+
+  # ============================================
+  # LAMBDA FUNCTIONS - PRODUCTS
+  # ============================================
+  
+  GetProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: products.getProducts
+      Description: Get all products with optional filtering
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        GetProducts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /products
+            Method: GET
+
+  GetProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: products.getProduct
+      Description: Get a single product by ID
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        GetProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /products/{id}
+            Method: GET
+
+  CreateProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: products.createProduct
+      Description: Create a new product (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        CreateProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /products
+            Method: POST
+
+  UpdateProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: products.updateProduct
+      Description: Update an existing product (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        UpdateProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /products/{id}
+            Method: PUT
+
+  DeleteProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: products.deleteProduct
+      Description: Delete a product (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        DeleteProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /products/{id}
+            Method: DELETE
+
+  # ============================================
+  # LAMBDA FUNCTIONS - ORDERS
+  # ============================================
+  
+  CreateOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: orders.createOrder
+      Description: Create a new order
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        CreateOrder:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /orders
+            Method: POST
+
+  GetOrdersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: orders.getOrders
+      Description: Get all orders or filter by user
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        GetOrders:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /orders
+            Method: GET
+
+  GetOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: orders.getOrder
+      Description: Get a single order by ID
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        GetOrder:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /orders/{id}
+            Method: GET
+
+  UpdateOrderStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: orders.updateOrderStatus
+      Description: Update order status (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        UpdateOrderStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /orders/{id}/status
+            Method: PUT
+
+  # ============================================
+  # LAMBDA FUNCTIONS - USERS
+  # ============================================
+  
+  GetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: users.getUser
+      Description: Get user by ID
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GetUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /users/{id}
+            Method: GET
+
+  GetUserByEmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: users.getUserByEmail
+      Description: Get user by email
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GetUserByEmail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /users/email/{email}
+            Method: GET
+
+  CreateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: users.createUser
+      Description: Create a new user
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        CreateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /users
+            Method: POST
+
+  UpdateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: users.updateUser
+      Description: Update user profile
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        UpdateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /users/{id}
+            Method: PUT
+
+  GetUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: users.getUsers
+      Description: Get all users (Admin only)
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GetUsers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /users
+            Method: GET
+
+  # ============================================
+  # LAMBDA FUNCTIONS - AUTH
+  # ============================================
+  
+  LoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.login
+      Description: User login with email/password
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        Login:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/login
+            Method: POST
+
+  RegisterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.register
+      Description: User registration
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        Register:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/register
+            Method: POST
+
+  GoogleLoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.googleLogin
+      Description: Google OAuth login
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        GoogleLogin:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/google
+            Method: POST
+
+  FacebookLoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.facebookLogin
+      Description: Facebook OAuth login
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        FacebookLogin:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/facebook
+            Method: POST
+
+  VerifyTokenFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.verifyToken
+      Description: Verify JWT token
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        VerifyToken:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/verify
+            Method: POST
+
+  ForgotPasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.forgotPassword
+      Description: Request password reset
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "*"
+      Events:
+        ForgotPassword:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/forgot-password
+            Method: POST
+
+  ResetPasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: auth.resetPassword
+      Description: Reset password with token
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        ResetPassword:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /auth/reset-password
+            Method: POST
+
+  # ============================================
+  # LAMBDA FUNCTIONS - REVIEWS
+  # ============================================
+  
+  GetReviewsByProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: reviews.getReviewsByProduct
+      Description: Get reviews for a product
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ReviewsTable
+      Events:
+        GetReviewsByProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /reviews
+            Method: GET
+
+  GetReviewsByUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: reviews.getReviewsByUser
+      Description: Get reviews by a user
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ReviewsTable
+      Events:
+        GetReviewsByUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /reviews/user
+            Method: GET
+
+  CreateReviewFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: reviews.createReview
+      Description: Create a new review
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ReviewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        CreateReview:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /reviews
+            Method: POST
+
+  MarkReviewHelpfulFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: reviews.markHelpful
+      Description: Mark a review as helpful
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ReviewsTable
+      Events:
+        MarkReviewHelpful:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /reviews/{id}/helpful
+            Method: POST
+
+  DeleteReviewFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: reviews.deleteReview
+      Description: Delete a review
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ReviewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        DeleteReview:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /reviews/{id}
+            Method: DELETE
+
+  # ============================================
+  # LAMBDA FUNCTIONS - CATEGORIES
+  # ============================================
+  
+  GetCategoriesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: categories.getCategories
+      Description: Get all categories
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        GetCategories:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /categories
+            Method: GET
+
+  GetCategoryBySlugFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: categories.getCategoryBySlug
+      Description: Get category by slug
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        GetCategoryBySlug:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /categories/by-slug/{slug}
+            Method: GET
+
+  CreateCategoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: categories.createCategory
+      Description: Create a new category (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        CreateCategory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /categories
+            Method: POST
+
+  UpdateCategoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: categories.updateCategory
+      Description: Update a category (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        UpdateCategory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /categories/{id}
+            Method: PUT
+
+  DeleteCategoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: categories.deleteCategory
+      Description: Delete a category (Admin only)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        DeleteCategory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /categories/{id}
+            Method: DELETE
+
+  # ============================================
+  # S3 BUCKET - PRODUCT IMAGES (SECURE)
+  # ============================================
+  
+  ProductImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'atushome-images-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+            AllowedOrigins:
+              - "*"
+            MaxAge: 3600
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionToIA
+            Status: Enabled
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 90
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Project
+          Value: AtusHome
+
+  # ============================================
+  # LAMBDA FUNCTIONS - SEED DATA
+  # ============================================
+  
+  SeedDataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: seed.seedData
+      Description: Seed initial data into DynamoDB tables
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Timeout: 300
+
+  # ============================================
+  # CLOUDFRONT CDN - DDoS PROTECTION & SSL
+  # ============================================
+  
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: AtusHome API CDN with Security
+        PriceClass: PriceClass_100  # North America and Europe
+        HttpVersion: http2and3
+        DefaultRootObject: index.html
+        
+        # Origin for API Gateway
+        Origins:
+          - Id: APIOrigin
+            DomainName: !Sub '${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com'
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+            OriginCustomHeaders:
+              - HeaderName: X-Origin-Verify
+                HeaderValue: atushome-secure-origin
+          
+          # Origin for S3 Static Assets
+          - Id: S3Origin
+            DomainName: !GetAtt ProductImagesBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOAI}'
+        
+        # Default Cache Behavior for API
+        DefaultCacheBehavior:
+          TargetOriginId: APIOrigin
+          ViewerProtocolPolicy: https-only
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            - PUT
+            - POST
+            - PATCH
+            - DELETE
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: true
+            Headers:
+              - Authorization
+              - Content-Type
+              - X-Api-Key
+            Cookies:
+              Forward: all
+          MinTTL: 0
+          DefaultTTL: 0
+          MaxTTL: 0
+          Compress: true
+        
+        # Cache Behavior for Static Assets (S3)
+        CacheBehaviors:
+          - PathPattern: /images/*
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: https-only
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachedMethods:
+              - GET
+              - HEAD
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+            MinTTL: 86400
+            DefaultTTL: 604800
+            MaxTTL: 31536000
+            Compress: true
+        
+        # SSL/TLS Configuration (AWS managed certificate)
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+        
+        # Security Headers
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 403
+            ResponsePagePath: /error.html
+            ErrorCachingMinTTL: 300
+          - ErrorCode: 404
+            ResponseCode: 404
+            ResponsePagePath: /error.html
+            ErrorCachingMinTTL: 300
+        
+        # Restrictions
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: none
+        
+        # Logging disabled - requires S3 ACL enabled bucket
+
+  # CloudFront Origin Access Identity for S3
+  CloudFrontOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: OAI for AtusHome S3 Bucket
+
+  # ============================================
+  # CLOUDWATCH LOGS
+  # ============================================
+  
+  # API Gateway Access Logs
+  ApiGatewayAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${ApiGateway}-access-logs'
+      RetentionInDays: 30
+
+  # WAF Logs
+  WAFLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/waf/atushome-waf-${AWS::StackName}-logs'
+      RetentionInDays: 30
+
+  # CloudWatch Alarms for Security
+  HighRequestRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: AtusHome-HighRequestRate
+      AlarmDescription: Alert when request rate exceeds normal threshold
+      MetricName: Count
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Ref ApiGateway
+
+  # ============================================
+  # S3 BUCKET POLICY - RESTRICTIVE
+  # ============================================
+  
+  ProductImagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ProductImagesBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Allow CloudFront access only
+          - Sid: CloudFrontAccess
+            Effect: Allow
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+            Resource: !Sub '${ProductImagesBucket.Arn}/*'
+          
+          # Deny HTTP access (HTTPS only)
+          - Sid: DenyHTTP
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt ProductImagesBucket.Arn
+              - !Sub '${ProductImagesBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': false
+          
+          # Deny unencrypted uploads
+          - Sid: DenyUnencryptedUploads
+            Effect: Deny
+            Principal: '*'
+            Action: s3:PutObject
+            Resource: !Sub '${ProductImagesBucket.Arn}/*'
+            Condition:
+              StringNotEquals:
+                's3:x-amz-server-side-encryption': AES256
+
+# ============================================
+# OUTPUTS
+# ============================================
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL (Direct Access)
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+  
+  CloudFrontUrl:
+    Description: CloudFront CDN URL (Use this for production - Secured with WAF)
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFrontUrl'
+  
+  WAFWebACLArn:
+    Description: WAF WebACL ARN
+    Value: !GetAtt WAFWebACL.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-WAFWebACLArn'
+  
+  ProductImagesBucket:
+    Description: S3 Bucket for product images
+    Value: !Ref ProductImagesBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-ProductImagesBucket'
+  
+  ProductsTable:
+    Description: Products DynamoDB Table ARN
+    Value: !GetAtt ProductsTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ProductsTable'
+  
+  OrdersTable:
+    Description: Orders DynamoDB Table ARN
+    Value: !GetAtt OrdersTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-OrdersTable'
+  
+  UsersTable:
+    Description: Users DynamoDB Table ARN
+    Value: !GetAtt UsersTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-UsersTable'
+  
+  ReviewsTable:
+    Description: Reviews DynamoDB Table ARN
+    Value: !GetAtt ReviewsTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ReviewsTable'
+  
+  CategoriesTable:
+    Description: Categories DynamoDB Table ARN
+    Value: !GetAtt CategoriesTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-CategoriesTable'
+  
+  SecuritySummary:
+    Description: Security Features Enabled
+    Value: 'WAF(SQL Injection, XSS, Bad Bots, Rate Limiting, Geo-blocking) + CloudFront(DDoS, SSL) + S3 Encryption + HTTPS Only'
+# ============================================
+# CHAT & WEBSOCKET INFRASTRUCTURE
+# ============================================
+
+  # ============================================
+  # DYNAMODB TABLES - CHAT
+  # ============================================
+  
+  ChatMessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-ChatMessages'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: messageId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+        - AttributeName: messageId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: TimestampIndex
+          KeySchema:
+            - AttributeName: sessionId
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Project
+          Value: AtusHome
+
+  ChatConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-ChatConnections'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: AtusHome
+
+  ChatSessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-ChatSessions'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: AtusHome
+
+  # ============================================
+  # WEBSOCKET API GATEWAY
+  # ============================================
+  
+  ChatWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${AWS::StackName}-ChatWebSocket'
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  # WebSocket Routes
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: "$connect"
+      AuthorizationType: NONE
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref ConnectIntegration
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: "$disconnect"
+      AuthorizationType: NONE
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref DisconnectIntegration
+
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: "$default"
+      AuthorizationType: NONE
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref DefaultIntegration
+
+  SendMessageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: "sendMessage"
+      AuthorizationType: NONE
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref SendMessageIntegration
+
+  # WebSocket Integrations
+  ConnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations
+        - FunctionArn: !GetAtt ChatConnectFunction.Arn
+      IntegrationMethod: POST
+
+  DisconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations
+        - FunctionArn: !GetAtt ChatDisconnectFunction.Arn
+      IntegrationMethod: POST
+
+  DefaultIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations
+        - FunctionArn: !GetAtt ChatDefaultFunction.Arn
+      IntegrationMethod: POST
+
+  SendMessageIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations
+        - FunctionArn: !GetAtt ChatSendMessageFunction.Arn
+      IntegrationMethod: POST
+
+  # WebSocket Deployment
+  ChatWebSocketDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - ConnectRoute
+      - DisconnectRoute
+      - DefaultRoute
+      - SendMessageRoute
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+
+  ChatWebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: prod
+      ApiId: !Ref ChatWebSocketApi
+      DeploymentId: !Ref ChatWebSocketDeployment
+
+  # ============================================
+  # LAMBDA FUNCTIONS - CHAT
+  # ============================================
+  
+  ChatConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: chat.connect
+      Description: Handle WebSocket $connect
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          SESSIONS_TABLE: !Ref ChatSessionsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatSessionsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+  ChatDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: chat.disconnect
+      Description: Handle WebSocket $disconnect
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          SESSIONS_TABLE: !Ref ChatSessionsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatSessionsTable
+
+  ChatDefaultFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: chat.default
+      Description: Handle WebSocket $default route
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          MESSAGES_TABLE: !Ref ChatMessagesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatMessagesTable
+
+  ChatSendMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: chat.sendMessage
+      Description: Handle sendMessage action
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          MESSAGES_TABLE: !Ref ChatMessagesTable
+          SESSIONS_TABLE: !Ref ChatSessionsTable
+          WEBSOCKET_API_ID: !Ref ChatWebSocketApi
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatMessagesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatSessionsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+  # Lambda Permissions for WebSocket
+  ChatConnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ChatConnectFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+  ChatDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ChatDisconnectFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+  ChatDefaultPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ChatDefaultFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+  ChatSendMessagePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ChatSendMessageFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+  # ============================================
+  # CHAT OUTPUTS
+  # ============================================
+  
+  ChatWebSocketUrl:
+    Description: WebSocket endpoint URL for chat
+    Value: !Sub 'wss://${ChatWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    Export:
+      Name: !Sub '${AWS::StackName}-ChatWebSocketUrl'
+  
+  ChatMessagesTable:
+    Description: Chat Messages DynamoDB Table ARN
+    Value: !GetAtt ChatMessagesTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ChatMessagesTable'
+  
+  ChatConnectionsTable:
+    Description: Chat Connections DynamoDB Table ARN
+    Value: !GetAtt ChatConnectionsTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ChatConnectionsTable'
+  
+  ChatSessionsTable:
+    Description: Chat Sessions DynamoDB Table ARN
+    Value: !GetAtt ChatSessionsTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ChatSessionsTable'

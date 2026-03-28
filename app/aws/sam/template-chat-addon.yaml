@@ -1,0 +1,433 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AtusHome Chat & WebSocket Infrastructure
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs18.x
+    MemorySize: 512
+
+Resources:
+  # ============================================
+  # DYNAMODB TABLES - CHAT
+  # ============================================
+  
+  ChatMessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-ChatMessages'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: messageId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+        - AttributeName: messageId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: TimestampIndex
+          KeySchema:
+            - AttributeName: sessionId
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Project
+          Value: AtusHome
+
+  ChatConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-ChatConnections'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: AtusHome
+
+  ChatSessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-ChatSessions'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: AtusHome
+
+  # ============================================
+  # WEBSOCKET API GATEWAY
+  # ============================================
+  
+  ChatWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${AWS::StackName}-ChatWebSocket'
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  # WebSocket Routes
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: "$connect"
+      AuthorizationType: NONE
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref ConnectIntegration
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: "$disconnect"
+      AuthorizationType: NONE
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref DisconnectIntegration
+
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: "$default"
+      AuthorizationType: NONE
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref DefaultIntegration
+
+  SendMessageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: "sendMessage"
+      AuthorizationType: NONE
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref SendMessageIntegration
+
+  # WebSocket Integrations
+  ConnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations
+        - FunctionArn: !GetAtt ChatConnectFunction.Arn
+      IntegrationMethod: POST
+
+  DisconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations
+        - FunctionArn: !GetAtt ChatDisconnectFunction.Arn
+      IntegrationMethod: POST
+
+  DefaultIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations
+        - FunctionArn: !GetAtt ChatDefaultFunction.Arn
+      IntegrationMethod: POST
+
+  SendMessageIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations
+        - FunctionArn: !GetAtt ChatSendMessageFunction.Arn
+      IntegrationMethod: POST
+
+  # WebSocket Deployment
+  ChatWebSocketDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - ConnectRoute
+      - DisconnectRoute
+      - DefaultRoute
+      - SendMessageRoute
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+
+  ChatWebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: prod
+      ApiId: !Ref ChatWebSocketApi
+      DeploymentId: !Ref ChatWebSocketDeployment
+
+  # ============================================
+  # LAMBDA FUNCTIONS - CHAT
+  # ============================================
+  
+  ChatConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: chat.connect
+      Description: Handle WebSocket $connect
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          SESSIONS_TABLE: !Ref ChatSessionsTable
+          WEBSOCKET_API_ID: !Ref ChatWebSocketApi
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatSessionsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+  ChatDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: chat.disconnect
+      Description: Handle WebSocket $disconnect
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          SESSIONS_TABLE: !Ref ChatSessionsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatSessionsTable
+
+  ChatDefaultFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: chat.default
+      Description: Handle WebSocket $default route
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          MESSAGES_TABLE: !Ref ChatMessagesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatMessagesTable
+
+  ChatSendMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: chat.sendMessage
+      Description: Handle sendMessage action
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          MESSAGES_TABLE: !Ref ChatMessagesTable
+          SESSIONS_TABLE: !Ref ChatSessionsTable
+          WEBSOCKET_API_ID: !Ref ChatWebSocketApi
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatMessagesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatSessionsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+  ChatRequestAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: chat.requestAgent
+      Description: Create agent request via REST API
+      Environment:
+        Variables:
+          SESSIONS_TABLE: !Ref ChatSessionsTable
+          CONNECTIONS_TABLE: !Ref ChatConnectionsTable
+          WEBSOCKET_API_ID: !Ref ChatWebSocketApi
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatSessionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatConnectionsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+      Events:
+        RequestAgentApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatRestApi
+            Path: /chat/request-agent
+            Method: POST
+
+  ChatGetWaitingSessionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: chat.getWaitingSessions
+      Description: Get waiting chat sessions
+      Environment:
+        Variables:
+          SESSIONS_TABLE: !Ref ChatSessionsTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ChatSessionsTable
+      Events:
+        GetWaitingApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatRestApi
+            Path: /chat/waiting
+            Method: GET
+
+  ChatAssignAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: chat.assignAgent
+      Description: Assign agent to session
+      Environment:
+        Variables:
+          SESSIONS_TABLE: !Ref ChatSessionsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatSessionsTable
+      Events:
+        AssignAgentApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatRestApi
+            Path: /chat/assign
+            Method: POST
+
+  # REST API for Chat (non-WebSocket operations)
+  ChatRestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+
+  # Lambda Permissions for WebSocket
+  ChatConnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ChatConnectFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+  ChatDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ChatDisconnectFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+  ChatDefaultPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ChatDefaultFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+  ChatSendMessagePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ChatSendMessageFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*'
+
+# ============================================
+# OUTPUTS
+# ============================================
+Outputs:
+  ChatWebSocketUrl:
+    Description: WebSocket endpoint URL for chat
+    Value: !Sub 'wss://${ChatWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    Export:
+      Name: !Sub '${AWS::StackName}-ChatWebSocketUrl'
+  
+  ChatRestApiUrl:
+    Description: REST API endpoint URL for chat
+    Value: !Sub 'https://${ChatRestApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    Export:
+      Name: !Sub '${AWS::StackName}-ChatRestApiUrl'
+  
+  ChatMessagesTable:
+    Description: Chat Messages DynamoDB Table
+    Value: !Ref ChatMessagesTable
+    Export:
+      Name: !Sub '${AWS::StackName}-ChatMessagesTable'
+  
+  ChatConnectionsTable:
+    Description: Chat Connections DynamoDB Table
+    Value: !Ref ChatConnectionsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-ChatConnectionsTable'
+  
+  ChatSessionsTable:
+    Description: Chat Sessions DynamoDB Table
+    Value: !Ref ChatSessionsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-ChatSessionsTable'

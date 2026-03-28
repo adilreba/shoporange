@@ -487,3 +487,42 @@ export const api = {
     method: 'DELETE',
   }),
 };
+
+// Chat API URLs
+const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || 'https://tfc7anixgd.execute-api.eu-west-1.amazonaws.com/prod';
+const CHAT_WS_URL = import.meta.env.VITE_CHAT_WS_URL || 'wss://jjhtiwu2j9.execute-api.eu-west-1.amazonaws.com/prod';
+
+// Chat API
+export const chatApi = {
+  // Create agent request
+  requestAgent: async (data: { userId: string; userName: string; userEmail: string }) => {
+    const response = await fetch(`${CHAT_API_URL}/chat/request-agent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Agent request failed');
+    return response.json();
+  },
+
+  // Get waiting sessions
+  getWaitingSessions: async () => {
+    const response = await fetch(`${CHAT_API_URL}/chat/waiting`);
+    if (!response.ok) throw new Error('Failed to fetch waiting sessions');
+    return response.json();
+  },
+
+  // Assign agent to session
+  assignAgent: async (sessionId: string, agentId: string) => {
+    const response = await fetch(`${CHAT_API_URL}/chat/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, agentId }),
+    });
+    if (!response.ok) throw new Error('Failed to assign agent');
+    return response.json();
+  },
+
+  // WebSocket URL
+  getWebSocketUrl: () => CHAT_WS_URL,
+};
