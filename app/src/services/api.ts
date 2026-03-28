@@ -41,8 +41,8 @@ const MOCK_USERS = [
   }
 ];
 
-// Force mock mode flag - AWS deploy edilene kadar true olarak kalacak
-const FORCE_MOCK_MODE = true;
+// AWS Deploy edildi - Mock mode KAPALI, gerçek API kullanılıyor
+const FORCE_MOCK_MODE = false;
 
 // Check if using mock API (no real backend configured)
 const isMockMode = () => {
