@@ -155,7 +155,7 @@ export function Header() {
                     >
                       <span className="text-lg">📦</span> Tüm Ürünler
                     </Link>
-                    {isAuthenticated && (
+                    {isAuthenticated && user?.role === 'admin' && (
                       <Link 
                         to="/admin" 
                         className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors text-sm font-medium text-orange-600"
@@ -372,7 +372,7 @@ export function Header() {
                       <User className="h-4 w-4 mr-2" />
                       Profilim
                     </DropdownMenuItem>
-                    {isAuthenticated && (
+                    {isAuthenticated && user?.role === 'admin' && (
                       <DropdownMenuItem onClick={() => navigate('/admin')}>
                         <BarChart3 className="h-4 w-4 mr-2" />
                         Admin Paneli
@@ -437,12 +437,14 @@ export function Header() {
                       <Ticket className="mr-2 h-4 w-4" />
                       Kuponlarım
                     </DropdownMenuItem>
+                    {user?.role === 'admin' && (
                     <DropdownMenuItem asChild>
                       <Link to="/admin" className="flex items-center cursor-pointer">
                         <BarChart3 className="mr-2 h-4 w-4" />
                         Admin Paneli
                       </Link>
                     </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => navigate('/settings')}>
                       <Settings className="mr-2 h-4 w-4" />
                       Ayarlar
