@@ -56,6 +56,8 @@ interface ChatState {
   sendAgentMessage: (requestId: string, text: string) => void;
   // Get messages for a specific session
   getSessionMessages: (requestId: string) => Message[];
+  // Add customer message to specific session (for admin panel)
+  addCustomerMessage: (requestId: string, text: string) => void;
 }
 
 // Mock bot responses
@@ -338,6 +340,32 @@ export const useChatStore = create<ChatState>()(
         if (request) return request.messages;
         
         return [];
+      },
+
+      // Müşteri mesajını session'a ekle (admin panelinde görünmesi için)
+      addCustomerMessage: (requestId: string, text: string) => {
+        set((state) => {
+          const newMessage: Message = {
+            id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            text,
+            sender: 'user',
+            timestamp: new Date().toISOString(),
+          };
+          
+          return {
+            messages: [...state.messages, newMessage],
+            agentRequests: state.agentRequests.map(req =>
+              req.id === requestId 
+                ? { ...req, messages: [...req.messages, newMessage] } 
+                : req
+            ),
+            activeSessions: state.activeSessions.map(req =>
+              req.id === requestId 
+                ? { ...req, messages: [...req.messages, newMessage] } 
+                : req
+            ),
+          };
+        });
       },
 
       markAsRead: () => {

@@ -126,9 +126,13 @@ const savePosition = (y: number) => {
 
 export function ChatWidget() {
   const { user, isAuthenticated } = useAuthStore();
+  
+  // Admin kullanıcısıysa chat widget'ı gösterme (admin panelinden konuşur)
+  const isAdmin = user?.role === 'admin' || user?.email?.includes('admin');
+  if (isAdmin) return null;
   const { 
     requestAgent: storeRequestAgent, 
-    addMessage: storeAddMessage,
+    addCustomerMessage: storeAddCustomerMessage,
   } = useChatStore();
   
   // Store'dan agent durumunu takip et
@@ -309,23 +313,10 @@ export function ChatWidget() {
     setInputMessage('');
     setShowQuickReplies(false);
     
-    // Eğer agent modundaysa, mesajı store'a da gönder (admin görsün)
-    if (isAgentMode && currentRequestId) {
-      storeAddMessage({
-        text: userMessage.text,
-        sender: 'user',
-      });
+    // Agent bağlandıysa veya agent modundaysa, mesajı session'a ekle (admin görsün)
+    if ((isAgentMode || isAgentConnected) && currentRequestId) {
+      storeAddCustomerMessage(currentRequestId, userMessage.text);
       return; // Agent modunda bot yanıt vermesin
-    }
-    
-    // Bot modunda bot yanıt versin (ama agent bağlandıysa verme)
-    if (isAgentConnected) {
-      // Agent bağlandı, mesajı store'a gönder
-      storeAddMessage({
-        text: userMessage.text,
-        sender: 'user',
-      });
-      return;
     }
     
     setIsTyping(true);
@@ -372,12 +363,9 @@ export function ChatWidget() {
     setMessages((prev) => [...prev, userMessage]);
     setShowQuickReplies(false);
     
-    // Agent bağlandıysa bot yanıt vermesin
-    if (isAgentConnected) {
-      storeAddMessage({
-        text: reply.label,
-        sender: 'user',
-      });
+    // Agent bağlandıysa veya agent modundaysa, mesajı session'a ekle
+    if ((isAgentMode || isAgentConnected) && currentRequestId) {
+      storeAddCustomerMessage(currentRequestId, reply.label);
       return;
     }
     
