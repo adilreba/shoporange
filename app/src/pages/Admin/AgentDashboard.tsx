@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   MessageCircle, Clock, CheckCircle, XCircle, 
-  Send
+  Send, Plus, Headphones, Inbox
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -377,16 +377,18 @@ export default function AgentDashboard() {
         <div className="flex items-center justify-between">
           {/* Sol: Başlık ve Durum */}
           <div className="flex items-center gap-4">
-            <div className="bg-orange-500 p-2.5 rounded-xl shadow-lg shadow-orange-500/20">
-              <MessageCircle className="w-6 h-6 text-white" />
+            <div className="bg-gradient-to-br from-orange-500 to-amber-500 p-2.5 rounded-xl shadow-lg shadow-orange-500/25 ring-2 ring-white/20">
+              <Headphones className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Canlı Destek Paneli</h1>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                Canlı Destek
+              </h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="flex items-center gap-1.5 text-sm text-green-600">
-                  <span className="relative flex h-2.5 w-2.5">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-500/10 px-2 py-0.5 rounded-full">
+                  <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                   </span>
                   Çevrimiçi
                 </span>
@@ -394,21 +396,33 @@ export default function AgentDashboard() {
             </div>
           </div>
           
-          {/* Orta: İstatistikler */}
-          <div className="hidden md:flex items-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-800">
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-              <span className="text-sm font-medium text-red-700 dark:text-red-400">{waitingChats.length} Bekleyen</span>
+          {/* Orta: Modern İstatistik Kartları */}
+          <div className="hidden md:flex items-center gap-4">
+            {/* Bekleyen */}
+            <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
+                <Clock className="w-4 h-4 text-red-500" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Bekleyen</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white leading-none">{waitingChats.length}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-800">
-              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-              <span className="text-sm font-medium text-orange-700 dark:text-orange-400">{activeChats.length} Aktif</span>
+            
+            {/* Aktif */}
+            <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
+                <MessageCircle className="w-4 h-4 text-orange-500" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Aktif</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white leading-none">{activeChats.length}</span>
+              </div>
             </div>
           </div>
           
           {/* Sağ: Test Butonu */}
           <Button 
-            variant="outline" 
             size="sm" 
             onClick={() => {
               const { requestAgent } = useChatStore.getState();
@@ -419,9 +433,10 @@ export default function AgentDashboard() {
               });
               toast.success('Test talebi oluşturuldu!');
             }}
-            className="hidden sm:flex items-center gap-1.5 border-gray-300 hover:bg-gray-50"
+            className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0 shadow-lg shadow-orange-500/25"
           >
-            + Test Talebi
+            <Plus className="w-4 h-4" />
+            Test Talebi
           </Button>
         </div>
       </header>
@@ -481,23 +496,26 @@ export default function AgentDashboard() {
               <ScrollArea className="h-full">
                 <div className="p-3 space-y-2 pb-20">
                   {waitingChats.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                      <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
-                        <Clock className="w-10 h-10 text-gray-400" />
+                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                      <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
+                        <Inbox className="w-10 h-10 text-gray-400" />
                       </div>
-                      <p className="text-lg font-medium text-gray-600 dark:text-gray-400">Bekleyen müşteri yok</p>
-                      <p className="text-sm mt-1">Yeni talepler burada görünecek</p>
+                      <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">Bekleyen yok</p>
+                      <p className="text-sm text-gray-400 mt-1">Yeni talepler burada görünecek</p>
                     </div>
                   ) : (
                     waitingChats.map((chat) => (
                       <div 
                         key={chat.sessionId}
-                        className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-red-400 hover:shadow-md transition-all cursor-pointer"
+                        className="group relative bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 hover:shadow-lg hover:shadow-red-500/10 hover:border-red-200 dark:hover:border-red-800/50 transition-all duration-300 cursor-pointer overflow-hidden"
                         onClick={() => acceptChat(chat)}
                       >
+                        {/* Üst gradient çizgi */}
+                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-400 to-orange-400 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
+                        
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-lg font-bold text-red-600 dark:text-red-400">
+                          <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-red-500/20 group-hover:scale-105 transition-transform">
+                            <span className="text-lg font-bold text-white">
                               {(chat.customerName || 'M').charAt(0).toUpperCase()}
                             </span>
                           </div>
@@ -506,15 +524,16 @@ export default function AgentDashboard() {
                               <p className="font-semibold text-gray-900 dark:text-white truncate">
                                 {chat.customerName || 'Misafir Kullanıcı'}
                               </p>
-                              <span className="text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded-full">
+                              <span className="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/20 px-2.5 py-1 rounded-full">
+                                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
                                 {formatDuration(chat.createdAt)}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                            <p className="text-sm text-gray-400 truncate">
                               {chat.customerEmail || 'E-posta belirtilmemiş'}
                             </p>
                           </div>
-                          <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white shadow-md">
+                          <Button size="sm" className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-lg shadow-red-500/25 border-0 rounded-xl px-4">
                             Kabul Et
                           </Button>
                         </div>
@@ -530,28 +549,38 @@ export default function AgentDashboard() {
               <ScrollArea className="h-full">
                 <div className="p-3 space-y-2 pb-20">
                   {activeChats.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                      <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                      <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
                         <CheckCircle className="w-10 h-10 text-gray-400" />
                       </div>
-                      <p className="text-lg font-medium text-gray-600 dark:text-gray-400">Aktif sohbet yok</p>
-                      <p className="text-sm mt-1">Kabul ettiğiniz müşteriler burada görünecek</p>
+                      <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">Aktif sohbet yok</p>
+                      <p className="text-sm text-gray-400 mt-1">Müşteriler burada görünecek</p>
                     </div>
                   ) : (
                     activeChats.map((chat) => (
                       <div 
                         key={chat.sessionId}
                         className={cn(
-                          "group bg-white dark:bg-gray-800 border rounded-xl p-4 cursor-pointer transition-all",
+                          "group relative bg-white dark:bg-gray-800 border rounded-2xl p-4 cursor-pointer transition-all duration-300 overflow-hidden",
                           selectedSession?.sessionId === chat.sessionId 
-                            ? "border-orange-500 shadow-md ring-1 ring-orange-500/20" 
-                            : "border-gray-200 dark:border-gray-700 hover:border-orange-400 hover:shadow-sm"
+                            ? "border-orange-400 shadow-lg shadow-orange-500/10 ring-2 ring-orange-500/20" 
+                            : "border-gray-100 dark:border-gray-700 hover:border-orange-200 dark:hover:border-orange-800/50 hover:shadow-md"
                         )}
                         onClick={() => setSelectedSession(chat)}
                       >
+                        {/* Seçili göstergesi */}
+                        {selectedSession?.sessionId === chat.sessionId && (
+                          <div className="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-orange-400 to-amber-400 rounded-r-full"></div>
+                        )}
+                        
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                          <div className={cn(
+                            "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg transition-transform group-hover:scale-105",
+                            selectedSession?.sessionId === chat.sessionId
+                              ? "bg-gradient-to-br from-orange-500 to-amber-500 shadow-orange-500/25"
+                              : "bg-gradient-to-br from-green-500 to-emerald-500 shadow-green-500/25"
+                          )}>
+                            <span className="text-lg font-bold text-white">
                               {(chat.customerName || 'M').charAt(0).toUpperCase()}
                             </span>
                           </div>
@@ -560,16 +589,16 @@ export default function AgentDashboard() {
                               <p className="font-semibold text-gray-900 dark:text-white truncate">
                                 {chat.customerName || 'Misafir Kullanıcı'}
                               </p>
-                              <span className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-full">
+                              <span className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-full">
                                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                                 Aktif
                               </span>
                             </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                            <p className="text-sm text-gray-400 truncate">
                               {formatDuration(chat.createdAt)} süredir bağlı
                             </p>
                             {chat.lastMessage && (
-                              <p className="text-sm text-gray-600 dark:text-gray-300 truncate mt-1 font-medium">
+                              <p className="text-sm text-gray-600 dark:text-gray-300 truncate mt-1.5 font-medium bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded-lg">
                                 {chat.lastMessage.content}
                               </p>
                             )}
@@ -592,28 +621,31 @@ export default function AgentDashboard() {
           {selectedSession ? (
             <>
               {/* Chat Header */}
-              <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-6 py-4 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-4">
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="lg:hidden -ml-2"
+                    className="lg:hidden -ml-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                     onClick={() => setSelectedSession(null)}
                   >
                     ←
                   </Button>
-                  <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/30 dark:to-amber-900/30 rounded-full flex items-center justify-center">
-                    <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                      {(selectedSession.customerName || 'M').charAt(0).toUpperCase()}
-                    </span>
+                  <div className="relative">
+                    <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/25">
+                      <span className="text-2xl font-bold text-white">
+                        {(selectedSession.customerName || 'M').charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full animate-pulse"></span>
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-white">
+                    <p className="font-bold text-gray-900 dark:text-white text-lg">
                       {selectedSession.customerName || 'Misafir Kullanıcı'}
                     </p>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                      {formatDuration(selectedSession.createdAt)} süredir bağlı
+                    <div className="flex items-center gap-2 text-sm text-gray-400">
+                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                      <span className="font-medium">{formatDuration(selectedSession.createdAt)} bağlı</span>
                     </div>
                   </div>
                 </div>
@@ -621,9 +653,9 @@ export default function AgentDashboard() {
                   variant="outline" 
                   size="sm" 
                   onClick={closeChat}
-                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 rounded-xl px-4"
                 >
-                  <XCircle className="w-4 h-4 mr-1.5" />
+                  <XCircle className="w-4 h-4 mr-2" />
                   Sonlandır
                 </Button>
               </div>
@@ -686,44 +718,70 @@ export default function AgentDashboard() {
               </div>
 
               {/* Input - Fixed at bottom */}
-              <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
+              <div className="bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 p-4 flex-shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <div className="flex gap-3 max-w-4xl mx-auto">
-                  <Input
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') sendMessage();
-                    }}
-                    placeholder="Mesajınızı yazın..."
-                    className="flex-1 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:bg-white dark:focus:bg-gray-600"
-                  />
-                  <Button onClick={sendMessage} className="gradient-orange">
-                    <Send className="w-4 h-4" />
+                  <div className="flex-1 relative">
+                    <Input
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') sendMessage();
+                      }}
+                      placeholder="Mesajınızı yazın..."
+                      className="w-full bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 focus:bg-white dark:focus:bg-gray-700 focus:border-orange-400 dark:focus:border-orange-500 rounded-xl pr-12 h-12 transition-all"
+                    />
+                  </div>
+                  <Button 
+                    onClick={sendMessage} 
+                    className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 rounded-xl px-6 h-12"
+                  >
+                    <Send className="w-5 h-5" />
                   </Button>
                 </div>
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-              <div className="text-center px-4">
-                <div className="w-32 h-32 bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/20 dark:to-amber-900/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                  <MessageCircle className="w-16 h-16 text-orange-400" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                  Canlı Destek Paneli
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
-                  Sohbet başlatmak için soldaki listeden bir müşteri seçin veya bekleyen bir talebi kabul edin.
-                </p>
-                <div className="flex items-center justify-center gap-4 text-sm text-gray-400">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 bg-red-500 rounded-full"></span>
-                    <span>{waitingChats.length} Bekleyen</span>
+            <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 relative overflow-hidden">
+              {/* Dekoratif arka plan elementleri */}
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-orange-200/20 dark:bg-orange-500/5 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-200/20 dark:bg-amber-500/5 rounded-full blur-3xl"></div>
+              </div>
+              
+              <div className="text-center px-4 relative z-10">
+                {/* Animasyonlu ikon */}
+                <div className="relative mb-8">
+                  <div className="w-24 h-24 bg-gradient-to-br from-orange-400 to-amber-500 rounded-2xl flex items-center justify-center mx-auto shadow-2xl shadow-orange-500/30 rotate-3 hover:rotate-6 transition-transform duration-500">
+                    <Headphones className="w-12 h-12 text-white" />
                   </div>
-                  <div className="w-px h-4 bg-gray-300"></div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 bg-orange-500 rounded-full"></span>
-                    <span>{activeChats.length} Aktif</span>
+                  {/* Dekoratif noktalar */}
+                  <div className="absolute -top-2 -right-2 w-4 h-4 bg-green-400 rounded-full animate-pulse"></div>
+                  <div className="absolute -bottom-1 -left-2 w-3 h-3 bg-orange-400 rounded-full animate-pulse delay-75"></div>
+                </div>
+                
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 dark:from-white dark:via-gray-300 dark:to-white bg-clip-text text-transparent mb-3">
+                  Destek Paneline Hoş Geldiniz
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-8 text-sm leading-relaxed">
+                  Müşterilerinizle gerçek zamanlı iletişim kurun. Sol panelden bir sohbet seçin veya yeni bir talebi kabul edin.
+                </p>
+                
+                {/* İstatistik kartları */}
+                <div className="flex items-center justify-center gap-6">
+                  <div className="flex flex-col items-center p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 min-w-[120px]">
+                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-xl flex items-center justify-center mb-2">
+                      <Clock className="w-5 h-5 text-red-500" />
+                    </div>
+                    <span className="text-2xl font-bold text-gray-900 dark:text-white">{waitingChats.length}</span>
+                    <span className="text-xs text-gray-400 font-medium">Bekleyen</span>
+                  </div>
+                  
+                  <div className="flex flex-col items-center p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 min-w-[120px]">
+                    <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/20 rounded-xl flex items-center justify-center mb-2">
+                      <MessageCircle className="w-5 h-5 text-orange-500" />
+                    </div>
+                    <span className="text-2xl font-bold text-gray-900 dark:text-white">{activeChats.length}</span>
+                    <span className="text-xs text-gray-400 font-medium">Aktif</span>
                   </div>
                 </div>
               </div>
