@@ -126,7 +126,13 @@ const savePosition = (y: number) => {
 
 export function ChatWidget() {
   const { user, isAuthenticated } = useAuthStore();
-  const { requestAgent: storeRequestAgent } = useChatStore();
+  const { 
+    requestAgent: storeRequestAgent, 
+    messages: storeMessages,
+    agentName,
+    waitingForAgent,
+    addMessage: storeAddMessage,
+  } = useChatStore();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -134,6 +140,7 @@ export function ChatWidget() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
   const [isAgentMode, setIsAgentMode] = useState(false);
+  const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
   
   // Y ekseninde pozisyon (varsayılan: orta)
   const [positionY, setPositionY] = useState(() => {
@@ -161,6 +168,50 @@ export function ChatWidget() {
       setMessages([welcomeMessage]);
     }
   }, []);
+
+  // Store'dan gelen mesajları izle (agent mesajları)
+  useEffect(() => {
+    // Store'daki agent mesajlarını local state'e aktar
+    const agentMessages = storeMessages.filter(m => m.sender === 'agent');
+    if (agentMessages.length > 0) {
+      setMessages(prev => {
+        // Önceki mesajlarda olmayan agent mesajlarını bul
+        const newAgentMessages = agentMessages.filter(am => 
+          !prev.some(pm => pm.id === am.id)
+        );
+        if (newAgentMessages.length === 0) return prev;
+        
+        // Yeni agent mesajlarını ekle
+        const formattedNewMessages: Message[] = newAgentMessages.map(m => ({
+          id: m.id,
+          text: m.text,
+          sender: 'agent',
+          timestamp: new Date(m.timestamp),
+        }));
+        
+        return [...prev, ...formattedNewMessages];
+      });
+      
+      // Agent mesajı geldiğinde agent modunu aç
+      if (!isAgentMode) {
+        setIsAgentMode(true);
+      }
+    }
+  }, [storeMessages]);
+
+  // Agent bağlandığında bildirim göster
+  useEffect(() => {
+    if (agentName && waitingForAgent === false && isAgentMode) {
+      const agentConnectedMessage: Message = {
+        id: `agent-connected-${Date.now()}`,
+        text: `${agentName} size bağlandı. Size nasıl yardımcı olabilirim?`,
+        sender: 'agent',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, agentConnectedMessage]);
+      setIsTyping(false);
+    }
+  }, [agentName, waitingForAgent, isAgentMode]);
 
   // Auto-scroll
   useEffect(() => {
@@ -257,8 +308,18 @@ export function ChatWidget() {
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage('');
     setShowQuickReplies(false);
+    
+    // Eğer agent modundaysa, mesajı store'a da gönder (admin görsün)
+    if (isAgentMode && currentRequestId) {
+      storeAddMessage({
+        text: userMessage.text,
+        sender: 'user',
+      });
+      return; // Agent modunda bot yanıt vermesin
+    }
+    
+    // Bot modunda bot yanıt versin
     setIsTyping(true);
-
     setTimeout(() => {
       const botResponse = findBotResponse(userMessage.text);
       
@@ -312,6 +373,10 @@ export function ChatWidget() {
 
   const requestAgent = () => {
     setIsTyping(true);
+    
+    // Request ID oluştur
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setCurrentRequestId(requestId);
     
     // Chat store'a agent isteği gönder
     const userId = isAuthenticated && user ? user.id : `guest_${Date.now()}`;

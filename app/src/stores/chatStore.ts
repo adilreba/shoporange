@@ -50,6 +50,12 @@ interface ChatState {
   getAgentRequests: () => AgentRequest[];
   acceptRequest: (requestId: string) => void;
   completeRequest: (requestId: string) => void;
+  // Agent accepted chat - notify customer
+  agentAcceptedChat: (requestId: string, agentName: string) => void;
+  // Send message from agent to specific session
+  sendAgentMessage: (requestId: string, text: string) => void;
+  // Get messages for a specific session
+  getSessionMessages: (requestId: string) => Message[];
 }
 
 // Mock bot responses
@@ -257,6 +263,81 @@ export const useChatStore = create<ChatState>()(
           ),
           activeSessions: state.activeSessions.filter(req => req.id !== requestId),
         }));
+      },
+
+      // Agent chat'i kabul ettiğinde - müşteriye bildir ve bot yanıtlarını durdur
+      agentAcceptedChat: (requestId: string, agentName: string) => {
+        set((state) => {
+          // Request'i bul
+          const request = state.agentRequests.find(req => req.id === requestId);
+          if (!request) return {};
+          
+          // Müşteriye agent bağlandı mesajı ekle
+          const agentConnectedMessage: Message = {
+            id: `msg_${Date.now()}`,
+            text: `${agentName} size bağlandı. Size nasıl yardımcı olabilirim?`,
+            sender: 'agent',
+            timestamp: new Date().toISOString(),
+          };
+          
+          return {
+            // Eğer bu request'in mesajları varsa onlara da ekle
+            messages: [...state.messages, agentConnectedMessage],
+            waitingForAgent: false,
+            agentName: agentName,
+            agentRequests: state.agentRequests.map(req =>
+              req.id === requestId 
+                ? { ...req, status: 'active' as const, messages: [...req.messages, agentConnectedMessage] } 
+                : req
+            ),
+            activeSessions: state.activeSessions.map(req =>
+              req.id === requestId 
+                ? { ...req, status: 'active' as const, messages: [...req.messages, agentConnectedMessage] } 
+                : req
+            ),
+          };
+        });
+      },
+
+      // Agent'dan müşteriye mesaj gönder
+      sendAgentMessage: (requestId: string, text: string) => {
+        set((state) => {
+          const newMessage: Message = {
+            id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            text,
+            sender: 'agent',
+            timestamp: new Date().toISOString(),
+          };
+          
+          // Hem genel messages'a hem de session'ın messages'ına ekle
+          return {
+            messages: [...state.messages, newMessage],
+            agentRequests: state.agentRequests.map(req =>
+              req.id === requestId 
+                ? { ...req, messages: [...req.messages, newMessage] } 
+                : req
+            ),
+            activeSessions: state.activeSessions.map(req =>
+              req.id === requestId 
+                ? { ...req, messages: [...req.messages, newMessage] } 
+                : req
+            ),
+          };
+        });
+      },
+
+      // Belirli bir session'ın mesajlarını getir
+      getSessionMessages: (requestId: string) => {
+        const state = get();
+        // Önce activeSessions'da ara
+        const activeSession = state.activeSessions.find(req => req.id === requestId);
+        if (activeSession) return activeSession.messages;
+        
+        // Sonra agentRequests'de ara
+        const request = state.agentRequests.find(req => req.id === requestId);
+        if (request) return request.messages;
+        
+        return [];
       },
 
       markAsRead: () => {

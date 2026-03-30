@@ -45,7 +45,7 @@ interface ChatMessage {
 export default function AgentDashboard() {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
-  const { agentRequests, activeSessions, acceptRequest, completeRequest } = useChatStore();
+  const { agentRequests, activeSessions, acceptRequest, completeRequest, agentAcceptedChat, sendAgentMessage, getSessionMessages } = useChatStore();
   const [activeTab, setActiveTab] = useState('waiting');
   const [waitingChats, setWaitingChats] = useState<ChatSession[]>([]);
   const [activeChats, setActiveChats] = useState<ChatSession[]>([]);
@@ -261,6 +261,9 @@ export default function AgentDashboard() {
       // Local store'da kabul et (status: active yap) - bu fonksiyon zaten activeSessions'a da ekliyor
       acceptRequest(session.sessionId);
       
+      // Müşteriye agent'ın bağlandığını bildir ve bot yanıtlarını durdur
+      agentAcceptedChat(session.sessionId, user.name || 'Temsilci');
+      
       // Listeden kaldır
       setWaitingChats(prev => prev.filter(c => c.sessionId !== session.sessionId));
       
@@ -276,26 +279,32 @@ export default function AgentDashboard() {
   const sendMessage = () => {
     if (!inputMessage.trim() || !selectedSession || !user) return;
     
-    // Yeni mesaj oluştur
-    const newMessage: ChatMessage = {
-      messageId: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      sessionId: selectedSession.sessionId,
-      senderId: user.id,
-      senderType: 'agent',
-      content: inputMessage.trim(),
-      timestamp: new Date().toISOString(),
-      isRead: false,
-    };
-    
-    // Mesajı state'e ekle
-    setMessages(prev => [...prev, newMessage]);
+    // Store'a mesaj gönder (bu fonksiyon müşteriye de iletecek)
+    sendAgentMessage(selectedSession.sessionId, inputMessage.trim());
     
     // Input'u temizle
     setInputMessage('');
-    
-    // Toast bildirimi
-    toast.success('Mesaj gönderildi');
   };
+  
+  // Seçili session değiştiğinde mesajları yükle
+  useEffect(() => {
+    if (selectedSession) {
+      const sessionMessages = getSessionMessages(selectedSession.sessionId);
+      // ChatMessage formatına çevir
+      const formattedMessages: ChatMessage[] = sessionMessages.map(msg => ({
+        messageId: msg.id,
+        sessionId: selectedSession.sessionId,
+        senderId: msg.sender === 'agent' ? 'agent' : selectedSession.customerId,
+        senderType: msg.sender === 'agent' ? 'agent' : 'customer',
+        content: msg.text,
+        timestamp: msg.timestamp,
+        isRead: true,
+      }));
+      setMessages(formattedMessages);
+    } else {
+      setMessages([]);
+    }
+  }, [selectedSession]);
 
   const closeChat = async () => {
     if (!selectedSession) return;
