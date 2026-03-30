@@ -127,9 +127,9 @@ const savePosition = (y: number) => {
 export function ChatWidget() {
   const { user, isAuthenticated } = useAuthStore();
   
-  // Admin kullanıcısıysa chat widget'ı gösterme (admin panelinden konuşur)
-  const isAdmin = user?.role === 'admin' || user?.email?.includes('admin');
-  if (isAdmin) return null;
+  // Admin panelinde (/admin) chat widget'ı gösterme
+  const isAdminPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+  if (isAdminPage) return null;
   const { 
     requestAgent: storeRequestAgent, 
     addCustomerMessage: storeAddCustomerMessage,
