@@ -56,6 +56,7 @@ export default function AgentDashboard() {
   const [isConnected] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const notifiedRequestsRef = useRef<Set<string>>(new Set());
+  const disconnectedNotifiedRef = useRef<Set<string>>(new Set());
 
   // Check if user is admin/agent
   useEffect(() => {
@@ -188,25 +189,43 @@ export default function AgentDashboard() {
       return [...prev, ...newLocalChats];
     });
 
-    // Convert activeSessions to activeChats format
-    const mockActiveChats: ChatSession[] = activeSessions.map(req => ({
-      sessionId: req.id,
-      customerId: req.userId,
-      customerName: req.userName,
-      customerEmail: req.userEmail,
-      status: 'active' as const,
-      createdAt: req.timestamp,
-      updatedAt: req.timestamp,
-      lastMessage: req.messages.length > 0 ? {
-        content: req.messages[req.messages.length - 1].text,
-        timestamp: req.messages[req.messages.length - 1].timestamp,
-        senderType: req.messages[req.messages.length - 1].sender
-      } : undefined,
-      unreadCount: 0
-    }));
+    // Convert activeSessions to activeChats format (disconnected olanları filtrele)
+    const mockActiveChats: ChatSession[] = activeSessions
+      .filter(req => req.status !== 'disconnected')
+      .map(req => ({
+        sessionId: req.id,
+        customerId: req.userId,
+        customerName: req.userName,
+        customerEmail: req.userEmail,
+        status: req.status === 'disconnected' ? 'closed' as const : 'active' as const,
+        createdAt: req.timestamp,
+        updatedAt: req.timestamp,
+        lastMessage: req.messages.length > 0 ? {
+          content: req.messages[req.messages.length - 1].text,
+          timestamp: req.messages[req.messages.length - 1].timestamp,
+          senderType: req.messages[req.messages.length - 1].sender
+        } : undefined,
+        unreadCount: 0
+      }));
 
     setActiveChats(mockActiveChats);
-  }, [agentRequests, activeSessions]);
+    
+    // Eğer seçili session disconnected olduysa bildirim göster
+    if (selectedSession) {
+      const disconnectedSession = activeSessions.find(
+        req => req.id === selectedSession.sessionId && req.status === 'disconnected'
+      );
+      if (disconnectedSession && !disconnectedNotifiedRef.current.has(selectedSession.sessionId)) {
+        toast.warning('⚠️ Müşteri bağlantıyı kesti', {
+          description: 'Müşteri sayfayı kapattı veya bağlantısı kesildi.',
+          duration: 5000,
+        });
+        disconnectedNotifiedRef.current.add(selectedSession.sessionId);
+        // Seçili session'ı kapat
+        setSelectedSession(null);
+      }
+    }
+  }, [agentRequests, activeSessions, selectedSession]);
 
   const acceptChat = async (session: ChatSession) => {
     if (!user?.id) return;

@@ -78,6 +78,7 @@ exports.disconnect = async (event) => {
     }));
     
     if (connection?.sessionId) {
+      // Session'ı disconnected yap
       await dynamodb.send(new UpdateCommand({
         TableName: SESSIONS_TABLE,
         Key: { sessionId: connection.sessionId },
@@ -88,6 +89,29 @@ exports.disconnect = async (event) => {
           ':disconnectedAt': new Date().toISOString()
         }
       }));
+      
+      // Agent'e bildirim gönder
+      const { Items: agentConnections } = await dynamodb.send(new ScanCommand({
+        TableName: CONNECTIONS_TABLE,
+        FilterExpression: 'userType = :userType AND sessionId = :sessionId',
+        ExpressionAttributeValues: { 
+          ':userType': 'agent',
+          ':sessionId': connection.sessionId
+        }
+      }));
+      
+      const disconnectNotification = {
+        type: 'customer_disconnected',
+        sessionId: connection.sessionId,
+        timestamp: new Date().toISOString(),
+        message: 'Müşteri bağlantıyı kesti'
+      };
+      
+      await Promise.all(
+        agentConnections.map(conn => 
+          sendToConnection(conn.connectionId, disconnectNotification)
+        )
+      );
     }
     
     await dynamodb.send(new DeleteCommand({

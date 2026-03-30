@@ -16,7 +16,7 @@ interface AgentRequest {
   userName: string;
   userEmail: string;
   timestamp: string;
-  status: 'pending' | 'active' | 'completed';
+  status: 'pending' | 'active' | 'completed' | 'disconnected';
   messages: Message[];
 }
 
