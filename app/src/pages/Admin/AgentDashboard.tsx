@@ -50,7 +50,7 @@ export default function AgentDashboard() {
   const [waitingChats, setWaitingChats] = useState<ChatSession[]>([]);
   const [activeChats, setActiveChats] = useState<ChatSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
-  const [messages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -258,27 +258,11 @@ export default function AgentDashboard() {
         });
       }
       
-      // Local store'da kabul et (status: active yap)
+      // Local store'da kabul et (status: active yap) - bu fonksiyon zaten activeSessions'a da ekliyor
       acceptRequest(session.sessionId);
       
       // Listeden kaldır
       setWaitingChats(prev => prev.filter(c => c.sessionId !== session.sessionId));
-      
-      // Aktif chat'e ekle
-      const activeSession = {
-        id: session.sessionId,
-        userId: session.customerId,
-        userName: session.customerName || 'Misafir',
-        userEmail: session.customerEmail || '',
-        timestamp: session.createdAt,
-        status: 'active' as const,
-        messages: [],
-      };
-      
-      const currentActive = useChatStore.getState().activeSessions;
-      useChatStore.setState({
-        activeSessions: [...currentActive, activeSession],
-      });
       
       toast.success('Müşteri kabul edildi');
       setSelectedSession({ ...session, agentId: user.id, status: 'active' });
@@ -290,10 +274,27 @@ export default function AgentDashboard() {
   };
 
   const sendMessage = () => {
-    if (!inputMessage.trim() || !selectedSession) return;
-    // TODO: Implement message sending via chat store
-    toast.info('Mesaj gönderildi: ' + inputMessage);
+    if (!inputMessage.trim() || !selectedSession || !user) return;
+    
+    // Yeni mesaj oluştur
+    const newMessage: ChatMessage = {
+      messageId: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      sessionId: selectedSession.sessionId,
+      senderId: user.id,
+      senderType: 'agent',
+      content: inputMessage.trim(),
+      timestamp: new Date().toISOString(),
+      isRead: false,
+    };
+    
+    // Mesajı state'e ekle
+    setMessages(prev => [...prev, newMessage]);
+    
+    // Input'u temizle
     setInputMessage('');
+    
+    // Toast bildirimi
+    toast.success('Mesaj gönderildi');
   };
 
   const closeChat = async () => {

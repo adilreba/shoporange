@@ -232,14 +232,22 @@ export const useChatStore = create<ChatState>()(
       },
 
       acceptRequest: (requestId: string) => {
-        set((state) => ({
-          agentRequests: state.agentRequests.map(req =>
-            req.id === requestId ? { ...req, status: 'active' as const } : req
-          ),
-          activeSessions: [...get().activeSessions, 
-            get().agentRequests.find(req => req.id === requestId)!
-          ].filter(Boolean),
-        }));
+        set((state) => {
+          // Zaten aktifse tekrar ekleme
+          if (state.activeSessions.some(req => req.id === requestId)) {
+            return { agentRequests: state.agentRequests };
+          }
+          
+          const request = state.agentRequests.find(req => req.id === requestId);
+          if (!request) return { agentRequests: state.agentRequests };
+          
+          return {
+            agentRequests: state.agentRequests.map(req =>
+              req.id === requestId ? { ...req, status: 'active' as const } : req
+            ),
+            activeSessions: [...state.activeSessions, { ...request, status: 'active' as const }],
+          };
+        });
       },
 
       completeRequest: (requestId: string) => {
