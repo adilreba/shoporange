@@ -328,7 +328,19 @@ export default function AgentDashboard() {
       }
     });
     
-    return () => unsubscribe();
+    // Cross-tab sync: Diğer sekmelerden/tarayıcılardan gelen mesajları dinle
+    const handleChatMessage = (event: CustomEvent) => {
+      if (event.detail.requestId === selectedSession.sessionId) {
+        loadMessages(); // Mesajları yeniden yükle
+      }
+    };
+    
+    window.addEventListener('chat-message', handleChatMessage as EventListener);
+    
+    return () => {
+      unsubscribe();
+      window.removeEventListener('chat-message', handleChatMessage as EventListener);
+    };
   }, [selectedSession, user?.id]);
 
   const closeChat = async () => {

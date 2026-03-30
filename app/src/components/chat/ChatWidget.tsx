@@ -214,8 +214,29 @@ export function ChatWidget() {
       }
     });
     
-    return () => unsubscribe();
-  }, [isOpen]);
+    // Cross-tab sync: Diğer sekmelerden gelen mesajları dinle
+    const handleChatMessage = (event: CustomEvent) => {
+      if (event.detail.requestId === currentRequestId && event.detail.message.sender === 'agent') {
+        // Admin mesaj gönderdi, göster
+        setMessages(prev => {
+          if (prev.some(m => m.id === event.detail.message.id)) return prev;
+          return [...prev, {
+            id: event.detail.message.id,
+            text: event.detail.message.text,
+            sender: 'agent',
+            timestamp: new Date(event.detail.message.timestamp),
+          }];
+        });
+      }
+    };
+    
+    window.addEventListener('chat-message', handleChatMessage as EventListener);
+    
+    return () => {
+      unsubscribe();
+      window.removeEventListener('chat-message', handleChatMessage as EventListener);
+    };
+  }, [isOpen, currentRequestId]);
 
   // Auto-scroll
   useEffect(() => {

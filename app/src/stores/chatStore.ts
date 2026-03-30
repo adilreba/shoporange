@@ -311,6 +311,13 @@ export const useChatStore = create<ChatState>()(
             timestamp: new Date().toISOString(),
           };
           
+          // Broadcast to other tabs
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('chat-message', { 
+              detail: { requestId, message: newMessage } 
+            }));
+          }
+          
           // Hem genel messages'a hem de session'ın messages'ına ekle
           return {
             messages: [...state.messages, newMessage],
@@ -352,7 +359,7 @@ export const useChatStore = create<ChatState>()(
             timestamp: new Date().toISOString(),
           };
           
-          return {
+          const newState = {
             messages: [...state.messages, newMessage],
             agentRequests: state.agentRequests.map(req =>
               req.id === requestId 
@@ -365,6 +372,15 @@ export const useChatStore = create<ChatState>()(
                 : req
             ),
           };
+          
+          // Broadcast to other tabs (cross-tab sync)
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('chat-message', { 
+              detail: { requestId, message: newMessage } 
+            }));
+          }
+          
+          return newState;
         });
       },
 
