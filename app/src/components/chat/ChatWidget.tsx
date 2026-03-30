@@ -130,6 +130,9 @@ export function ChatWidget() {
     requestAgent: storeRequestAgent, 
     addMessage: storeAddMessage,
   } = useChatStore();
+  
+  // Store'dan agent durumunu takip et
+  const [isAgentConnected, setIsAgentConnected] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -169,6 +172,12 @@ export function ChatWidget() {
   // Store'dan gelen mesajları izle (gerçek zamanlı senkronizasyon)
   useEffect(() => {
     const unsubscribe = useChatStore.subscribe((state, prevState) => {
+      // Agent bağlandı mı kontrol et
+      if (state.agentName && !prevState.agentName) {
+        setIsAgentConnected(true);
+        setIsAgentMode(true);
+      }
+      
       // Sadece mesajlar değiştiğinde çalış
       if (state.messages !== prevState.messages) {
         const agentMsgs = state.messages.filter(m => m.sender === 'agent');
@@ -190,11 +199,6 @@ export function ChatWidget() {
               timestamp: new Date(m.timestamp),
             }));
             
-            // Agent modunu aç
-            if (!isAgentMode) {
-              setIsAgentMode(true);
-            }
-            
             // Toast bildirim (chat kapalıysa)
             if (!isOpen) {
               setUnreadCount(c => c + 1);
@@ -207,7 +211,7 @@ export function ChatWidget() {
     });
     
     return () => unsubscribe();
-  }, [isAgentMode, isOpen]);
+  }, [isOpen]);
 
   // Auto-scroll
   useEffect(() => {
@@ -314,9 +318,24 @@ export function ChatWidget() {
       return; // Agent modunda bot yanıt vermesin
     }
     
-    // Bot modunda bot yanıt versin
+    // Bot modunda bot yanıt versin (ama agent bağlandıysa verme)
+    if (isAgentConnected) {
+      // Agent bağlandı, mesajı store'a gönder
+      storeAddMessage({
+        text: userMessage.text,
+        sender: 'user',
+      });
+      return;
+    }
+    
     setIsTyping(true);
     setTimeout(() => {
+      // Agent bağlandı mı tekrar kontrol et (gecikme sırasında bağlanmış olabilir)
+      if (isAgentConnected) {
+        setIsTyping(false);
+        return;
+      }
+      
       const botResponse = findBotResponse(userMessage.text);
       
       const botMessage: Message = {
@@ -352,9 +371,25 @@ export function ChatWidget() {
 
     setMessages((prev) => [...prev, userMessage]);
     setShowQuickReplies(false);
+    
+    // Agent bağlandıysa bot yanıt vermesin
+    if (isAgentConnected) {
+      storeAddMessage({
+        text: reply.label,
+        sender: 'user',
+      });
+      return;
+    }
+    
     setIsTyping(true);
 
     setTimeout(() => {
+      // Agent bağlandı mı kontrol et
+      if (isAgentConnected) {
+        setIsTyping(false);
+        return;
+      }
+      
       const botMessage: Message = {
         id: `bot-${Date.now()}`,
         text: reply.response,
