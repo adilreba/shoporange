@@ -126,18 +126,6 @@ const savePosition = (y: number) => {
 
 export function ChatWidget() {
   const { user, isAuthenticated } = useAuthStore();
-  const [isAdminPage, setIsAdminPage] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-  
-  // Admin panelinde (/admin) chat widget'ı gösterme
-  useEffect(() => {
-    setIsClient(true);
-    setIsAdminPage(window.location.pathname.startsWith('/admin'));
-  }, []);
-  
-  // Server-side rendering sırasında veya admin sayfasında gösterme
-  if (!isClient || isAdminPage) return null;
-  
   const { 
     requestAgent: storeRequestAgent, 
     addCustomerMessage: storeAddCustomerMessage,

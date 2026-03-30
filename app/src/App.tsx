@@ -1,10 +1,19 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/sonner';
 import { useAuthStore, initializeAuth } from '@/stores/authStore';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import { ScrollToTop } from '@/components/common/ScrollToTop';
 import { useEffect } from 'react';
+
+// Chat Widget Wrapper - Admin panelinde gizler
+function ChatWidgetWrapper() {
+  const location = useLocation();
+  const isAdminPage = location.pathname.startsWith('/admin');
+  
+  if (isAdminPage) return null;
+  return <ChatWidget />;
+}
 
 // Pages
 import { Home } from '@/pages/Home';
@@ -215,8 +224,8 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       
-      {/* Chat Widget */}
-      <ChatWidget />
+      {/* Chat Widget - Admin panelinde gizli */}
+      <ChatWidgetWrapper />
     </Router>
     </HelmetProvider>
   );
