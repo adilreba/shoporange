@@ -128,9 +128,6 @@ export function ChatWidget() {
   const { user, isAuthenticated } = useAuthStore();
   const { 
     requestAgent: storeRequestAgent, 
-    messages: storeMessages,
-    agentName,
-    waitingForAgent,
     addMessage: storeAddMessage,
   } = useChatStore();
   const [isOpen, setIsOpen] = useState(false);
@@ -169,49 +166,48 @@ export function ChatWidget() {
     }
   }, []);
 
-  // Store'dan gelen mesajları izle (agent mesajları)
+  // Store'dan gelen mesajları izle (gerçek zamanlı senkronizasyon)
   useEffect(() => {
-    // Store'daki agent mesajlarını local state'e aktar
-    const agentMessages = storeMessages.filter(m => m.sender === 'agent');
-    if (agentMessages.length > 0) {
-      setMessages(prev => {
-        // Önceki mesajlarda olmayan agent mesajlarını bul
-        const newAgentMessages = agentMessages.filter(am => 
-          !prev.some(pm => pm.id === am.id)
-        );
-        if (newAgentMessages.length === 0) return prev;
+    const unsubscribe = useChatStore.subscribe((state, prevState) => {
+      // Sadece mesajlar değiştiğinde çalış
+      if (state.messages !== prevState.messages) {
+        const agentMsgs = state.messages.filter(m => m.sender === 'agent');
         
-        // Yeni agent mesajlarını ekle
-        const formattedNewMessages: Message[] = newAgentMessages.map(m => ({
-          id: m.id,
-          text: m.text,
-          sender: 'agent',
-          timestamp: new Date(m.timestamp),
-        }));
-        
-        return [...prev, ...formattedNewMessages];
-      });
-      
-      // Agent mesajı geldiğinde agent modunu aç
-      if (!isAgentMode) {
-        setIsAgentMode(true);
+        if (agentMsgs.length > 0) {
+          setMessages(prev => {
+            // Önceki mesajlarda olmayan agent mesajlarını bul
+            const newMsgs = agentMsgs.filter(am => 
+              !prev.some(pm => pm.id === am.id)
+            );
+            
+            if (newMsgs.length === 0) return prev;
+            
+            // Yeni mesajları formatlayıp ekle
+            const formatted: Message[] = newMsgs.map(m => ({
+              id: m.id,
+              text: m.text,
+              sender: 'agent',
+              timestamp: new Date(m.timestamp),
+            }));
+            
+            // Agent modunu aç
+            if (!isAgentMode) {
+              setIsAgentMode(true);
+            }
+            
+            // Toast bildirim (chat kapalıysa)
+            if (!isOpen) {
+              setUnreadCount(c => c + 1);
+            }
+            
+            return [...prev, ...formatted];
+          });
+        }
       }
-    }
-  }, [storeMessages]);
-
-  // Agent bağlandığında bildirim göster
-  useEffect(() => {
-    if (agentName && waitingForAgent === false && isAgentMode) {
-      const agentConnectedMessage: Message = {
-        id: `agent-connected-${Date.now()}`,
-        text: `${agentName} size bağlandı. Size nasıl yardımcı olabilirim?`,
-        sender: 'agent',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, agentConnectedMessage]);
-      setIsTyping(false);
-    }
-  }, [agentName, waitingForAgent, isAgentMode]);
+    });
+    
+    return () => unsubscribe();
+  }, [isAgentMode, isOpen]);
 
   // Auto-scroll
   useEffect(() => {

@@ -286,25 +286,50 @@ export default function AgentDashboard() {
     setInputMessage('');
   };
   
-  // Seçili session değiştiğinde mesajları yükle
+  // Seçili session değiştiğinde mesajları yükle ve store'dan dinle
   useEffect(() => {
-    if (selectedSession) {
+    if (!selectedSession) {
+      setMessages([]);
+      return;
+    }
+    
+    // İlk yükleme
+    const loadMessages = () => {
       const sessionMessages = getSessionMessages(selectedSession.sessionId);
-      // ChatMessage formatına çevir
       const formattedMessages: ChatMessage[] = sessionMessages.map(msg => ({
         messageId: msg.id,
         sessionId: selectedSession.sessionId,
-        senderId: msg.sender === 'agent' ? 'agent' : selectedSession.customerId,
+        senderId: msg.sender === 'agent' ? user?.id || 'agent' : selectedSession.customerId,
         senderType: msg.sender === 'agent' ? 'agent' : 'customer',
         content: msg.text,
         timestamp: msg.timestamp,
         isRead: true,
       }));
       setMessages(formattedMessages);
-    } else {
-      setMessages([]);
-    }
-  }, [selectedSession]);
+    };
+    
+    loadMessages();
+    
+    // Store değişikliklerini dinle (gerçek zamanlı senkronizasyon)
+    const unsubscribe = useChatStore.subscribe((state) => {
+      // Aktif session'ın mesajlarını bul
+      const session = state.activeSessions.find(s => s.id === selectedSession.sessionId);
+      if (session) {
+        const formattedMessages: ChatMessage[] = session.messages.map(msg => ({
+          messageId: msg.id,
+          sessionId: selectedSession.sessionId,
+          senderId: msg.sender === 'agent' ? user?.id || 'agent' : selectedSession.customerId,
+          senderType: msg.sender === 'agent' ? 'agent' : 'customer',
+          content: msg.text,
+          timestamp: msg.timestamp,
+          isRead: true,
+        }));
+        setMessages(formattedMessages);
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [selectedSession, user?.id]);
 
   const closeChat = async () => {
     if (!selectedSession) return;
@@ -436,11 +461,13 @@ export default function AgentDashboard() {
             </div>
           </div>
 
-          {/* Bekleyen Liste */}
-          {activeTab === 'waiting' && (
-            <div className="flex-1 overflow-hidden">
-              <ScrollArea className="h-[calc(100vh-280px)]">
-                <div className="p-3 space-y-2">
+          {/* Liste Alanı - Sabit Tab + Scrollable Liste */}
+          <div className="flex-1 overflow-hidden">
+            
+            {/* Bekleyen Liste */}
+            {activeTab === 'waiting' && (
+              <ScrollArea className="h-full">
+                <div className="p-3 space-y-2 pb-20">
                   {waitingChats.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                       <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
@@ -484,14 +511,12 @@ export default function AgentDashboard() {
                   )}
                 </div>
               </ScrollArea>
-            </div>
           )}
 
           {/* Aktif Liste */}
           {activeTab === 'active' && (
-            <div className="flex-1 overflow-hidden">
-              <ScrollArea className="h-[calc(100vh-280px)]">
-                <div className="p-3 space-y-2">
+              <ScrollArea className="h-full">
+                <div className="p-3 space-y-2 pb-20">
                   {activeChats.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                       <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
@@ -543,8 +568,8 @@ export default function AgentDashboard() {
                   )}
                 </div>
               </ScrollArea>
-            </div>
           )}
+          </div>
         </div>
 
         {/* Chat Area */}
@@ -591,9 +616,10 @@ export default function AgentDashboard() {
                 </Button>
               </div>
 
-              {/* Messages */}
-              <ScrollArea className="flex-1 p-6">
-                <div className="space-y-4 max-w-4xl mx-auto">
+              {/* Messages - Scrollable Area */}
+              <div className="flex-1 overflow-hidden relative">
+                <ScrollArea className="h-full p-6">
+                  <div className="space-y-4 max-w-4xl mx-auto pb-20">
                   {messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
                       <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
@@ -644,10 +670,11 @@ export default function AgentDashboard() {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
-              </ScrollArea>
+                </ScrollArea>
+              </div>
 
-              {/* Input */}
-              <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+              {/* Input - Fixed at bottom */}
+              <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
                 <div className="flex gap-3 max-w-4xl mx-auto">
                   <Input
                     value={inputMessage}
