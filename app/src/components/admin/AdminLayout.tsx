@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -23,6 +23,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { useThemeStore } from '@/stores/themeStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useChatStore } from '@/stores/chatStore';
+import { chatApi } from '@/services/api';
 
 const menuItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
@@ -41,10 +43,42 @@ const menuItems = [
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [waitingCount, setWaitingCount] = useState(0);
+  const [activeCount, setActiveCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useThemeStore();
   const { user, logout } = useAuthStore();
+  const { agentRequests, activeSessions } = useChatStore();
+
+  // Canlı destek sayılarını güncelle
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        // AWS'den bekleme sayısını çek
+        const response = await chatApi.getWaitingSessions();
+        
+        // Local pending sayısı
+        const localPendingCount = agentRequests.filter(req => req.status === 'pending').length;
+        
+        // Toplam bekleme (AWS + Local, tekrarları çıkararak)
+        const localPendingIds = new Set(agentRequests.filter(req => req.status === 'pending').map(req => req.id));
+        const uniqueAwsCount = response.data?.filter((s: any) => !localPendingIds.has(s.sessionId)).length || 0;
+        
+        setWaitingCount(uniqueAwsCount + localPendingCount);
+        setActiveCount(activeSessions.length);
+      } catch (error) {
+        // Hata durumunda sadece local verileri göster
+        const localPendingCount = agentRequests.filter(req => req.status === 'pending').length;
+        setWaitingCount(localPendingCount);
+        setActiveCount(activeSessions.length);
+      }
+    };
+
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 5000); // Her 5 saniyede güncelle
+    return () => clearInterval(interval);
+  }, [agentRequests, activeSessions]);
 
   const handleLogout = () => {
     logout();
@@ -88,20 +122,40 @@ export default function AdminLayout() {
 
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-                isActive(item.path, item.exact)
-                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {sidebarOpen && <span className="font-medium">{item.label}</span>}
-            </Link>
-          ))}
+          {menuItems.map((item) => {
+            // Canlı Destek için badge hesapla
+            const isSupport = item.path === '/admin/support';
+            const totalCount = isSupport ? waitingCount + activeCount : 0;
+            
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                  isActive(item.path, item.exact)
+                    ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                {sidebarOpen && (
+                  <div className="flex items-center justify-between flex-1 min-w-0">
+                    <span className="font-medium truncate">{item.label}</span>
+                    {isSupport && totalCount > 0 && (
+                      <span className="ml-2 px-1.5 py-0.5 text-xs font-semibold bg-orange-500 text-white rounded-full min-w-[20px] text-center">
+                        {totalCount}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {!sidebarOpen && isSupport && totalCount > 0 && (
+                  <span className="absolute right-2 w-4 h-4 text-[10px] font-semibold bg-orange-500 text-white rounded-full flex items-center justify-center">
+                    {totalCount}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* User Profile */}
@@ -139,21 +193,31 @@ export default function AdminLayout() {
               </Button>
             </div>
             <nav className="p-4 space-y-1">
-              {menuItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${
-                    isActive(item.path, item.exact)
-                      ? 'bg-orange-50 text-orange-600'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              ))}
+              {menuItems.map((item) => {
+                const isSupport = item.path === '/admin/support';
+                const totalCount = isSupport ? waitingCount + activeCount : 0;
+                
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${
+                      isActive(item.path, item.exact)
+                        ? 'bg-orange-50 text-orange-600'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                    {isSupport && totalCount > 0 && (
+                      <span className="ml-auto px-1.5 py-0.5 text-xs font-semibold bg-orange-500 text-white rounded-full min-w-[20px] text-center">
+                        {totalCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </nav>
           </aside>
         </div>

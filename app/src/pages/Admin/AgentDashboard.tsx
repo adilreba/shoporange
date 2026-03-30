@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  MessageCircle, Users, Clock, CheckCircle, XCircle, 
-  Send, User
+  MessageCircle, Clock, CheckCircle, XCircle, 
+  Send
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import { chatApi } from '@/services/api';
@@ -53,7 +52,7 @@ export default function AgentDashboard() {
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
   const [messages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [isConnected] = useState(true);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const notifiedRequestsRef = useRef<Set<string>>(new Set());
   const disconnectedNotifiedRef = useRef<Set<string>>(new Set());
@@ -325,197 +324,228 @@ export default function AgentDashboard() {
   };
 
   return (
-    <div className="h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b bg-card px-4 sm:px-6 py-4">
-        <div className="flex flex-col gap-3">
-          {/* Üst Satır: Logo + Başlık + Durum */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-orange-500 p-2 rounded-lg">
-                <MessageCircle className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold">Canlı Destek Paneli</h1>
-                <p className="text-sm text-muted-foreground">
-                  {isConnected ? (
-                    <span className="flex items-center gap-1 text-green-600">
-                      <CheckCircle className="w-4 h-4" /> Çevrimiçi
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-red-600">
-                      <XCircle className="w-4 h-4" /> Çevrimdışı
-                    </span>
-                  )}
-                </p>
-              </div>
+    <div className="h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900 flex flex-col">
+      {/* Header - Profesyonel Tasarım */}
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+        <div className="flex items-center justify-between">
+          {/* Sol: Başlık ve Durum */}
+          <div className="flex items-center gap-4">
+            <div className="bg-orange-500 p-2.5 rounded-xl shadow-lg shadow-orange-500/20">
+              <MessageCircle className="w-6 h-6 text-white" />
             </div>
-            
-            {/* Desktop: Kullanıcı bilgisi */}
-            <div className="hidden lg:flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-gray-600" />
-              </div>
-              <div className="text-sm">
-                <p className="font-medium">{user?.name || 'Temsilci'}</p>
-                <p className="text-muted-foreground text-xs">{user?.email}</p>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Canlı Destek Paneli</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="flex items-center gap-1.5 text-sm text-green-600">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                  </span>
+                  Çevrimiçi
+                </span>
               </div>
             </div>
           </div>
           
-          {/* Alt Satır: Badge'ler + Test Butonu */}
-          <div className="flex items-center justify-between sm:justify-start gap-2">
-            <div className="flex items-center gap-2 text-sm">
-              <Badge variant="secondary" className="gap-1">
-                <Users className="w-3 h-3" />
-                {waitingChats.length} Bekleyen
-              </Badge>
-              <Badge variant="default" className="gap-1 bg-orange-500">
-                <MessageCircle className="w-3 h-3" />
-                {activeChats.length} Aktif
-              </Badge>
+          {/* Orta: İstatistikler */}
+          <div className="hidden md:flex items-center gap-3">
+            <div className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-800">
+              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+              <span className="text-sm font-medium text-red-700 dark:text-red-400">{waitingChats.length} Bekleyen</span>
             </div>
-            {/* Test Talep Oluştur Butonu */}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => {
-                const { requestAgent } = useChatStore.getState();
-                requestAgent({
-                  userId: `test_${Date.now()}`,
-                  userName: 'Test Müşteri',
-                  userEmail: 'test@musteri.com'
-                });
-                toast.success('Test talebi oluşturuldu!');
-              }}
-              className="ml-auto"
-            >
-              + Test Talebi Oluştur
-            </Button>
+            <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-800">
+              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+              <span className="text-sm font-medium text-orange-700 dark:text-orange-400">{activeChats.length} Aktif</span>
+            </div>
           </div>
+          
+          {/* Sağ: Test Butonu */}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              const { requestAgent } = useChatStore.getState();
+              requestAgent({
+                userId: `test_${Date.now()}`,
+                userName: 'Test Müşteri',
+                userEmail: 'test@musteri.com'
+              });
+              toast.success('Test talebi oluşturuldu!');
+            }}
+            className="hidden sm:flex items-center gap-1.5 border-gray-300 hover:bg-gray-50"
+          >
+            + Test Talebi
+          </Button>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden">
         {/* Sidebar - Chat List */}
         <div className={cn(
-          "w-full lg:w-80 border-r bg-card flex flex-col absolute lg:relative z-10 h-full transition-transform",
+          "w-full lg:w-96 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col absolute lg:relative z-10 h-full transition-transform",
           selectedSession ? "-translate-x-full lg:translate-x-0" : "translate-x-0"
         )}>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-2 m-4 mb-0">
-              <TabsTrigger value="waiting" className="gap-2">
+          {/* Profesyonel Tab Tasarımı */}
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+            <div className="flex gap-1 bg-gray-200/60 dark:bg-gray-700 p-1 rounded-xl">
+              <button
+                onClick={() => setActiveTab('waiting')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                  activeTab === 'waiting'
+                    ? "bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                )}
+              >
+                <Clock className="w-4 h-4" />
                 Bekleyen
                 {waitingChats.length > 0 && (
-                  <Badge variant="destructive" className="ml-1">{waitingChats.length}</Badge>
+                  <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                    {waitingChats.length}
+                  </span>
                 )}
-              </TabsTrigger>
-              <TabsTrigger value="active" className="gap-2">
+              </button>
+              <button
+                onClick={() => setActiveTab('active')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                  activeTab === 'active'
+                    ? "bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                )}
+              >
+                <MessageCircle className="w-4 h-4" />
                 Aktif
                 {activeChats.length > 0 && (
-                  <Badge className="ml-1 bg-orange-500">{activeChats.length}</Badge>
+                  <span className="bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                    {activeChats.length}
+                  </span>
                 )}
-              </TabsTrigger>
-            </TabsList>
+              </button>
+            </div>
+          </div>
 
-            <TabsContent value="waiting" className="flex-1 m-0">
-              <ScrollArea className="h-[calc(100vh-200px)]">
-                <div className="p-4 space-y-2">
+          {/* Bekleyen Liste */}
+          {activeTab === 'waiting' && (
+            <div className="flex-1 overflow-hidden">
+              <ScrollArea className="h-[calc(100vh-280px)]">
+                <div className="p-3 space-y-2">
                   {waitingChats.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Clock className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>Bekleyen müşteri yok</p>
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                      <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                        <Clock className="w-10 h-10 text-gray-400" />
+                      </div>
+                      <p className="text-lg font-medium text-gray-600 dark:text-gray-400">Bekleyen müşteri yok</p>
+                      <p className="text-sm mt-1">Yeni talepler burada görünecek</p>
                     </div>
                   ) : (
                     waitingChats.map((chat) => (
-                      <Card 
+                      <div 
                         key={chat.sessionId}
-                        className="cursor-pointer hover:border-orange-500 transition-colors"
+                        className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-red-400 hover:shadow-md transition-all cursor-pointer"
                         onClick={() => acceptChat(chat)}
                       >
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                              <User className="w-5 h-5 text-orange-600" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{chat.customerName || chat.customerId.slice(0, 8)}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDuration(chat.createdAt)} bekliyor
-                              </p>
-                              {chat.lastMessage && (
-                                <p className="text-sm text-muted-foreground truncate mt-1">
-                                  {chat.lastMessage.content}
-                                </p>
-                              )}
-                            </div>
-                            <Button size="sm" className="gradient-orange">
-                              Kabul Et
-                            </Button>
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-lg font-bold text-red-600 dark:text-red-400">
+                              {(chat.customerName || 'M').charAt(0).toUpperCase()}
+                            </span>
                           </div>
-                        </CardContent>
-                      </Card>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="font-semibold text-gray-900 dark:text-white truncate">
+                                {chat.customerName || 'Misafir Kullanıcı'}
+                              </p>
+                              <span className="text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded-full">
+                                {formatDuration(chat.createdAt)}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                              {chat.customerEmail || 'E-posta belirtilmemiş'}
+                            </p>
+                          </div>
+                          <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white shadow-md">
+                            Kabul Et
+                          </Button>
+                        </div>
+                      </div>
                     ))
                   )}
                 </div>
               </ScrollArea>
-            </TabsContent>
+            </div>
+          )}
 
-            <TabsContent value="active" className="flex-1 m-0">
-              <ScrollArea className="h-[calc(100vh-200px)]">
-                <div className="p-4 space-y-2">
+          {/* Aktif Liste */}
+          {activeTab === 'active' && (
+            <div className="flex-1 overflow-hidden">
+              <ScrollArea className="h-[calc(100vh-280px)]">
+                <div className="p-3 space-y-2">
                   {activeChats.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>Aktif sohbet yok</p>
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                      <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                        <CheckCircle className="w-10 h-10 text-gray-400" />
+                      </div>
+                      <p className="text-lg font-medium text-gray-600 dark:text-gray-400">Aktif sohbet yok</p>
+                      <p className="text-sm mt-1">Kabul ettiğiniz müşteriler burada görünecek</p>
                     </div>
                   ) : (
                     activeChats.map((chat) => (
-                      <Card 
+                      <div 
                         key={chat.sessionId}
                         className={cn(
-                          "cursor-pointer transition-colors",
+                          "group bg-white dark:bg-gray-800 border rounded-xl p-4 cursor-pointer transition-all",
                           selectedSession?.sessionId === chat.sessionId 
-                            ? "border-orange-500 bg-orange-50" 
-                            : "hover:border-orange-300"
+                            ? "border-orange-500 shadow-md ring-1 ring-orange-500/20" 
+                            : "border-gray-200 dark:border-gray-700 hover:border-orange-400 hover:shadow-sm"
                         )}
                         onClick={() => setSelectedSession(chat)}
                       >
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                              <User className="w-5 h-5 text-green-600" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{chat.customerName || chat.customerId.slice(0, 8)}</p>
-                              <p className="text-xs text-green-600">Aktif</p>
-                              {chat.lastMessage && (
-                                <p className="text-sm text-muted-foreground truncate mt-1">
-                                  {chat.lastMessage.content}
-                                </p>
-                              )}
-                            </div>
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                              {(chat.customerName || 'M').charAt(0).toUpperCase()}
+                            </span>
                           </div>
-                        </CardContent>
-                      </Card>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="font-semibold text-gray-900 dark:text-white truncate">
+                                {chat.customerName || 'Misafir Kullanıcı'}
+                              </p>
+                              <span className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-full">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                                Aktif
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                              {formatDuration(chat.createdAt)} süredir bağlı
+                            </p>
+                            {chat.lastMessage && (
+                              <p className="text-sm text-gray-600 dark:text-gray-300 truncate mt-1 font-medium">
+                                {chat.lastMessage.content}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     ))
                   )}
                 </div>
               </ScrollArea>
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
         </div>
 
         {/* Chat Area */}
         <div className={cn(
-          "flex-1 flex flex-col absolute lg:relative z-20 bg-background h-full w-full lg:w-auto transition-transform",
+          "flex-1 flex flex-col absolute lg:relative z-20 bg-gray-50 dark:bg-gray-900 h-full w-full lg:w-auto transition-transform",
           selectedSession ? "translate-x-0" : "translate-x-full lg:translate-x-0"
         )}>
           {selectedSession ? (
             <>
               {/* Chat Header */}
-              <div className="border-b px-6 py-4 flex items-center justify-between bg-card">
+              <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Button 
                     variant="ghost" 
@@ -525,70 +555,90 @@ export default function AgentDashboard() {
                   >
                     ←
                   </Button>
-                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                    <User className="w-5 h-5 text-orange-600" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/30 dark:to-amber-900/30 rounded-full flex items-center justify-center">
+                    <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                      {(selectedSession.customerName || 'M').charAt(0).toUpperCase()}
+                    </span>
                   </div>
                   <div>
-                    <p className="font-medium">Müşteri #{selectedSession.customerName || selectedSession.customerId.slice(0, 8)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDuration(selectedSession.createdAt)} süredir bağlı
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {selectedSession.customerName || 'Misafir Kullanıcı'}
                     </p>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      {formatDuration(selectedSession.createdAt)} süredir bağlı
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={closeChat}>
-                    <XCircle className="w-4 h-4 mr-1" />
-                    Sonlandır
-                  </Button>
-                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={closeChat}
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                >
+                  <XCircle className="w-4 h-4 mr-1.5" />
+                  Sonlandır
+                </Button>
               </div>
 
               {/* Messages */}
               <ScrollArea className="flex-1 p-6">
-                <div className="space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.messageId}
-                      className={cn(
-                        'flex gap-3',
-                        message.senderType === 'agent' ? 'flex-row-reverse' : ''
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          'w-8 h-8 rounded-full flex items-center justify-center',
-                          message.senderType === 'agent'
-                            ? 'bg-orange-100 text-orange-600'
-                            : 'bg-gray-100 text-gray-600'
-                        )}
-                      >
-                        <User className="w-4 h-4" />
+                <div className="space-y-4 max-w-4xl mx-auto">
+                  {messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
+                      <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                        <MessageCircle className="w-12 h-12 text-gray-300" />
                       </div>
-                      <div
-                        className={cn(
-                          'max-w-[70%] rounded-2xl px-4 py-2',
-                          message.senderType === 'agent'
-                            ? 'bg-orange-500 text-white rounded-br-none'
-                            : 'bg-gray-100 text-gray-900 rounded-bl-none'
-                        )}
-                      >
-                        <p>{message.content}</p>
-                        <p className={cn(
-                          'text-xs mt-1',
-                          message.senderType === 'agent' ? 'text-orange-100' : 'text-gray-500'
-                        )}>
-                          {formatTime(message.timestamp)}
-                        </p>
-                      </div>
+                      <p className="text-lg font-medium text-gray-600 dark:text-gray-400">Henüz mesaj yok</p>
+                      <p className="text-sm mt-1">Sohbete başlamak için mesaj gönderin</p>
                     </div>
-                  ))}
+                  ) : (
+                    messages.map((message) => (
+                      <div
+                        key={message.messageId}
+                        className={cn(
+                          'flex gap-3',
+                          message.senderType === 'agent' ? 'flex-row-reverse' : ''
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+                            message.senderType === 'agent'
+                              ? 'bg-orange-100 text-orange-600'
+                              : 'bg-gray-200 text-gray-600'
+                          )}
+                        >
+                          <span className="text-sm font-bold">
+                            {message.senderType === 'agent' ? 'A' : 'M'}
+                          </span>
+                        </div>
+                        <div
+                          className={cn(
+                            'max-w-[70%] rounded-2xl px-5 py-3',
+                            message.senderType === 'agent'
+                              ? 'bg-orange-500 text-white rounded-br-none shadow-md'
+                              : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none shadow-sm border border-gray-100 dark:border-gray-600'
+                          )}
+                        >
+                          <p className="text-sm leading-relaxed">{message.content}</p>
+                          <p className={cn(
+                            'text-xs mt-2',
+                            message.senderType === 'agent' ? 'text-orange-100' : 'text-gray-400'
+                          )}>
+                            {formatTime(message.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
 
               {/* Input */}
-              <div className="border-t p-4 bg-card">
-                <div className="flex gap-2">
+              <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+                <div className="flex gap-3 max-w-4xl mx-auto">
                   <Input
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
@@ -596,7 +646,7 @@ export default function AgentDashboard() {
                       if (e.key === 'Enter') sendMessage();
                     }}
                     placeholder="Mesajınızı yazın..."
-                    className="flex-1"
+                    className="flex-1 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:bg-white dark:focus:bg-gray-600"
                   />
                   <Button onClick={sendMessage} className="gradient-orange">
                     <Send className="w-4 h-4" />
@@ -605,10 +655,28 @@ export default function AgentDashboard() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p className="text-lg">Sohbet seçin veya yeni müşteri kabul edin</p>
+            <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+              <div className="text-center px-4">
+                <div className="w-32 h-32 bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/20 dark:to-amber-900/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                  <MessageCircle className="w-16 h-16 text-orange-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  Canlı Destek Paneli
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
+                  Sohbet başlatmak için soldaki listeden bir müşteri seçin veya bekleyen bir talebi kabul edin.
+                </p>
+                <div className="flex items-center justify-center gap-4 text-sm text-gray-400">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+                    <span>{waitingChats.length} Bekleyen</span>
+                  </div>
+                  <div className="w-px h-4 bg-gray-300"></div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 bg-orange-500 rounded-full"></span>
+                    <span>{activeChats.length} Aktif</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
