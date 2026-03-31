@@ -4,6 +4,55 @@ import type { User, LoginCredentials, RegisterData } from '@/types';
 import * as cognito from '@/services/cognito';
 import * as googleAuth from '@/services/googleAuth';
 
+// Mock kullanıcılar (demo için)
+const MOCK_USERS = [
+  {
+    id: 'admin-1',
+    email: 'admin@atushome.com',
+    password: 'admin123',
+    name: 'Admin Kullanıcı',
+    role: 'admin',
+    phone: '+90 555 999 8888',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+    address: [],
+    createdAt: '2024-01-01'
+  },
+  {
+    id: 'user-1',
+    email: 'test@example.com',
+    password: 'password123',
+    name: 'Test Kullanıcı',
+    role: 'user',
+    phone: '+90 555 123 4567',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+    address: [
+      {
+        id: 'addr-1',
+        title: 'Ev',
+        fullName: 'Test Kullanıcı',
+        phone: '+90 555 123 4567',
+        city: 'İstanbul',
+        district: 'Kadıköy',
+        neighborhood: 'Moda',
+        addressLine: 'Moda Caddesi No:123 D:5',
+        zipCode: '34710',
+        isDefault: true
+      }
+    ],
+    createdAt: '2024-01-01'
+  }
+];
+
+// Mock mode kontrolü
+const FORCE_MOCK_MODE = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
+const isMockMode = () => {
+  if (FORCE_MOCK_MODE) return true;
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl || envUrl === '') return true;
+  if (envUrl.includes('your-api-gateway-url')) return true;
+  return false;
+};
+
 interface Address {
   id: string;
   title: string;
@@ -54,6 +103,53 @@ interface AuthState {
   changePassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
 }
 
+// Mock login fonksiyonu
+const mockLogin = async (email: string, password: string) => {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  const user = MOCK_USERS.find(u => u.email === email && u.password === password);
+  if (!user) {
+    throw new Error('Geçersiz e-posta veya şifre');
+  }
+  const { password: _, ...userWithoutPassword } = user;
+  return {
+    user: userWithoutPassword,
+    tokens: {
+      accessToken: `mock_token_${user.id}`,
+      idToken: `mock_id_token_${user.id}`,
+      refreshToken: `mock_refresh_${user.id}`,
+      expiresAt: Date.now() + 3600000,
+    }
+  };
+};
+
+// Mock register fonksiyonu
+const mockRegister = async (data: { email: string; password: string; name: string; phone?: string }) => {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  if (MOCK_USERS.some(u => u.email === data.email)) {
+    throw new Error('Bu e-posta adresi zaten kullanılıyor');
+  }
+  const newUser = {
+    id: `user-${Date.now()}`,
+    email: data.email,
+    name: data.name,
+    role: 'user',
+    phone: data.phone || '',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+    address: [],
+    createdAt: new Date().toISOString()
+  };
+  MOCK_USERS.push({ ...newUser, password: data.password } as any);
+  return {
+    user: newUser,
+    tokens: {
+      accessToken: `mock_token_${newUser.id}`,
+      idToken: `mock_id_token_${newUser.id}`,
+      refreshToken: `mock_refresh_${newUser.id}`,
+      expiresAt: Date.now() + 3600000,
+    }
+  };
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -66,14 +162,25 @@ export const useAuthStore = create<AuthState>()(
       pendingVerificationEmail: null,
 
       initAuth: async () => {
+        if (isMockMode()) {
+          // Mock mode'da localStorage'dan kontrol et
+          const saved = localStorage.getItem('auth-storage');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.state?.isAuthenticated) {
+              set({ ...parsed.state });
+            }
+          }
+          set({ isLoading: false });
+          return;
+        }
+
+        // Gerçek Cognito auth
         try {
           set({ isLoading: true });
-          
-          // Check for existing Cognito session
           const session = await cognito.getCurrentSession();
           
           if (session) {
-            // Check if token needs refresh
             if (cognito.needsTokenRefresh(session.tokens)) {
               try {
                 const newTokens = await cognito.refreshSession(session.tokens.refreshToken);
@@ -84,14 +191,8 @@ export const useAuthStore = create<AuthState>()(
                   isLoading: false 
                 });
               } catch (refreshError) {
-                // Refresh failed, clear session
                 await cognito.signOut();
-                set({ 
-                  user: null, 
-                  tokens: null, 
-                  isAuthenticated: false,
-                  isLoading: false 
-                });
+                set({ user: null, tokens: null, isAuthenticated: false, isLoading: false });
               }
             } else {
               set({ 
@@ -102,21 +203,10 @@ export const useAuthStore = create<AuthState>()(
               });
             }
           } else {
-            set({ 
-              user: null, 
-              tokens: null, 
-              isAuthenticated: false,
-              isLoading: false 
-            });
+            set({ user: null, tokens: null, isAuthenticated: false, isLoading: false });
           }
         } catch (error) {
-          console.error('Auth initialization failed:', error);
-          set({ 
-            user: null, 
-            tokens: null, 
-            isAuthenticated: false,
-            isLoading: false 
-          });
+          set({ user: null, tokens: null, isAuthenticated: false, isLoading: false });
         }
       },
 
@@ -124,13 +214,19 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null, needsVerification: false });
         
         try {
-          const result = await cognito.signIn({
-            email: credentials.email,
-            password: credentials.password,
-          });
+          let result;
+          
+          if (isMockMode()) {
+            result = await mockLogin(credentials.email, credentials.password);
+          } else {
+            result = await cognito.signIn({
+              email: credentials.email,
+              password: credentials.password,
+            });
+          }
           
           set({ 
-            user: { ...result.user, createdAt: result.user.createdAt || new Date().toISOString() } as User, 
+            user: result.user as User, 
             tokens: result.tokens,
             isAuthenticated: true, 
             isLoading: false 
@@ -138,31 +234,8 @@ export const useAuthStore = create<AuthState>()(
           return true;
         } catch (error: any) {
           console.error('Login error:', error);
-          
-          // Handle specific Cognito errors
-          if (error.code === 'UserNotConfirmedException') {
-            set({ 
-              needsVerification: true,
-              pendingVerificationEmail: credentials.email,
-              error: 'E-posta adresiniz doğrulanmamış. Lütfen e-postanızı kontrol edin.',
-              isLoading: false 
-            });
-            return false;
-          }
-          
-          if (error.code === 'NotAuthorizedException' || error.code === 'UserNotFoundException') {
-            set({ 
-              error: 'Geçersiz e-posta veya şifre',
-              isLoading: false 
-            });
-            return false;
-          }
-          
           const errorMessage = error.message || 'Giriş yapılırken bir hata oluştu';
-          set({ 
-            error: errorMessage, 
-            isLoading: false 
-          });
+          set({ error: errorMessage, isLoading: false });
           return false;
         }
       },
@@ -171,44 +244,36 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null, needsVerification: false });
         
         try {
-          await cognito.signUp({
-            email: data.email,
-            password: data.password,
-            name: data.name,
-            phone: data.phone,
-          });
+          let result;
           
-          // Registration successful, but needs email verification
+          if (isMockMode()) {
+            result = await mockRegister(data);
+          } else {
+            await cognito.signUp({
+              email: data.email,
+              password: data.password,
+              name: data.name,
+              phone: data.phone,
+            });
+            set({ 
+              needsVerification: true,
+              pendingVerificationEmail: data.email,
+              isLoading: false 
+            });
+            return true;
+          }
+          
           set({ 
-            needsVerification: true,
-            pendingVerificationEmail: data.email,
+            user: result.user as User, 
+            tokens: result.tokens,
+            isAuthenticated: true, 
             isLoading: false 
           });
           return true;
         } catch (error: any) {
           console.error('Register error:', error);
-          
-          if (error.code === 'UsernameExistsException') {
-            set({ 
-              error: 'Bu e-posta adresi zaten kullanılıyor',
-              isLoading: false 
-            });
-            return false;
-          }
-          
-          if (error.code === 'InvalidPasswordException') {
-            set({ 
-              error: 'Şifre en az 8 karakter, büyük/küçük harf ve rakam içermelidir',
-              isLoading: false 
-            });
-            return false;
-          }
-          
           const errorMessage = error.message || 'Kayıt olurken bir hata oluştu';
-          set({ 
-            error: errorMessage, 
-            isLoading: false 
-          });
+          set({ error: errorMessage, isLoading: false });
           return false;
         }
       },
@@ -221,36 +286,19 @@ export const useAuthStore = create<AuthState>()(
           return false;
         }
         
+        if (isMockMode()) {
+          set({ needsVerification: false, pendingVerificationEmail: null });
+          return true;
+        }
+        
         set({ isLoading: true, error: null });
         
         try {
           await cognito.confirmSignUp(pendingVerificationEmail, code);
-          
-          set({ 
-            needsVerification: false,
-            pendingVerificationEmail: null,
-            isLoading: false 
-          });
+          set({ needsVerification: false, pendingVerificationEmail: null, isLoading: false });
           return true;
         } catch (error: any) {
-          console.error('Verification error:', error);
-          
-          if (error.code === 'CodeMismatchException') {
-            set({ 
-              error: 'Geçersiz doğrulama kodu',
-              isLoading: false 
-            });
-          } else if (error.code === 'ExpiredCodeException') {
-            set({ 
-              error: 'Doğrulama kodunun süresi doldu',
-              isLoading: false 
-            });
-          } else {
-            set({ 
-              error: error.message || 'Doğrulama başarısız oldu',
-              isLoading: false 
-            });
-          }
+          set({ error: error.message || 'Doğrulama başarısız oldu', isLoading: false });
           return false;
         }
       },
@@ -263,6 +311,10 @@ export const useAuthStore = create<AuthState>()(
           return false;
         }
         
+        if (isMockMode()) {
+          return true;
+        }
+        
         set({ isLoading: true, error: null });
         
         try {
@@ -270,60 +322,45 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: false });
           return true;
         } catch (error: any) {
-          console.error('Resend code error:', error);
-          set({ 
-            error: error.message || 'Kod gönderilemedi',
-            isLoading: false 
-          });
+          set({ error: error.message || 'Kod gönderilemedi', isLoading: false });
           return false;
         }
       },
 
       clearVerification: () => {
-        set({ 
-          needsVerification: false,
-          pendingVerificationEmail: null 
-        });
+        set({ needsVerification: false, pendingVerificationEmail: null });
       },
 
       logout: async () => {
-        try {
-          await cognito.globalSignOut();
-        } catch (error) {
-          console.error('Logout error:', error);
-        } finally {
-          set({ 
-            user: null, 
-            tokens: null,
-            isAuthenticated: false, 
-            error: null,
-            needsVerification: false,
-            pendingVerificationEmail: null
-          });
+        if (!isMockMode()) {
+          try {
+            await cognito.globalSignOut();
+          } catch (error) {
+            console.error('Logout error:', error);
+          }
         }
+        set({ 
+          user: null, 
+          tokens: null,
+          isAuthenticated: false, 
+          error: null,
+          needsVerification: false,
+          pendingVerificationEmail: null
+        });
       },
 
       refreshToken: async () => {
-        const { tokens } = get();
+        if (isMockMode()) return true;
         
-        if (!tokens?.refreshToken) {
-          return false;
-        }
+        const { tokens } = get();
+        if (!tokens?.refreshToken) return false;
         
         try {
           const newTokens = await cognito.refreshSession(tokens.refreshToken);
-          set({ 
-            tokens: { ...tokens, ...newTokens }
-          });
+          set({ tokens: { ...tokens, ...newTokens } });
           return true;
         } catch (error) {
-          console.error('Token refresh failed:', error);
-          // Clear auth state on refresh failure
-          set({ 
-            user: null, 
-            tokens: null,
-            isAuthenticated: false 
-          });
+          set({ user: null, tokens: null, isAuthenticated: false });
           return false;
         }
       },
@@ -333,14 +370,37 @@ export const useAuthStore = create<AuthState>()(
         
         try {
           if (!token) {
-            set({ 
-              error: 'Sosyal medya token bulunamadı', 
-              isLoading: false 
-            });
+            set({ error: 'Sosyal medya token bulunamadı', isLoading: false });
             return false;
           }
           
-          // Use the backend API for social login
+          if (isMockMode()) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const mockSocialUser = {
+              id: `social-${provider}-${Date.now()}`,
+              email: `demo@${provider}.com`,
+              name: `${provider} Kullanıcı`,
+              role: 'user',
+              phone: '',
+              avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+              address: [],
+              createdAt: new Date().toISOString()
+            };
+            set({ 
+              user: mockSocialUser as User, 
+              tokens: {
+                accessToken: `mock_token_${mockSocialUser.id}`,
+                idToken: `mock_token_${mockSocialUser.id}`,
+                refreshToken: `mock_refresh_${mockSocialUser.id}`,
+                expiresAt: Date.now() + 3600000,
+              },
+              isAuthenticated: true, 
+              isLoading: false 
+            });
+            return true;
+          }
+          
+          // Gerçek API çağrısı
           const API_URL = import.meta.env.VITE_API_URL || '';
           const response = await fetch(`${API_URL}/auth/${provider}`, {
             method: 'POST',
@@ -369,10 +429,7 @@ export const useAuthStore = create<AuthState>()(
           return true;
         } catch (error: any) {
           const errorMessage = error.message || `${provider} ile giriş yapılırken hata oluştu`;
-          set({ 
-            error: errorMessage, 
-            isLoading: false 
-          });
+          set({ error: errorMessage, isLoading: false });
           return false;
         }
       },
@@ -381,6 +438,32 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
+          if (isMockMode()) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const mockGoogleUser = {
+              id: `google-${Date.now()}`,
+              email: 'google@demo.com',
+              name: 'Google Kullanıcı',
+              role: 'user',
+              phone: '',
+              avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+              address: [],
+              createdAt: new Date().toISOString()
+            };
+            set({ 
+              user: mockGoogleUser as User, 
+              tokens: {
+                accessToken: `mock_token_${mockGoogleUser.id}`,
+                idToken: `mock_token_${mockGoogleUser.id}`,
+                refreshToken: `mock_refresh_${mockGoogleUser.id}`,
+                expiresAt: Date.now() + 3600000,
+              },
+              isAuthenticated: true, 
+              isLoading: false 
+            });
+            return true;
+          }
+          
           const result = await googleAuth.signInWithGoogle(credential);
           
           set({ 
@@ -392,10 +475,7 @@ export const useAuthStore = create<AuthState>()(
           return true;
         } catch (error: any) {
           console.error('Google sign in error:', error);
-          set({ 
-            error: error.message || 'Google ile giriş yapılırken hata oluştu', 
-            isLoading: false 
-          });
+          set({ error: error.message || 'Google ile giriş yapılırken hata oluştu', isLoading: false });
           return false;
         }
       },
@@ -403,49 +483,35 @@ export const useAuthStore = create<AuthState>()(
       forgotPassword: async (email: string) => {
         set({ isLoading: true, error: null });
         
+        if (isMockMode()) {
+          set({ isLoading: false });
+          return true;
+        }
+        
         try {
           await cognito.forgotPassword(email);
           set({ isLoading: false });
           return true;
         } catch (error: any) {
-          console.error('Forgot password error:', error);
-          // Always return success to prevent email enumeration
           set({ isLoading: false });
-          return true;
+          return true; // Güvenlik için her zaman başarılı döndür
         }
       },
 
       resetPassword: async (email: string, code: string, password: string) => {
         set({ isLoading: true, error: null });
         
+        if (isMockMode()) {
+          set({ isLoading: false });
+          return true;
+        }
+        
         try {
           await cognito.confirmForgotPassword(email, code, password);
           set({ isLoading: false });
           return true;
         } catch (error: any) {
-          console.error('Reset password error:', error);
-          
-          if (error.code === 'CodeMismatchException') {
-            set({ 
-              error: 'Geçersiz sıfırlama kodu',
-              isLoading: false 
-            });
-          } else if (error.code === 'ExpiredCodeException') {
-            set({ 
-              error: 'Sıfırlama kodunun süresi doldu',
-              isLoading: false 
-            });
-          } else if (error.code === 'InvalidPasswordException') {
-            set({ 
-              error: 'Şifre gereksinimleri karşılanmıyor',
-              isLoading: false 
-            });
-          } else {
-            set({ 
-              error: error.message || 'Şifre sıfırlanamadı',
-              isLoading: false 
-            });
-          }
+          set({ error: error.message || 'Şifre sıfırlanamadı', isLoading: false });
           return false;
         }
       },
@@ -453,29 +519,17 @@ export const useAuthStore = create<AuthState>()(
       changePassword: async (oldPassword: string, newPassword: string) => {
         set({ isLoading: true, error: null });
         
+        if (isMockMode()) {
+          set({ isLoading: false });
+          return true;
+        }
+        
         try {
           await cognito.changePassword(oldPassword, newPassword);
           set({ isLoading: false });
           return true;
         } catch (error: any) {
-          console.error('Change password error:', error);
-          
-          if (error.code === 'NotAuthorizedException') {
-            set({ 
-              error: 'Mevcut şifre yanlış',
-              isLoading: false 
-            });
-          } else if (error.code === 'InvalidPasswordException') {
-            set({ 
-              error: 'Yeni şifre gereksinimleri karşılanmıyor',
-              isLoading: false 
-            });
-          } else {
-            set({ 
-              error: error.message || 'Şifre değiştirilemedi',
-              isLoading: false 
-            });
-          }
+          set({ error: error.message || 'Şifre değiştirilemedi', isLoading: false });
           return false;
         }
       },
@@ -486,17 +540,13 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           set({ isLoading: true });
-          // TODO: Implement user update via API or Cognito
           set({ 
             user: { ...user, ...userData },
             isLoading: false 
           });
           return true;
         } catch (error) {
-          set({ 
-            error: 'Profil güncellenirken hata oluştu',
-            isLoading: false 
-          });
+          set({ error: 'Profil güncellenirken hata oluştu', isLoading: false });
           return false;
         }
       },
@@ -506,20 +556,11 @@ export const useAuthStore = create<AuthState>()(
         if (!user) return false;
 
         try {
-          const newAddress = {
-            ...address,
-            id: `addr_${Date.now()}`
-          };
-          
+          const newAddress = { ...address, id: `addr_${Date.now()}` };
           const currentAddresses = user.address || [];
           const updatedAddresses = [...currentAddresses, newAddress];
           
-          set({ 
-            user: { 
-              ...user, 
-              address: updatedAddresses 
-            } 
-          });
+          set({ user: { ...user, address: updatedAddresses } });
           return true;
         } catch (error) {
           set({ error: 'Adres eklenirken hata oluştu' });
@@ -533,13 +574,7 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const updatedAddresses = user.address.filter(a => a.id !== addressId);
-          
-          set({ 
-            user: { 
-              ...user, 
-              address: updatedAddresses 
-            } 
-          });
+          set({ user: { ...user, address: updatedAddresses } });
           return true;
         } catch (error) {
           set({ error: 'Adres silinirken hata oluştu' });
@@ -556,13 +591,7 @@ export const useAuthStore = create<AuthState>()(
             ...a,
             isDefault: a.id === addressId
           }));
-          
-          set({ 
-            user: { 
-              ...user, 
-              address: updatedAddresses 
-            } 
-          });
+          set({ user: { ...user, address: updatedAddresses } });
           return true;
         } catch (error) {
           set({ error: 'Varsayılan adres ayarlanırken hata oluştu' });
@@ -587,17 +616,19 @@ export const useAuthStore = create<AuthState>()(
   )
 );
 
-// Uygulama başladığında auth'u initialize et (App.tsx'te kullanılacak)
+// Uygulama başladığında auth'u initialize et
 export const initializeAuth = async () => {
   await useAuthStore.getState().initAuth();
 };
 
 // Get access token for API calls
 export const getAccessToken = async (): Promise<string | null> => {
+  if (isMockMode()) return 'mock_token';
   return cognito.getAccessToken();
 };
 
 // Get ID token for API calls
 export const getIdToken = async (): Promise<string | null> => {
+  if (isMockMode()) return 'mock_token';
   return cognito.getIdToken();
 };
