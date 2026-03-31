@@ -41,9 +41,9 @@ const MOCK_USERS = [
   }
 ];
 
-// Geliştirme/test için Mock mode AÇIK
-// NOT: Production'da false yapılmalı ve AWS Cognito kullanılmalı
-const FORCE_MOCK_MODE = true;
+// Geliştirme/test için Mock mode - VITE_FORCE_MOCK_MODE=true ile aktif edilir
+// NOT: Production'da bu env var undefined veya false olmalı
+const FORCE_MOCK_MODE = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
 
 // Check if using mock API (no real backend configured)
 const isMockMode = () => {

@@ -42,7 +42,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      token: localStorage.getItem('auth_token'),
+      token: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
@@ -357,9 +357,9 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated 
       }),
       onRehydrateStorage: () => (state) => {
-        // Persist storage yeniden yüklenince token'ı localStorage'a yaz
-        if (state?.token) {
-          localStorage.setItem('auth_token', state.token);
+        // Persist storage yeniden yüklenince auth state'i güncelle
+        if (state?.token && !state.isAuthenticated) {
+          // Token varsa ama isAuthenticated false ise initAuth çağrılacak (App.tsx)
         }
       }
     }

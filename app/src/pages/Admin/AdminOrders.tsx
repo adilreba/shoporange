@@ -52,7 +52,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useOrderStore, type Order } from '@/stores/orderStore';
+import { useOrderStore, type StoreOrder } from '@/stores/orderStore';
 import { useShippingStore, shippingCompanyInfo } from '@/stores/shippingStore';
 import { toast } from 'sonner';
 
@@ -78,10 +78,10 @@ export default function AdminOrders() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<StoreOrder | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isShippingModalOpen, setIsShippingModalOpen] = useState(false);
-  const [shippingOrder, setShippingOrder] = useState<Order | null>(null);
+  const [shippingOrder, setShippingOrder] = useState<StoreOrder | null>(null);
   const [trackingNumber, setTrackingNumber] = useState('');
   const [selectedShippingCompany, setSelectedShippingCompany] = useState('');
   const [isCreatingShipment, setIsCreatingShipment] = useState(false);
@@ -94,12 +94,12 @@ export default function AdminOrders() {
     setTimeout(() => setLoading(false), 500);
   }, []);
 
-  const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
+  const handleStatusChange = (orderId: string, newStatus: StoreOrder['status']) => {
     updateOrderStatus(orderId, newStatus);
     toast.success(`Sipariş durumu güncellendi: ${statusConfig[newStatus].label}`);
   };
 
-  const handlePaymentStatusChange = (orderId: string, newStatus: Order['paymentStatus']) => {
+  const handlePaymentStatusChange = (orderId: string, newStatus: StoreOrder['paymentStatus']) => {
     updatePaymentStatus(orderId, newStatus);
     toast.success(`Ödeme durumu güncellendi`);
   };
@@ -133,12 +133,12 @@ export default function AdminOrders() {
     });
   };
 
-  const openOrderDetail = (order: Order) => {
+  const openOrderDetail = (order: StoreOrder) => {
     setSelectedOrder(order);
     setIsDetailOpen(true);
   };
 
-  const openShippingModal = (order: Order) => {
+  const openShippingModal = (order: StoreOrder) => {
     setShippingOrder(order);
     setTrackingNumber(order.trackingNumber || '');
     
@@ -202,7 +202,7 @@ export default function AdminOrders() {
     }
   };
 
-  const getTrackingUrl = (order: Order) => {
+  const getTrackingUrl = (order: StoreOrder) => {
     if (!order.shippingCompany || !order.trackingNumber) return null;
     
     const company = companies.find(c => c.id === order.shippingCompany);
@@ -501,7 +501,7 @@ export default function AdminOrders() {
                   <label className="text-sm font-medium text-gray-500">Sipariş Durumu</label>
                   <Select 
                     value={selectedOrder.status} 
-                    onValueChange={(v) => handleStatusChange(selectedOrder.id, v as Order['status'])}
+                    onValueChange={(v) => handleStatusChange(selectedOrder.id, v as StoreOrder['status'])}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -519,7 +519,7 @@ export default function AdminOrders() {
                   <label className="text-sm font-medium text-gray-500">Ödeme Durumu</label>
                   <Select 
                     value={selectedOrder.paymentStatus} 
-                    onValueChange={(v) => handlePaymentStatusChange(selectedOrder.id, v as Order['paymentStatus'])}
+                    onValueChange={(v) => handlePaymentStatusChange(selectedOrder.id, v as StoreOrder['paymentStatus'])}
                   >
                     <SelectTrigger>
                       <SelectValue />

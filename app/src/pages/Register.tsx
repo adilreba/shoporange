@@ -186,7 +186,7 @@ export function Register() {
               </div>
 
               <div>
-                <Label htmlFor="phone">Telefon (İsteğe bağlı)</Label>
+                <Label htmlFor="phone">Telefon *</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input

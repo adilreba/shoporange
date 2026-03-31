@@ -56,7 +56,7 @@ export function Products() {
   
   // API state
   const [products, setProducts] = useState<Product[]>([]);
-  const [apiError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // Ürünleri yükle - Başlangıçta mock verileri hemen göster
   useEffect(() => {
@@ -78,7 +78,7 @@ export function Products() {
         }
       } catch (error) {
         console.error('API error, using mock data:', error);
-        // Zaten mock veriler yüklü, hata göstermeye gerek yok
+        setApiError('Ürünler yüklenirken bir hata oluştu. Mock veriler gösteriliyor.');
       }
     };
 

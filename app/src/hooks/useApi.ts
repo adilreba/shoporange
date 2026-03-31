@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 interface UseApiState<T> {
   data: T | null;
@@ -59,9 +59,9 @@ export function useApiQuery<T>(apiFunction: () => Promise<T>) {
     }
   }, [apiFunction]);
 
-  useState(() => {
+  useEffect(() => {
     fetchData();
-  });
+  }, [fetchData]);
 
   return { ...state, refetch: fetchData };
 }

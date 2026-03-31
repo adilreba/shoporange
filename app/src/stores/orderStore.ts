@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { ordersApi } from '@/services/api';
 import { toast } from 'sonner';
 
-export interface OrderItem {
+export interface StoreOrderItem {
   productId: string;
   name: string;
   price: number;
@@ -11,7 +11,7 @@ export interface OrderItem {
   image?: string;
 }
 
-export interface Order {
+export interface StoreOrder {
   id: string;
   customer: string;
   email: string;
@@ -21,7 +21,7 @@ export interface Order {
     city: string;
     postalCode: string;
   };
-  items: OrderItem[];
+  items: StoreOrderItem[];
   total: number;
   status: 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled' | 'refunded';
   paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
@@ -34,19 +34,19 @@ export interface Order {
 }
 
 interface OrderState {
-  orders: Order[];
+  orders: StoreOrder[];
   isLoading: boolean;
   error: string | null;
   
   // Actions
-  addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'paymentStatus'>) => Promise<Order>;
-  updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
-  updatePaymentStatus: (orderId: string, status: Order['paymentStatus']) => Promise<void>;
+  addOrder: (order: Omit<StoreOrder, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'paymentStatus'>) => Promise<StoreOrder>;
+  updateOrderStatus: (orderId: string, status: StoreOrder['status']) => Promise<void>;
+  updatePaymentStatus: (orderId: string, status: StoreOrder['paymentStatus']) => Promise<void>;
   updateTrackingInfo: (orderId: string, trackingNumber: string, shippingCompany: string) => Promise<void>;
   cancelOrder: (orderId: string, reason?: string) => Promise<void>;
-  getOrderById: (orderId: string) => Order | undefined;
-  getOrdersByEmail: (email: string) => Order[];
-  getAllOrders: () => Order[];
+  getOrderById: (orderId: string) => StoreOrder | undefined;
+  getOrdersByEmail: (email: string) => StoreOrder[];
+  getAllOrders: () => StoreOrder[];
   fetchOrdersFromServer: () => Promise<void>;
   refundOrder: (orderId: string) => Promise<void>;
 }
@@ -59,7 +59,7 @@ export const useOrderStore = create<OrderState>()(
       error: null,
 
       addOrder: async (orderData) => {
-        const newOrder: Order = {
+        const newOrder: StoreOrder = {
           ...orderData,
           id: `ORD-${Date.now()}`,
           status: 'pending',

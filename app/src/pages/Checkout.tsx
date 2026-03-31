@@ -31,7 +31,7 @@ import { toast } from 'sonner';
 
 export function Checkout() {
   const navigate = useNavigate();
-  const { items, totalPrice, finalPrice, shippingCost, clearCart, removeFromCart } = useCartStore();
+  const { items, totalPrice, discountAmount, clearCart, removeFromCart } = useCartStore();
   const { user } = useAuthStore();
   const { addOrder } = useOrderStore();
   const { 
@@ -63,7 +63,9 @@ export function Checkout() {
 
   const selectedShippingOption = shippingOptions.find(o => o.id === selectedShipping);
   const shippingPrice = selectedShippingOption?.price || 0;
-  const finalTotal = finalPrice() - shippingCost() + shippingPrice;
+  const subtotal = totalPrice();
+  const discount = subtotal * (discountAmount / 100);
+  const finalTotal = subtotal - discount + shippingPrice;
 
   // Reservation timer
   useEffect(() => {

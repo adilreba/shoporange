@@ -210,13 +210,20 @@ export const updateOrderStatus = async (event: APIGatewayProxyEvent): Promise<AP
 
     const order = orderResult.Item;
 
-    // Sipariş iptal edilirse stok iade et
-    if (status === 'cancelled' && order.status !== 'cancelled') {
+    // Sipariş iptal, iade veya ödeme başarısız olursa stok iade et
+    const shouldReturnStock = (
+      (status === 'cancelled' && order.status !== 'cancelled') ||
+      (status === 'refunded' && order.status !== 'refunded') ||
+      (paymentStatus === 'failed' && order.paymentStatus !== 'failed')
+    );
+    if (shouldReturnStock) {
       await returnStock(order.items);
     }
 
-    // İptal edilen sipariş tekrar aktif olursa stok düşür
-    if (order.status === 'cancelled' && status !== 'cancelled') {
+    // İptal/iade/ödeme başarısız olan sipariş tekrar aktif olursa stok düşür
+    const wasInactive = ['cancelled', 'refunded'].includes(order.status) || order.paymentStatus === 'failed';
+    const isNowActive = status && !['cancelled', 'refunded'].includes(status) && paymentStatus !== 'failed';
+    if (wasInactive && isNowActive) {
       const stockCheck = await checkStockAvailability(order.items);
       if (!stockCheck.available) {
         return createErrorResponse(400, 'Cannot reactivate order - stock insufficient', stockCheck.errors);

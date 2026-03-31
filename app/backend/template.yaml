@@ -404,6 +404,19 @@ Resources:
             Method: get
             RestApiId: !Ref ApiGateway
 
+  GetMeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/users
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /users/me
+            Method: get
+            RestApiId: !Ref ApiGateway
+
   UpdateUserFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -414,6 +427,19 @@ Resources:
           Type: Api
           Properties:
             Path: /users/{id}
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  UpdateMeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/users
+      Handler: index.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /users/me
             Method: put
             RestApiId: !Ref ApiGateway
 
@@ -533,7 +559,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /payments/intent
+            Path: /payments/create-intent
             Method: post
             RestApiId: !Ref ApiGateway
 
@@ -589,7 +615,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /verify/email/verify
+            Path: /verify/email/confirm
             Method: post
             RestApiId: !Ref ApiGateway
 
@@ -615,7 +641,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /verify/phone/verify
+            Path: /verify/phone/confirm
             Method: post
             RestApiId: !Ref ApiGateway
 

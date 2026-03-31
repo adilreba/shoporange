@@ -10,8 +10,9 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Loader2, CreditCard, Lock } from 'lucide-react';
 
-// Stripe public key - test mode
-const stripePromise = loadStripe('pk_test_51YourStripeKeyHere');
+// Stripe public key - env var'dan oku, yoksa null (mock mode)
+const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : null;
 
 interface StripePaymentFormProps {
   amount: number;
@@ -27,6 +28,17 @@ function PaymentForm({ amount, onSuccess, onCancel }: StripePaymentFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!stripePromise) {
+      // Stripe key yok - demo mode
+      setIsProcessing(true);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const mockPaymentIntentId = 'pi_' + Date.now();
+      toast.success('Ödeme başarılı! (Demo mod)');
+      onSuccess(mockPaymentIntentId);
+      setIsProcessing(false);
+      return;
+    }
 
     if (!stripe || !elements) {
       toast.error('Ödeme sistemi yükleniyor, lütfen bekleyin...');
@@ -134,7 +146,7 @@ function PaymentForm({ amount, onSuccess, onCancel }: StripePaymentFormProps) {
         <Button
           type="submit"
           className="flex-1 gradient-orange h-12"
-          disabled={!stripe || isProcessing}
+          disabled={(!stripe && !!stripePromise) || isProcessing}
         >
           {isProcessing ? (
             <>
@@ -157,6 +169,9 @@ interface StripePaymentProps {
 }
 
 export function StripePayment({ amount, onSuccess, onCancel }: StripePaymentProps) {
+  if (!stripePromise) {
+    return <PaymentForm amount={amount} onSuccess={onSuccess} onCancel={onCancel} />;
+  }
   return (
     <Elements stripe={stripePromise}>
       <PaymentForm amount={amount} onSuccess={onSuccess} onCancel={onCancel} />

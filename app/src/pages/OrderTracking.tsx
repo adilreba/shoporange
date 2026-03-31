@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
-import { useOrderStore, type Order } from '@/stores/orderStore';
+import { useOrderStore, type StoreOrder } from '@/stores/orderStore';
 import { toast } from 'sonner';
 
 const orderSteps = [
@@ -103,7 +103,7 @@ export default function OrderTracking() {
   
   const [orderId, setOrderId] = useState(searchParams.get('order') || '');
   const [searchInput, setSearchInput] = useState('');
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<StoreOrder | null>(null);
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
 

@@ -7,6 +7,11 @@ const client = new DynamoDBClient({});
 const dynamodb = DynamoDBDocumentClient.from(client);
 const USERS_TABLE = process.env.USERS_TABLE || '';
 
+// Kullanıcı ID'sini token'dan al
+const getUserId = (event: APIGatewayProxyEvent): string => {
+  return event.requestContext.authorizer?.claims?.sub || 'guest';
+};
+
 const headers = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
@@ -98,6 +103,74 @@ export const updateUser = async (event: APIGatewayProxyEvent): Promise<APIGatewa
   }
 };
 
+export const getMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const userId = getUserId(event);
+
+    const result = await dynamodb.send(new GetCommand({
+      TableName: USERS_TABLE,
+      Key: { id: userId }
+    }));
+
+    if (!result.Item) {
+      return createErrorResponse(404, 'User not found');
+    }
+
+    return createSuccessResponse(result.Item);
+  } catch (error) {
+    console.error('Error:', error);
+    return createErrorResponse(500, 'Internal server error');
+  }
+};
+
+export const updateMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const userId = getUserId(event);
+    if (!event.body) {
+      return createErrorResponse(400, 'Request body required');
+    }
+
+    const updates = JSON.parse(event.body);
+
+    const updateExpressions: string[] = [];
+    const expressionValues: Record<string, any> = { ':updatedAt': new Date().toISOString() };
+    const expressionNames: Record<string, string> = {};
+
+    if (updates.name) {
+      updateExpressions.push('#name = :name');
+      expressionValues[':name'] = updates.name;
+      expressionNames['#name'] = 'name';
+    }
+    if (updates.email) {
+      updateExpressions.push('email = :email');
+      expressionValues[':email'] = updates.email;
+    }
+    if (updates.phone !== undefined) {
+      updateExpressions.push('phone = :phone');
+      expressionValues[':phone'] = updates.phone;
+    }
+    if (updates.address) {
+      updateExpressions.push('address = :address');
+      expressionValues[':address'] = updates.address;
+    }
+    updateExpressions.push('updatedAt = :updatedAt');
+
+    const result = await dynamodb.send(new UpdateCommand({
+      TableName: USERS_TABLE,
+      Key: { id: userId },
+      UpdateExpression: `SET ${updateExpressions.join(', ')}`,
+      ExpressionAttributeNames: Object.keys(expressionNames).length > 0 ? expressionNames : undefined,
+      ExpressionAttributeValues: expressionValues,
+      ReturnValues: 'ALL_NEW'
+    }));
+
+    return createSuccessResponse(result.Attributes);
+  } catch (error) {
+    console.error('Error:', error);
+    return createErrorResponse(500, 'Internal server error');
+  }
+};
+
 // Main handler
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   if (event.httpMethod === 'OPTIONS') {
@@ -106,6 +179,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   const path = event.path;
   const method = event.httpMethod;
+
+  if (path === '/users/me' || path.endsWith('/users/me')) {
+    if (method === 'GET') return getMe(event);
+    if (method === 'PUT') return updateMe(event);
+  }
 
   if (path.includes('/users/') && path.split('/users/')[1]) {
     if (method === 'GET') return getUser(event);
