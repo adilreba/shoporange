@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, LoginCredentials, RegisterData } from '@/types';
-import { authApi, userApi } from '@/services/api';
+import * as cognito from '@/services/cognito';
+import * as googleAuth from '@/services/googleAuth';
 
 interface Address {
   id: string;
@@ -16,68 +17,103 @@ interface Address {
   isDefault: boolean;
 }
 
+interface AuthTokens {
+  accessToken: string;
+  idToken: string;
+  refreshToken: string;
+  expiresAt: number;
+}
+
 interface AuthState {
   user: User | null;
-  token: string | null;
+  tokens: AuthTokens | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  needsVerification: boolean;
+  pendingVerificationEmail: string | null;
   
   // Actions
   login: (credentials: LoginCredentials) => Promise<boolean>;
   register: (data: RegisterData) => Promise<boolean>;
+  verifyEmail: (code: string) => Promise<boolean>;
+  resendVerificationCode: () => Promise<boolean>;
   logout: () => Promise<void>;
-  socialLogin: (provider: 'google' | 'facebook', token?: string, _userData?: any) => Promise<boolean>;
+  socialLogin: (provider: 'google' | 'facebook', token?: string, userData?: any) => Promise<boolean>;
+  googleSignIn: (credential: string) => Promise<boolean>;
   updateUser: (userData: Partial<User>) => Promise<boolean>;
   addAddress: (address: Omit<Address, 'id'>) => Promise<boolean>;
   removeAddress: (addressId: string) => Promise<boolean>;
   setDefaultAddress: (addressId: string) => Promise<boolean>;
   clearError: () => void;
+  clearVerification: () => void;
   initAuth: () => Promise<void>;
+  refreshToken: () => Promise<boolean>;
   forgotPassword: (email: string) => Promise<boolean>;
-  resetPassword: (token: string, password: string) => Promise<boolean>;
+  resetPassword: (email: string, code: string, password: string) => Promise<boolean>;
+  changePassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      token: null,
+      tokens: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      needsVerification: false,
+      pendingVerificationEmail: null,
 
       initAuth: async () => {
-        const { token } = get();
-        if (!token) {
-          set({ isAuthenticated: false });
-          return;
-        }
-
         try {
           set({ isLoading: true });
-          // Token'ı doğrula ve kullanıcı bilgilerini al
-          const response = await authApi.verifyToken(token);
           
-          if (response.user) {
-            set({ 
-              user: response.user, 
-              isAuthenticated: true,
-              isLoading: false 
-            });
+          // Check for existing Cognito session
+          const session = await cognito.getCurrentSession();
+          
+          if (session) {
+            // Check if token needs refresh
+            if (cognito.needsTokenRefresh(session.tokens)) {
+              try {
+                const newTokens = await cognito.refreshSession(session.tokens.refreshToken);
+                set({ 
+                  user: session.user as User, 
+                  tokens: { ...session.tokens, ...newTokens },
+                  isAuthenticated: true,
+                  isLoading: false 
+                });
+              } catch (refreshError) {
+                // Refresh failed, clear session
+                await cognito.signOut();
+                set({ 
+                  user: null, 
+                  tokens: null, 
+                  isAuthenticated: false,
+                  isLoading: false 
+                });
+              }
+            } else {
+              set({ 
+                user: session.user as User, 
+                tokens: session.tokens,
+                isAuthenticated: true,
+                isLoading: false 
+              });
+            }
           } else {
             set({ 
               user: null, 
-              token: null, 
+              tokens: null, 
               isAuthenticated: false,
               isLoading: false 
             });
           }
         } catch (error) {
-          console.error('Token verification failed:', error);
+          console.error('Auth initialization failed:', error);
           set({ 
             user: null, 
-            token: null, 
+            tokens: null, 
             isAuthenticated: false,
             isLoading: false 
           });
@@ -85,28 +121,44 @@ export const useAuthStore = create<AuthState>()(
       },
 
       login: async (credentials: LoginCredentials) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, needsVerification: false });
         
         try {
-          const response = await authApi.login(credentials.email, credentials.password);
+          const result = await cognito.signIn({
+            email: credentials.email,
+            password: credentials.password,
+          });
           
-          if (response.token && response.user) {
+          set({ 
+            user: { ...result.user, createdAt: result.user.createdAt || new Date().toISOString() } as User, 
+            tokens: result.tokens,
+            isAuthenticated: true, 
+            isLoading: false 
+          });
+          return true;
+        } catch (error: any) {
+          console.error('Login error:', error);
+          
+          // Handle specific Cognito errors
+          if (error.code === 'UserNotConfirmedException') {
             set({ 
-              user: response.user, 
-              token: response.token,
-              isAuthenticated: true, 
-              isLoading: false 
-            });
-            return true;
-          } else {
-            set({ 
-              error: 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.', 
+              needsVerification: true,
+              pendingVerificationEmail: credentials.email,
+              error: 'E-posta adresiniz doğrulanmamış. Lütfen e-postanızı kontrol edin.',
               isLoading: false 
             });
             return false;
           }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Giriş yapılırken bir hata oluştu';
+          
+          if (error.code === 'NotAuthorizedException' || error.code === 'UserNotFoundException') {
+            set({ 
+              error: 'Geçersiz e-posta veya şifre',
+              isLoading: false 
+            });
+            return false;
+          }
+          
+          const errorMessage = error.message || 'Giriş yapılırken bir hata oluştu';
           set({ 
             error: errorMessage, 
             isLoading: false 
@@ -116,33 +168,43 @@ export const useAuthStore = create<AuthState>()(
       },
 
       register: async (data: RegisterData) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, needsVerification: false });
         
         try {
-          const response = await authApi.register({
+          await cognito.signUp({
             email: data.email,
             password: data.password,
             name: data.name,
-            phone: data.phone
+            phone: data.phone,
           });
           
-          if (response.token && response.user) {
+          // Registration successful, but needs email verification
+          set({ 
+            needsVerification: true,
+            pendingVerificationEmail: data.email,
+            isLoading: false 
+          });
+          return true;
+        } catch (error: any) {
+          console.error('Register error:', error);
+          
+          if (error.code === 'UsernameExistsException') {
             set({ 
-              user: response.user, 
-              token: response.token,
-              isAuthenticated: true, 
-              isLoading: false 
-            });
-            return true;
-          } else {
-            set({ 
-              error: 'Kayıt başarısız oldu.', 
+              error: 'Bu e-posta adresi zaten kullanılıyor',
               isLoading: false 
             });
             return false;
           }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Kayıt olurken bir hata oluştu';
+          
+          if (error.code === 'InvalidPasswordException') {
+            set({ 
+              error: 'Şifre en az 8 karakter, büyük/küçük harf ve rakam içermelidir',
+              isLoading: false 
+            });
+            return false;
+          }
+          
+          const errorMessage = error.message || 'Kayıt olurken bir hata oluştu';
           set({ 
             error: errorMessage, 
             isLoading: false 
@@ -151,20 +213,122 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      verifyEmail: async (code: string) => {
+        const { pendingVerificationEmail } = get();
+        
+        if (!pendingVerificationEmail) {
+          set({ error: 'Doğrulama e-postası bulunamadı' });
+          return false;
+        }
+        
+        set({ isLoading: true, error: null });
+        
+        try {
+          await cognito.confirmSignUp(pendingVerificationEmail, code);
+          
+          set({ 
+            needsVerification: false,
+            pendingVerificationEmail: null,
+            isLoading: false 
+          });
+          return true;
+        } catch (error: any) {
+          console.error('Verification error:', error);
+          
+          if (error.code === 'CodeMismatchException') {
+            set({ 
+              error: 'Geçersiz doğrulama kodu',
+              isLoading: false 
+            });
+          } else if (error.code === 'ExpiredCodeException') {
+            set({ 
+              error: 'Doğrulama kodunun süresi doldu',
+              isLoading: false 
+            });
+          } else {
+            set({ 
+              error: error.message || 'Doğrulama başarısız oldu',
+              isLoading: false 
+            });
+          }
+          return false;
+        }
+      },
+
+      resendVerificationCode: async () => {
+        const { pendingVerificationEmail } = get();
+        
+        if (!pendingVerificationEmail) {
+          set({ error: 'Doğrulama e-postası bulunamadı' });
+          return false;
+        }
+        
+        set({ isLoading: true, error: null });
+        
+        try {
+          await cognito.resendConfirmationCode(pendingVerificationEmail);
+          set({ isLoading: false });
+          return true;
+        } catch (error: any) {
+          console.error('Resend code error:', error);
+          set({ 
+            error: error.message || 'Kod gönderilemedi',
+            isLoading: false 
+          });
+          return false;
+        }
+      },
+
+      clearVerification: () => {
+        set({ 
+          needsVerification: false,
+          pendingVerificationEmail: null 
+        });
+      },
+
       logout: async () => {
         try {
-          await authApi.logout().catch(() => {});
+          await cognito.globalSignOut();
+        } catch (error) {
+          console.error('Logout error:', error);
         } finally {
           set({ 
             user: null, 
-            token: null,
+            tokens: null,
             isAuthenticated: false, 
-            error: null 
+            error: null,
+            needsVerification: false,
+            pendingVerificationEmail: null
           });
         }
       },
 
-      socialLogin: async (provider: 'google' | 'facebook', token?: string, _userData?: any) => {
+      refreshToken: async () => {
+        const { tokens } = get();
+        
+        if (!tokens?.refreshToken) {
+          return false;
+        }
+        
+        try {
+          const newTokens = await cognito.refreshSession(tokens.refreshToken);
+          set({ 
+            tokens: { ...tokens, ...newTokens }
+          });
+          return true;
+        } catch (error) {
+          console.error('Token refresh failed:', error);
+          // Clear auth state on refresh failure
+          set({ 
+            user: null, 
+            tokens: null,
+            isAuthenticated: false 
+          });
+          return false;
+        }
+      },
+
+      socialLogin: async (provider: 'google' | 'facebook', token?: string, userData?: any) => {
         set({ isLoading: true, error: null });
         
         try {
@@ -176,27 +340,60 @@ export const useAuthStore = create<AuthState>()(
             return false;
           }
           
-          const response = await authApi.socialLogin(provider, token);
+          // Use the backend API for social login
+          const API_URL = import.meta.env.VITE_API_URL || '';
+          const response = await fetch(`${API_URL}/auth/${provider}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, user: userData }),
+          });
           
-          if (response.token && response.user) {
-            set({ 
-              user: response.user, 
-              token: response.token,
-              isAuthenticated: true, 
-              isLoading: false 
-            });
-            return true;
-          } else {
-            set({ 
-              error: `${provider} ile giriş başarısız oldu`, 
-              isLoading: false 
-            });
-            return false;
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || `${provider} ile giriş başarısız`);
           }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : `${provider} ile giriş yapılırken hata oluştu`;
+          
+          const data = await response.json();
+          
+          set({ 
+            user: data.user, 
+            tokens: {
+              accessToken: data.accessToken,
+              idToken: data.token,
+              refreshToken: data.refreshToken,
+              expiresAt: Date.now() + (data.expiresIn * 1000),
+            },
+            isAuthenticated: true, 
+            isLoading: false 
+          });
+          return true;
+        } catch (error: any) {
+          const errorMessage = error.message || `${provider} ile giriş yapılırken hata oluştu`;
           set({ 
             error: errorMessage, 
+            isLoading: false 
+          });
+          return false;
+        }
+      },
+
+      googleSignIn: async (credential: string) => {
+        set({ isLoading: true, error: null });
+        
+        try {
+          const result = await googleAuth.signInWithGoogle(credential);
+          
+          set({ 
+            user: result.user as User, 
+            tokens: result.tokens,
+            isAuthenticated: true, 
+            isLoading: false 
+          });
+          return true;
+        } catch (error: any) {
+          console.error('Google sign in error:', error);
+          set({ 
+            error: error.message || 'Google ile giriş yapılırken hata oluştu', 
             isLoading: false 
           });
           return false;
@@ -207,32 +404,78 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          await authApi.forgotPassword(email);
+          await cognito.forgotPassword(email);
           set({ isLoading: false });
           return true;
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Şifre sıfırlama isteği gönderilirken hata oluştu';
-          set({ 
-            error: errorMessage, 
-            isLoading: false 
-          });
+        } catch (error: any) {
+          console.error('Forgot password error:', error);
+          // Always return success to prevent email enumeration
+          set({ isLoading: false });
+          return true;
+        }
+      },
+
+      resetPassword: async (email: string, code: string, password: string) => {
+        set({ isLoading: true, error: null });
+        
+        try {
+          await cognito.confirmForgotPassword(email, code, password);
+          set({ isLoading: false });
+          return true;
+        } catch (error: any) {
+          console.error('Reset password error:', error);
+          
+          if (error.code === 'CodeMismatchException') {
+            set({ 
+              error: 'Geçersiz sıfırlama kodu',
+              isLoading: false 
+            });
+          } else if (error.code === 'ExpiredCodeException') {
+            set({ 
+              error: 'Sıfırlama kodunun süresi doldu',
+              isLoading: false 
+            });
+          } else if (error.code === 'InvalidPasswordException') {
+            set({ 
+              error: 'Şifre gereksinimleri karşılanmıyor',
+              isLoading: false 
+            });
+          } else {
+            set({ 
+              error: error.message || 'Şifre sıfırlanamadı',
+              isLoading: false 
+            });
+          }
           return false;
         }
       },
 
-      resetPassword: async (token: string, password: string) => {
+      changePassword: async (oldPassword: string, newPassword: string) => {
         set({ isLoading: true, error: null });
         
         try {
-          await authApi.resetPassword(token, password);
+          await cognito.changePassword(oldPassword, newPassword);
           set({ isLoading: false });
           return true;
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Şifre sıfırlanırken hata oluştu';
-          set({ 
-            error: errorMessage, 
-            isLoading: false 
-          });
+        } catch (error: any) {
+          console.error('Change password error:', error);
+          
+          if (error.code === 'NotAuthorizedException') {
+            set({ 
+              error: 'Mevcut şifre yanlış',
+              isLoading: false 
+            });
+          } else if (error.code === 'InvalidPasswordException') {
+            set({ 
+              error: 'Yeni şifre gereksinimleri karşılanmıyor',
+              isLoading: false 
+            });
+          } else {
+            set({ 
+              error: error.message || 'Şifre değiştirilemedi',
+              isLoading: false 
+            });
+          }
           return false;
         }
       },
@@ -243,9 +486,9 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           set({ isLoading: true });
-          const updatedUser = await userApi.updateProfile(userData);
+          // TODO: Implement user update via API or Cognito
           set({ 
-            user: { ...user, ...updatedUser },
+            user: { ...user, ...userData },
             isLoading: false 
           });
           return true;
@@ -268,10 +511,8 @@ export const useAuthStore = create<AuthState>()(
             id: `addr_${Date.now()}`
           };
           
-          const updatedAddresses = [...(user.address || []), newAddress];
-          
-          // Backend'e adres ekleme isteği gönder
-          await userApi.updateProfile({ address: updatedAddresses });
+          const currentAddresses = user.address || [];
+          const updatedAddresses = [...currentAddresses, newAddress];
           
           set({ 
             user: { 
@@ -292,9 +533,6 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const updatedAddresses = user.address.filter(a => a.id !== addressId);
-          
-          // Backend'e adres silme isteği gönder
-          await userApi.updateProfile({ address: updatedAddresses });
           
           set({ 
             user: { 
@@ -319,9 +557,6 @@ export const useAuthStore = create<AuthState>()(
             isDefault: a.id === addressId
           }));
           
-          // Backend'e güncelleme isteği gönder
-          await userApi.updateProfile({ address: updatedAddresses });
-          
           set({ 
             user: { 
               ...user, 
@@ -343,15 +578,11 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage',
       partialize: (state) => ({ 
         user: state.user, 
-        token: state.token,
-        isAuthenticated: state.isAuthenticated 
+        tokens: state.tokens,
+        isAuthenticated: state.isAuthenticated,
+        needsVerification: state.needsVerification,
+        pendingVerificationEmail: state.pendingVerificationEmail,
       }),
-      onRehydrateStorage: () => (state) => {
-        // Persist storage yeniden yüklenince auth state'i güncelle
-        if (state?.token && !state.isAuthenticated) {
-          // Token varsa ama isAuthenticated false ise initAuth çağrılacak (App.tsx)
-        }
-      }
     }
   )
 );
@@ -359,4 +590,14 @@ export const useAuthStore = create<AuthState>()(
 // Uygulama başladığında auth'u initialize et (App.tsx'te kullanılacak)
 export const initializeAuth = async () => {
   await useAuthStore.getState().initAuth();
+};
+
+// Get access token for API calls
+export const getAccessToken = async (): Promise<string | null> => {
+  return cognito.getAccessToken();
+};
+
+// Get ID token for API calls
+export const getIdToken = async (): Promise<string | null> => {
+  return cognito.getIdToken();
 };

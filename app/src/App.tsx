@@ -56,6 +56,9 @@ import AdminSettings from '@/pages/Admin/Settings';
 import ProductForm from '@/pages/Admin/ProductForm';
 import AdminCoupons from '@/pages/Admin/Coupons';
 import AdminCampaigns from '@/pages/Admin/Campaigns';
+import { AdminLegalPages } from '@/pages/Admin/LegalPages';
+import { LegalPagesEditor } from '@/pages/Admin/LegalPagesEditor';
+import { LegalPageView } from '@/pages/LegalPage';
 import StockManagement from '@/pages/Admin/StockManagement';
 import AgentDashboard from '@/pages/Admin/AgentDashboard';
 import ShippingSettings from '@/pages/Admin/ShippingSettings';
@@ -202,6 +205,7 @@ function App() {
             </ProtectedRoute>
           } 
         />
+        <Route path="/legal/:slug" element={<LegalPageView />} />
         
         {/* Admin Routes with Layout */}
         <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminLayout /></ProtectedRoute>}>
@@ -218,6 +222,9 @@ function App() {
           <Route path="shipping" element={<ShippingSettings />} />
           <Route path="invoices" element={<InvoiceManagement />} />
           <Route path="support" element={<AgentDashboard />} />
+          <Route path="legal-pages" element={<AdminLegalPages />} />
+          <Route path="legal-pages/new" element={<LegalPagesEditor />} />
+          <Route path="legal-pages/edit/:id" element={<LegalPagesEditor />} />
         </Route>
         
         {/* 404 Page */}

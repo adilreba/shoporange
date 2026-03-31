@@ -1,3 +1,5 @@
+import { getIdToken } from '@/stores/authStore';
+
 // API Configuration
 const DEFAULT_API_URL = 'https://your-api-gateway-url.execute-api.eu-west-1.amazonaws.com/prod';
 const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
@@ -65,7 +67,8 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     throw new Error('Mock mode aktif - fetchApi kullanılamaz');
   }
   
-  const token = localStorage.getItem('auth_token');
+  // Get Cognito ID token for authorization
+  const token = await getIdToken();
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -82,6 +85,14 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
+    // Handle 401 Unauthorized - token might be expired
+    if (response.status === 401) {
+      // Trigger auth refresh by throwing specific error
+      const error = new Error('UNAUTHORIZED');
+      (error as any).status = 401;
+      throw error;
+    }
+    
     const error = await response.json().catch(() => ({ error: 'Unknown error' }));
     throw new Error(error.error || `HTTP ${response.status}`);
   }

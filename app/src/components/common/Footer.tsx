@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Facebook, 
@@ -12,7 +12,9 @@ import {
   Truck,
   ShieldCheck,
   RotateCcw,
-  ChevronRight
+  ChevronRight,
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,10 +26,31 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { legalPagesPublicApi, type LegalPage } from '@/services/legalPagesApi';
 
 export function Footer() {
   const [email, setEmail] = useState('');
   const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
+  const [legalPages, setLegalPages] = useState<Pick<LegalPage, 'slug' | 'title'>[]>([]);
+  const [loadingPages, setLoadingPages] = useState(true);
+
+  // Yasal sayfaları yükle
+  useEffect(() => {
+    loadLegalPages();
+  }, []);
+
+  const loadLegalPages = async () => {
+    try {
+      setLoadingPages(true);
+      const pages = await legalPagesPublicApi.getPublished();
+      setLegalPages(pages.map(p => ({ slug: p.slug, title: p.title })));
+    } catch (error) {
+      // Hata durumunda sessizce başarısız ol, footer çalışmaya devam etsin
+      console.log('Yasal sayfalar yüklenemedi');
+    } finally {
+      setLoadingPages(false);
+    }
+  };
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +119,7 @@ export function Footer() {
 
   return (
     <footer className="bg-gray-900 text-white">
-      {/* Features Bar - Desktop: 1 row, Mobile: 2x2 */}
+      {/* Features Bar */}
       <div className="border-b border-gray-800">
         <div className="container-custom py-4 sm:py-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -127,7 +150,7 @@ export function Footer() {
       {/* Main Footer */}
       <div className="container-custom py-6 sm:py-10">
         
-        {/* Brand Section - Full Width */}
+        {/* Brand Section */}
         <div className="mb-6 pb-6 border-b border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -171,8 +194,8 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Links Grid - Mobile: 2 columns, Desktop: 3 columns with contact */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+        {/* Links Grid - 4 columns on desktop */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           
           {/* Quick Links */}
           <div>
@@ -208,8 +231,42 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Contact - Desktop only visible here, mobile in separate section */}
-          <div className="col-span-2 lg:col-span-1">
+          {/* Legal Pages - Dinamik */}
+          <div>
+            <h4 className="font-semibold text-sm mb-3 text-white flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Yasal Bilgiler
+            </h4>
+            {loadingPages ? (
+              <div className="flex items-center gap-2 text-gray-500 text-sm">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Yükleniyor...
+              </div>
+            ) : legalPages.length > 0 ? (
+              <ul className="space-y-2">
+                {legalPages.slice(0, 6).map((page) => (
+                  <li key={page.slug}>
+                    <Link 
+                      to={`/legal/${page.slug}`}
+                      className="text-gray-400 hover:text-orange-500 transition-colors text-sm"
+                    >
+                      {page.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ul className="space-y-2">
+                <li><Link to="/legal/kvkk-aydinlatma-metni" className="text-gray-400 hover:text-orange-500 text-sm">KVKK Aydınlatma Metni</Link></li>
+                <li><Link to="/legal/gizlilik-politikasi" className="text-gray-400 hover:text-orange-500 text-sm">Gizlilik Politikası</Link></li>
+                <li><Link to="/legal/mesafeli-satis-sozlesmesi" className="text-gray-400 hover:text-orange-500 text-sm">Mesafeli Satış Sözleşmesi</Link></li>
+                <li><Link to="/legal/iade-degisim" className="text-gray-400 hover:text-orange-500 text-sm">İade ve Değişim</Link></li>
+              </ul>
+            )}
+          </div>
+
+          {/* Contact */}
+          <div>
             <h4 className="font-semibold text-sm mb-3 text-white">İletişim</h4>
             <ul className="space-y-2">
               <li>
@@ -246,6 +303,18 @@ export function Footer() {
             <p className="text-gray-500 text-xs">
               © 2024 AtusHome. Tüm hakları saklıdır.
             </p>
+            <div className="flex items-center gap-4">
+              {/* Yasal sayfalar linkleri - bottom bar */}
+              {!loadingPages && legalPages.slice(0, 4).map((page) => (
+                <Link 
+                  key={page.slug}
+                  to={`/legal/${page.slug}`}
+                  className="text-gray-500 hover:text-orange-500 text-xs"
+                >
+                  {page.title}
+                </Link>
+              ))}
+            </div>
             <div className="flex items-center gap-2">
               {['Visa', 'MC', 'Amex'].map((card) => (
                 <div key={card} className="w-10 h-6 bg-gray-800 rounded flex items-center justify-center">

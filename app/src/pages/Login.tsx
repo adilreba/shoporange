@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Chrome, Facebook } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Facebook } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
 import { useAuthStore } from '@/stores/authStore';
+import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 import { toast } from 'sonner';
 
 export function Login() {
@@ -78,16 +79,8 @@ export function Login() {
             </div>
 
             {/* Social Login */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => handleSocialLogin('google')}
-                disabled={isLoading}
-              >
-                <Chrome className="h-5 w-5 mr-2 text-red-500" />
-                Google
-              </Button>
+            <div className="space-y-3 mb-6">
+              <GoogleLoginButton />
               <Button
                 variant="outline"
                 className="w-full"

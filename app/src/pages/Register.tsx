@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Chrome, Facebook, User, Phone, Check } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Facebook, User, Phone, Check } from 'lucide-react';
+import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -122,16 +123,8 @@ export function Register() {
             </div>
 
             {/* Social Login */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => handleSocialLogin('google')}
-                disabled={isLoading}
-              >
-                <Chrome className="h-5 w-5 mr-2 text-red-500" />
-                Google
-              </Button>
+            <div className="space-y-3 mb-6">
+              <GoogleLoginButton />
               <Button
                 variant="outline"
                 className="w-full"

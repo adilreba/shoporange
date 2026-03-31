@@ -37,6 +37,7 @@ const menuItems = [
   { path: '/admin/users', icon: Users, label: 'Kullanıcılar' },
   { path: '/admin/shipping', icon: Truck, label: 'Kargo' },
   { path: '/admin/support', icon: Headphones, label: 'Canlı Destek' },
+  { path: '/admin/legal-pages', icon: FileText, label: 'Yasal Sayfalar' },
   { path: '/admin/settings', icon: Settings, label: 'Ayarlar' },
 ];
 

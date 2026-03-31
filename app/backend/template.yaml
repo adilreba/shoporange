@@ -340,6 +340,28 @@ Resources:
     Properties:
       EmailIdentity: !Ref FromEmail
 
+  # Legal Pages Table (Yasal Sayfalar)
+  LegalPagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-LegalPages
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: slug
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: SlugIndex
+          KeySchema:
+            - AttributeName: slug
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
   # API Gateway - CORS ENABLED
   ApiGateway:
     Type: AWS::Serverless::Api
@@ -1347,6 +1369,361 @@ Resources:
             Path: /chat/{sessionId}/close
             Method: post
             RestApiId: !Ref ApiGateway
+
+# ============================================
+# Auth Functions
+# ============================================
+
+  AuthRegisterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.register
+      Description: Register new user with Cognito
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:SignUp
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminSetUserPassword
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/register
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  AuthVerifyEmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.verifyEmail
+      Description: Verify email with confirmation code
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ConfirmSignUp
+                - cognito-idp:ResendConfirmationCode
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/verify
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  AuthResendCodeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.resendCode
+      Description: Resend verification code
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ResendConfirmationCode
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/resend-code
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  AuthLoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.login
+      Description: Login user with Cognito
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:InitiateAuth
+                - cognito-idp:GetUser
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/login
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  AuthRefreshFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.refreshToken
+      Description: Refresh access token
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:InitiateAuth
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/refresh
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  AuthLogoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.logout
+      Description: Logout user
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:GlobalSignOut
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/logout
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  AuthMeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.getMe
+      Description: Get current user
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:GetUser
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/me
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  AuthForgotPasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.forgotPassword
+      Description: Send password reset code
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ForgotPassword
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/forgot-password
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  AuthResetPasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.resetPassword
+      Description: Reset password with code
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ConfirmForgotPassword
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/reset-password
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  AuthGoogleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.googleLogin
+      Description: Google OAuth login
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:InitiateAuth
+                - cognito-idp:GetUser
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminSetUserPassword
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/google
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  # Legal Pages Functions (Yasal Sayfalar)
+  LegalPagesListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/legal-pages
+      Handler: index.listPages
+      Description: List all legal pages (admin)
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref LegalPagesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /legal-pages
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  LegalPagesPublicListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/legal-pages
+      Handler: index.listPublicPages
+      Description: List published legal pages (public)
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref LegalPagesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /legal-pages/public
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  LegalPagesGetBySlugFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/legal-pages
+      Handler: index.getPageBySlug
+      Description: Get legal page by slug
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref LegalPagesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /legal-pages/{slug}
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  LegalPagesGetByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/legal-pages
+      Handler: index.getPageById
+      Description: Get legal page by ID (admin)
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref LegalPagesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /legal-pages/{id}/admin
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  LegalPagesCreateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/legal-pages
+      Handler: index.createPage
+      Description: Create new legal page
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LegalPagesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /legal-pages
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  LegalPagesUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/legal-pages
+      Handler: index.updatePage
+      Description: Update legal page
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LegalPagesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /legal-pages/{id}
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  LegalPagesDeleteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/legal-pages
+      Handler: index.deletePage
+      Description: Delete legal page
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LegalPagesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /legal-pages/{id}
+            Method: delete
+            RestApiId: !Ref ApiGateway
+
+  LegalPagesSeedFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/legal-pages
+      Handler: index.seedPages
+      Description: Seed default legal pages
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LegalPagesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /legal-pages/seed
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  # Cognito User Pool Domain for OAuth
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub 'atushome-${AWS::StackName}'
+      UserPoolId: !Ref UserPool
 
 # ============================================
 # Outputs
