@@ -10,7 +10,8 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle,
-  Search
+  Search,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,7 @@ export function AdminLegalPages() {
   const navigate = useNavigate();
   const [pages, setPages] = useState<LegalPage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -45,6 +47,7 @@ export function AdminLegalPages() {
       const data = await legalPagesAdminApi.getAll();
       setPages(data);
     } catch (error) {
+      console.error('Load pages error:', error);
       toast.error('Sayfalar yüklenemedi');
     } finally {
       setLoading(false);
@@ -53,11 +56,15 @@ export function AdminLegalPages() {
 
   const handleSeed = async () => {
     try {
+      setSeeding(true);
       await legalPagesAdminApi.seed();
       toast.success('Varsayılan sayfalar oluşturuldu');
-      loadPages();
+      await loadPages();
     } catch (error) {
-      toast.error('Sayfalar oluşturulamadı');
+      console.error('Seed error:', error);
+      toast.error('Sayfalar oluşturulamadi');
+    } finally {
+      setSeeding(false);
     }
   };
 
@@ -81,7 +88,7 @@ export function AdminLegalPages() {
         isPublished: !page.isPublished 
       });
       toast.success(page.isPublished ? 'Yayından kaldırıldı' : 'Yayınlandı');
-      loadPages();
+      await loadPages();
     } catch (error) {
       toast.error('İşlem başarısız');
     }
@@ -103,11 +110,24 @@ export function AdminLegalPages() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleSeed}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            onClick={handleSeed}
+            disabled={seeding}
+          >
+            {seeding ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
             Varsayılanları Yükle
           </Button>
-          <Button onClick={() => navigate('/admin/legal-pages/new')}>
+          <Button 
+            onClick={() => {
+              console.log('Navigating to new page...');
+              navigate('/admin/legal-pages/new');
+            }}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Yeni Sayfa
           </Button>
@@ -122,7 +142,7 @@ export function AdminLegalPages() {
             <h3 className="font-medium text-amber-800">Eksik Yasal Sayfalar</h3>
             <p className="text-sm text-amber-700">
               E-ticaret için en az KVKK, Gizlilik Politikası, Mesafeli Satış Sözleşmesi ve 
-              İade Politikası sayfalarının yayında olması gerekli.
+              İade Politikası sayfalarının yayinda olmasi gerekli.
             </p>
           </div>
         </div>
@@ -157,7 +177,7 @@ export function AdminLegalPages() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    Yükleniyor...
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                   </td>
                 </tr>
               ) : filteredPages.length === 0 ? (
@@ -245,7 +265,7 @@ export function AdminLegalPages() {
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Sayfayı silmek istediğinize emin misiniz?</AlertDialogTitle>
+            <AlertDialogTitle>Sayfayi silmek istediğinize emin misiniz?</AlertDialogTitle>
             <AlertDialogDescription>
               Bu işlem geri alınamaz. Sayfa kalıcı olarak silinecektir.
             </AlertDialogDescription>

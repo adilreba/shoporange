@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-
 import { 
   CreditCard, 
   Truck, 
@@ -15,7 +14,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-
 import { toast } from 'sonner';
 import { paymentMethodsAdminApi, type PaymentMethod, type TestConnectionResult } from '@/services/paymentMethodsApi';
 import {
@@ -39,9 +37,9 @@ const getIcon = (iconName: string) => {
 };
 
 export function AdminPaymentMethods() {
-  
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
@@ -56,6 +54,7 @@ export function AdminPaymentMethods() {
       const data = await paymentMethodsAdminApi.getAll();
       setMethods(data);
     } catch (error) {
+      console.error('Load error:', error);
       toast.error('Ödeme yöntemleri yüklenemedi');
     } finally {
       setLoading(false);
@@ -64,19 +63,23 @@ export function AdminPaymentMethods() {
 
   const handleSeed = async () => {
     try {
+      setSeeding(true);
+      console.log('Seeding payment methods...');
       await paymentMethodsAdminApi.seed();
       toast.success('Varsayılan ödeme yöntemleri oluşturuldu');
-      loadMethods();
+      await loadMethods();
     } catch (error) {
+      console.error('Seed error:', error);
       toast.error('Oluşturulamadı');
+    } finally {
+      setSeeding(false);
     }
   };
 
   const handleToggleActive = async (method: PaymentMethod) => {
     try {
-      // API key kontrolü - yoksa uyarı ver
       if (!method.isActive && !method.apiKeyConfigured && method.code !== 'cash_on_delivery' && method.code !== 'bank_transfer') {
-        toast.error('API anahtarı yapılandırılmamış! Önce AWS Secrets Manager\'dan ekleyin.');
+        toast.error('API anahtarı yapılandırılmamış!');
         return;
       }
 
@@ -85,7 +88,7 @@ export function AdminPaymentMethods() {
       });
       
       toast.success(method.isActive ? 'Pasif yapıldı' : 'Aktif yapıldı');
-      loadMethods();
+      await loadMethods();
     } catch (error) {
       toast.error('İşlem başarısız');
     }
@@ -98,7 +101,7 @@ export function AdminPaymentMethods() {
       });
       
       toast.success(method.isTestMode ? 'Canlı moda geçildi' : 'Test moduna geçildi');
-      loadMethods();
+      await loadMethods();
     } catch (error) {
       toast.error('İşlem başarısız');
     }
@@ -138,7 +141,7 @@ export function AdminPaymentMethods() {
       
       toast.success('Güncellendi');
       setEditingMethod(null);
-      loadMethods();
+      await loadMethods();
     } catch (error) {
       toast.error('Güncellenemedi');
     }
@@ -158,8 +161,16 @@ export function AdminPaymentMethods() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleSeed}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            onClick={handleSeed}
+            disabled={seeding}
+          >
+            {seeding ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
             Varsayılanları Yükle
           </Button>
         </div>
@@ -211,7 +222,6 @@ export function AdminPaymentMethods() {
           <h3 className="font-medium text-blue-800">Güvenlik Bilgisi</h3>
           <p className="text-sm text-blue-700">
             API anahtarları AWS Secrets Manager'da güvenle saklanır. Admin panelinde görünmezler.
-            Anahtarları eklemek için backend yöneticisiyle iletişime geçin.
           </p>
         </div>
       </div>
@@ -240,7 +250,7 @@ export function AdminPaymentMethods() {
               ) : methods.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    Henüz ödeme yöntemi yok
+                    Henüz ödeme yöntemi yok. "Varsayılanları Yükle" butonuna tıklayın.
                   </td>
                 </tr>
               ) : (
@@ -388,53 +398,6 @@ export function AdminPaymentMethods() {
                   />
                 </div>
               </div>
-
-              {editingMethod.installmentEnabled && (
-                <div className="space-y-2">
-                  <Label>Max. Taksit</Label>
-                  <Input
-                    type="number"
-                    value={editingMethod.maxInstallment || ''}
-                    onChange={(e) => setEditingMethod({ ...editingMethod, maxInstallment: parseInt(e.target.value) || undefined })}
-                  />
-                </div>
-              )}
-
-              {/* Banka Transferi için ek alanlar */}
-              {editingMethod.code === 'bank_transfer' && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Hesap Sahibi</Label>
-                    <Input
-                      value={editingMethod.config?.accountHolder || ''}
-                      onChange={(e) => setEditingMethod({ 
-                        ...editingMethod, 
-                        config: { ...editingMethod.config, accountHolder: e.target.value }
-                      })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Banka Adı</Label>
-                    <Input
-                      value={editingMethod.config?.bankName || ''}
-                      onChange={(e) => setEditingMethod({ 
-                        ...editingMethod, 
-                        config: { ...editingMethod.config, bankName: e.target.value }
-                      })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>IBAN</Label>
-                    <Input
-                      value={editingMethod.config?.iban || ''}
-                      onChange={(e) => setEditingMethod({ 
-                        ...editingMethod, 
-                        config: { ...editingMethod.config, iban: e.target.value }
-                      })}
-                    />
-                  </div>
-                </>
-              )}
             </div>
           )}
 
@@ -459,9 +422,6 @@ export function AdminPaymentMethods() {
           </DialogHeader>
           <div className="py-4">
             <p className="text-muted-foreground">{testResult?.message}</p>
-            {testResult?.note && (
-              <p className="text-sm text-muted-foreground mt-2">{testResult.note}</p>
-            )}
           </div>
           <DialogFooter>
             <Button onClick={() => setTestResult(null)}>Kapat</Button>

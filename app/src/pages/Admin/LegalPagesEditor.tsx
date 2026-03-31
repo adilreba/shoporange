@@ -19,7 +19,6 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { legalPagesAdminApi, type LegalPage } from '@/services/legalPagesApi';
 
-// HTML etiketlerini araç çubuğu butonları ile ekle
 const ToolbarButton = ({ 
   icon: Icon, 
   label, 
@@ -46,10 +45,9 @@ export function LegalPagesEditor() {
   const { id } = useParams<{ id: string }>();
   const isNew = id === 'new';
 
-  const [loading, setLoading] = useState(!isNew);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState(false);
-  const [isPublished, setIsPublished] = useState(false);
   
   const [formData, setFormData] = useState<Partial<LegalPage>>({
     title: '',
@@ -63,22 +61,32 @@ export function LegalPagesEditor() {
   });
 
   useEffect(() => {
-    if (!isNew && id) {
+    console.log('Editor mounted, id:', id, 'isNew:', isNew);
+    if (!isNew && id && id !== 'new') {
       loadPage(id);
+    } else {
+      // Yeni sayfa - varsayılan değerler
+      setFormData({
+        title: '',
+        slug: '',
+        content: '',
+        summary: '',
+        isPublished: false,
+        order: 0,
+        metaTitle: '',
+        metaDescription: '',
+      });
+      setLoading(false);
     }
-  }, [id, isNew]);
-
-  // isPublished değiştiğinde formData'yı güncelle
-  useEffect(() => {
-    setFormData(prev => ({ ...prev, isPublished }));
-  }, [isPublished]);
+  }, [id]);
 
   const loadPage = async (pageId: string) => {
     try {
+      setLoading(true);
       const page = await legalPagesAdminApi.getById(pageId);
       setFormData(page);
-      setIsPublished(page.isPublished);
     } catch (error) {
+      console.error('Load page error:', error);
       toast.error('Sayfa yüklenemedi');
       navigate('/admin/legal-pages');
     } finally {
@@ -86,7 +94,7 @@ export function LegalPagesEditor() {
     }
   };
 
-  const insertTag = (tag: string, attrs = '') => {
+  const insertTag = (tag: string) => {
     const textarea = document.getElementById('content-editor') as HTMLTextAreaElement;
     if (!textarea) return;
 
@@ -103,9 +111,6 @@ export function LegalPagesEditor() {
       case 'h3':
         replacement = `<h3>${selected || 'Alt Başlık'}</h3>`;
         break;
-      case 'p':
-        replacement = `<p>${selected || 'Paragraf'}</p>`;
-        break;
       case 'strong':
         replacement = `<strong>${selected || 'Kalın metin'}</strong>`;
         break;
@@ -121,17 +126,13 @@ export function LegalPagesEditor() {
       case 'a':
         replacement = `<a href="https://">${selected || 'Link metni'}</a>`;
         break;
-      case 'br':
-        replacement = '<br>';
-        break;
       default:
-        replacement = `<${tag}${attrs ? ' ' + attrs : ''}>${selected}</${tag}>`;
+        replacement = `<${tag}>${selected}</${tag}>`;
     }
 
     const newContent = content.substring(0, start) + replacement + content.substring(end);
     setFormData({ ...formData, content: newContent });
 
-    // Cursor pozisyonunu güncelle
     setTimeout(() => {
       textarea.focus();
       const newPos = start + replacement.length;
@@ -140,7 +141,6 @@ export function LegalPagesEditor() {
   };
 
   const handleSave = async () => {
-    // Validasyon
     if (!formData.title?.trim()) {
       toast.error('Başlık gerekli');
       return;
@@ -163,18 +163,17 @@ export function LegalPagesEditor() {
     try {
       setSaving(true);
       
-      const dataToSave = { ...formData, isPublished };
-      
       if (isNew) {
-        await legalPagesAdminApi.create(dataToSave);
+        await legalPagesAdminApi.create(formData);
         toast.success('Sayfa oluşturuldu');
       } else if (id) {
-        await legalPagesAdminApi.update(id, dataToSave);
+        await legalPagesAdminApi.update(id, formData);
         toast.success('Sayfa güncellendi');
       }
       
       navigate('/admin/legal-pages');
     } catch (error) {
+      console.error('Save error:', error);
       toast.error(isNew ? 'Oluşturulamadı' : 'Güncellenemedi');
     } finally {
       setSaving(false);
@@ -226,7 +225,6 @@ export function LegalPagesEditor() {
       </div>
 
       {preview ? (
-        // Önizleme Modu
         <div className="bg-white rounded-lg border p-8 max-w-4xl mx-auto">
           <div className="prose prose-orange max-w-none">
             <h1>{formData.title}</h1>
@@ -234,9 +232,8 @@ export function LegalPagesEditor() {
           </div>
         </div>
       ) : (
-        // Düzenleme Modu
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Sol Kolon - Ana İçerik */}
+          {/* Sol Kolon */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white rounded-lg border p-6 space-y-4">
               <div className="space-y-2">
@@ -268,15 +265,11 @@ export function LegalPagesEditor() {
                     className="flex-1"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Sadece küçük harf, rakam ve tire kullanın
-                </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="content">Sayfa İçeriği *</Label>
                 
-                {/* Araç Çubuğu */}
                 <div className="flex items-center gap-1 p-2 bg-gray-50 border rounded-t-lg">
                   <ToolbarButton icon={Heading} label="H2 Başlık" onClick={() => insertTag('h2')} />
                   <ToolbarButton icon={FileText} label="H3 Alt Başlık" onClick={() => insertTag('h3')} />
@@ -284,9 +277,7 @@ export function LegalPagesEditor() {
                   <ToolbarButton icon={Bold} label="Kalın" onClick={() => insertTag('strong')} />
                   <ToolbarButton icon={Italic} label="İtalik" onClick={() => insertTag('em')} />
                   <div className="w-px h-6 bg-gray-300 mx-1" />
-                  <ToolbarButton icon={List} label="Sırasız Liste" onClick={() => insertTag('ul')} />
-                  <ToolbarButton icon={List} label="Sıralı Liste" onClick={() => insertTag('ol')} />
-                  <div className="w-px h-6 bg-gray-300 mx-1" />
+                  <ToolbarButton icon={List} label="Liste" onClick={() => insertTag('ul')} />
                   <ToolbarButton icon={LinkIcon} label="Link" onClick={() => insertTag('a')} />
                 </div>
 
@@ -297,16 +288,12 @@ export function LegalPagesEditor() {
                   placeholder="<h2>Başlık</h2>\n<p>İçerik buraya...</p>"
                   className="w-full min-h-[400px] px-4 py-3 border-x border-b rounded-b-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
-                <p className="text-xs text-muted-foreground">
-                  HTML etiketleri kullanabilirsiniz: &lt;h2&gt;, &lt;p&gt;, &lt;strong&gt;, &lt;ul&gt;, &lt;li&gt; vb.
-                </p>
               </div>
             </div>
           </div>
 
-          {/* Sağ Kolon - Ayarlar */}
+          {/* Sağ Kolon */}
           <div className="space-y-6">
-            {/* Yayın Durumu */}
             <div className="bg-white rounded-lg border p-6 space-y-4">
               <h3 className="font-medium flex items-center gap-2">
                 <FileText className="h-4 w-4" />
@@ -316,15 +303,13 @@ export function LegalPagesEditor() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="published" className="cursor-pointer">Yayında</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Sayfayı herkese açık yap
-                  </p>
+                  <p className="text-xs text-muted-foreground">Sayfayı herkese açık yap</p>
                 </div>
                 <input
                   type="checkbox"
                   id="published"
-                  checked={isPublished}
-                  onChange={(e) => setIsPublished(e.target.checked)}
+                  checked={formData.isPublished}
+                  onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
                   className="w-5 h-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                 />
               </div>
@@ -340,7 +325,6 @@ export function LegalPagesEditor() {
               </div>
             </div>
 
-            {/* SEO */}
             <div className="bg-white rounded-lg border p-6 space-y-4">
               <h3 className="font-medium">SEO Ayarları</h3>
               
@@ -373,20 +357,6 @@ export function LegalPagesEditor() {
                   placeholder="SEO açıklaması..."
                   className="w-full min-h-[80px] px-3 py-2 border rounded-md text-sm"
                 />
-              </div>
-            </div>
-
-            {/* Bilgi Kartı */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-800 mb-2">💡 HTML Etiketleri</h4>
-              <div className="text-sm text-blue-700 space-y-1">
-                <p><code>&lt;h2&gt;</code> - Ana başlık</p>
-                <p><code>&lt;h3&gt;</code> - Alt başlık</p>
-                <p><code>&lt;p&gt;</code> - Paragraf</p>
-                <p><code>&lt;strong&gt;</code> - Kalın metin</p>
-                <p><code>&lt;ul&gt;&lt;li&gt;</code> - Liste</p>
-                <p><code>&lt;a href=""&gt;</code> - Link</p>
-                <p><code>&lt;br&gt;</code> - Satır sonu</p>
               </div>
             </div>
           </div>
