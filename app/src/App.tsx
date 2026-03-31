@@ -59,6 +59,7 @@ import AdminCampaigns from '@/pages/Admin/Campaigns';
 import { AdminLegalPages } from '@/pages/Admin/LegalPages';
 import { LegalPagesEditor } from '@/pages/Admin/LegalPagesEditor';
 import { LegalPageView } from '@/pages/LegalPage';
+import { AdminPaymentMethods } from '@/pages/Admin/PaymentMethods';
 import StockManagement from '@/pages/Admin/StockManagement';
 import AgentDashboard from '@/pages/Admin/AgentDashboard';
 import ShippingSettings from '@/pages/Admin/ShippingSettings';
@@ -225,6 +226,7 @@ function App() {
           <Route path="legal-pages" element={<AdminLegalPages />} />
           <Route path="legal-pages/new" element={<LegalPagesEditor />} />
           <Route path="legal-pages/edit/:id" element={<LegalPagesEditor />} />
+          <Route path="payment-methods" element={<AdminPaymentMethods />} />
         </Route>
         
         {/* 404 Page */}

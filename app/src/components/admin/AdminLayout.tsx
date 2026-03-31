@@ -18,7 +18,8 @@ import {
   Warehouse,
   Headphones,
   Truck,
-  FileText
+  FileText,
+  CreditCard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useThemeStore } from '@/stores/themeStore';
@@ -38,6 +39,7 @@ const menuItems = [
   { path: '/admin/shipping', icon: Truck, label: 'Kargo' },
   { path: '/admin/support', icon: Headphones, label: 'Canlı Destek' },
   { path: '/admin/legal-pages', icon: FileText, label: 'Yasal Sayfalar' },
+  { path: '/admin/payment-methods', icon: CreditCard, label: 'Ödeme Yöntemleri' },
   { path: '/admin/settings', icon: Settings, label: 'Ayarlar' },
 ];
 

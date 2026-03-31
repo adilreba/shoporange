@@ -1718,6 +1718,210 @@ Resources:
             Method: post
             RestApiId: !Ref ApiGateway
 
+  # Payment Methods Table
+  PaymentMethodsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-PaymentMethods
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: code
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: CodeIndex
+          KeySchema:
+            - AttributeName: code
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Payment Methods Secrets (API Keys)
+  StripeProductionSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: atushome/payment/stripe/production
+      Description: Stripe Production API Keys
+      SecretString: '{"apiKey":"","secretKey":"","webhookSecret":""}'
+
+  StripeTestSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: atushome/payment/stripe/test
+      Description: Stripe Test API Keys
+      SecretString: '{"apiKey":"","secretKey":"","webhookSecret":""}'
+
+  IyzicoProductionSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: atushome/payment/iyzico/production
+      Description: Iyzico Production API Keys
+      SecretString: '{"apiKey":"","secretKey":"","baseUrl":""}'
+
+  IyzicoTestSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: atushome/payment/iyzico/test
+      Description: Iyzico Test API Keys
+      SecretString: '{"apiKey":"","secretKey":"","baseUrl":""}'
+
+  PaytrProductionSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: atushome/payment/paytr/production
+      Description: PayTR Production API Keys
+      SecretString: '{"merchantId":"","merchantKey":"","merchantSalt":""}'
+
+  PaytrTestSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: atushome/payment/paytr/test
+      Description: PayTR Test API Keys
+      SecretString: '{"merchantId":"","merchantKey":"","merchantSalt":""}'
+
+  # Payment Methods Functions
+  PaymentMethodsListAdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/payment-methods
+      Handler: index.listAdmin
+      Description: List all payment methods (admin)
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref PaymentMethodsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: 
+                - !Ref StripeProductionSecret
+                - !Ref StripeTestSecret
+                - !Ref IyzicoProductionSecret
+                - !Ref IyzicoTestSecret
+                - !Ref PaytrProductionSecret
+                - !Ref PaytrTestSecret
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payment-methods/admin
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  PaymentMethodsListPublicFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/payment-methods
+      Handler: index.listPublic
+      Description: List active payment methods (public)
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref PaymentMethodsTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payment-methods
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  PaymentMethodsGetByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/payment-methods
+      Handler: index.getById
+      Description: Get payment method by ID
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref PaymentMethodsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: 
+                - !Ref StripeProductionSecret
+                - !Ref StripeTestSecret
+                - !Ref IyzicoProductionSecret
+                - !Ref IyzicoTestSecret
+                - !Ref PaytrProductionSecret
+                - !Ref PaytrTestSecret
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payment-methods/{id}/admin
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  PaymentMethodsUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/payment-methods
+      Handler: index.update
+      Description: Update payment method settings
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PaymentMethodsTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payment-methods/{id}
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  PaymentMethodsTestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/payment-methods
+      Handler: index.testConnection
+      Description: Test payment provider connection
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref PaymentMethodsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: 
+                - !Ref StripeProductionSecret
+                - !Ref StripeTestSecret
+                - !Ref IyzicoProductionSecret
+                - !Ref IyzicoTestSecret
+                - !Ref PaytrProductionSecret
+                - !Ref PaytrTestSecret
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payment-methods/{id}/test
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  PaymentMethodsSeedFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/payment-methods
+      Handler: index.seed
+      Description: Seed default payment methods
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PaymentMethodsTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payment-methods/seed
+            Method: post
+            RestApiId: !Ref ApiGateway
+
   # Cognito User Pool Domain for OAuth
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
