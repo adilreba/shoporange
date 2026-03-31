@@ -7,13 +7,31 @@ import {
   CognitoRefreshToken,
 } from 'amazon-cognito-identity-js';
 
-// Cognito configuration from environment variables
+// Mock mode kontrolü
+const FORCE_MOCK_MODE = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
+const isMockMode = () => {
+  if (FORCE_MOCK_MODE) return true;
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl || envUrl === '') return true;
+  if (envUrl.includes('your-api-gateway-url')) return true;
+  return false;
+};
+
+// Cognito configuration - sadece mock mode değilse initialize et
 const poolData = {
   UserPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || '',
   ClientId: import.meta.env.VITE_COGNITO_CLIENT_ID || '',
 };
 
-const userPool = new CognitoUserPool(poolData);
+// Lazy initialization - sadece gerektiğinde oluştur
+let userPoolInstance: CognitoUserPool | null = null;
+const getUserPool = () => {
+  if (isMockMode()) return null;
+  if (!userPoolInstance) {
+    userPoolInstance = new CognitoUserPool(poolData);
+  }
+  return userPoolInstance;
+};
 
 export interface SignUpData {
   email: string;
@@ -52,7 +70,9 @@ export interface SignInResult {
  * Get current authenticated user from local storage
  */
 export function getCurrentUser(): CognitoUser | null {
-  return userPool.getCurrentUser();
+  if (isMockMode()) return null;
+  const pool = getUserPool();
+  return pool ? pool.getCurrentUser() : null;
 }
 
 /**
@@ -60,6 +80,17 @@ export function getCurrentUser(): CognitoUser | null {
  */
 export function signUp(data: SignUpData): Promise<{ userSub: string }> {
   return new Promise((resolve, reject) => {
+    if (isMockMode()) {
+      reject(new Error('Mock mode - Cognito not available'));
+      return;
+    }
+    
+    const pool = getUserPool();
+    if (!pool) {
+      reject(new Error('Cognito not initialized'));
+      return;
+    }
+    
     const attributeList: CognitoUserAttribute[] = [
       new CognitoUserAttribute({ Name: 'email', Value: data.email }),
       new CognitoUserAttribute({ Name: 'name', Value: data.name }),
@@ -67,7 +98,7 @@ export function signUp(data: SignUpData): Promise<{ userSub: string }> {
       new CognitoUserAttribute({ Name: 'custom:role', Value: 'user' }),
     ];
 
-    userPool.signUp(data.email, data.password, attributeList, [], (err, result) => {
+    pool.signUp(data.email, data.password, attributeList, [], (err, result) => {
       if (err) {
         reject(err);
         return;
@@ -82,9 +113,14 @@ export function signUp(data: SignUpData): Promise<{ userSub: string }> {
  */
 export function confirmSignUp(email: string, code: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (isMockMode()) {
+      resolve();
+      return;
+    }
+    
     const cognitoUser = new CognitoUser({
       Username: email,
-      Pool: userPool,
+      Pool: getUserPool()!,
     });
 
     cognitoUser.confirmRegistration(code, true, (err) => {
@@ -102,9 +138,14 @@ export function confirmSignUp(email: string, code: string): Promise<void> {
  */
 export function resendConfirmationCode(email: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (isMockMode()) {
+      resolve();
+      return;
+    }
+    
     const cognitoUser = new CognitoUser({
       Username: email,
-      Pool: userPool,
+      Pool: getUserPool()!,
     });
 
     cognitoUser.resendConfirmationCode((err) => {
@@ -130,6 +171,7 @@ function parseUserData(_cognitoUser: CognitoUser, session: CognitoUserSession): 
     name: payload.name,
     phone: payload.phone_number,
     role: payload['custom:role'] || 'user',
+    createdAt: payload['custom:created_at'] || new Date().toISOString(),
   };
 }
 
@@ -157,6 +199,11 @@ function extractTokens(session: CognitoUserSession): AuthTokens {
  */
 export function signIn(data: SignInData): Promise<SignInResult> {
   return new Promise((resolve, reject) => {
+    if (isMockMode()) {
+      reject(new Error('Mock mode - Cognito not available'));
+      return;
+    }
+    
     const authenticationDetails = new AuthenticationDetails({
       Username: data.email,
       Password: data.password,
@@ -164,7 +211,7 @@ export function signIn(data: SignInData): Promise<SignInResult> {
 
     const cognitoUser = new CognitoUser({
       Username: data.email,
-      Pool: userPool,
+      Pool: getUserPool()!,
     });
 
     cognitoUser.authenticateUser(authenticationDetails, {
@@ -188,7 +235,12 @@ export function signIn(data: SignInData): Promise<SignInResult> {
  */
 export function signOut(): Promise<void> {
   return new Promise((resolve) => {
-    const cognitoUser = userPool.getCurrentUser();
+    if (isMockMode()) {
+      resolve();
+      return;
+    }
+    
+    const cognitoUser = getUserPool()?.getCurrentUser();
     if (cognitoUser) {
       cognitoUser.signOut(() => {
         resolve();
@@ -204,7 +256,12 @@ export function signOut(): Promise<void> {
  */
 export function globalSignOut(): Promise<void> {
   return new Promise((resolve, reject) => {
-    const cognitoUser = userPool.getCurrentUser();
+    if (isMockMode()) {
+      resolve();
+      return;
+    }
+    
+    const cognitoUser = getUserPool()?.getCurrentUser();
     if (cognitoUser) {
       cognitoUser.globalSignOut({
         onSuccess: () => resolve(),
@@ -221,7 +278,12 @@ export function globalSignOut(): Promise<void> {
  */
 export function getCurrentSession(): Promise<{ user: UserData; tokens: AuthTokens } | null> {
   return new Promise((resolve) => {
-    const cognitoUser = userPool.getCurrentUser();
+    if (isMockMode()) {
+      resolve(null);
+      return;
+    }
+    
+    const cognitoUser = getUserPool()?.getCurrentUser();
     if (!cognitoUser) {
       resolve(null);
       return;
@@ -245,7 +307,12 @@ export function getCurrentSession(): Promise<{ user: UserData; tokens: AuthToken
  */
 export function refreshSession(refreshToken: string): Promise<AuthTokens> {
   return new Promise((resolve, reject) => {
-    const cognitoUser = userPool.getCurrentUser();
+    if (isMockMode()) {
+      reject(new Error('Mock mode'));
+      return;
+    }
+    
+    const cognitoUser = getUserPool()?.getCurrentUser();
     if (!cognitoUser) {
       reject(new Error('No current user'));
       return;
@@ -269,9 +336,14 @@ export function refreshSession(refreshToken: string): Promise<AuthTokens> {
  */
 export function forgotPassword(email: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (isMockMode()) {
+      resolve();
+      return;
+    }
+    
     const cognitoUser = new CognitoUser({
       Username: email,
-      Pool: userPool,
+      Pool: getUserPool()!,
     });
 
     cognitoUser.forgotPassword({
@@ -290,9 +362,14 @@ export function confirmForgotPassword(
   newPassword: string
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (isMockMode()) {
+      resolve();
+      return;
+    }
+    
     const cognitoUser = new CognitoUser({
       Username: email,
-      Pool: userPool,
+      Pool: getUserPool()!,
     });
 
     cognitoUser.confirmPassword(code, newPassword, {
@@ -307,7 +384,12 @@ export function confirmForgotPassword(
  */
 export function changePassword(oldPassword: string, newPassword: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const cognitoUser = userPool.getCurrentUser();
+    if (isMockMode()) {
+      resolve();
+      return;
+    }
+    
+    const cognitoUser = getUserPool()?.getCurrentUser();
     if (!cognitoUser) {
       reject(new Error('No current user'));
       return;
@@ -327,6 +409,7 @@ export function changePassword(oldPassword: string, newPassword: string): Promis
  * Get access token for API calls
  */
 export async function getAccessToken(): Promise<string | null> {
+  if (isMockMode()) return 'mock_token';
   const session = await getCurrentSession();
   return session?.tokens.accessToken || null;
 }
@@ -335,6 +418,7 @@ export async function getAccessToken(): Promise<string | null> {
  * Get ID token for API calls
  */
 export async function getIdToken(): Promise<string | null> {
+  if (isMockMode()) return 'mock_token';
   const session = await getCurrentSession();
   return session?.tokens.idToken || null;
 }
@@ -343,6 +427,7 @@ export async function getIdToken(): Promise<string | null> {
  * Check if token needs refresh (expires in less than 5 minutes)
  */
 export function needsTokenRefresh(tokens: AuthTokens): boolean {
+  if (isMockMode()) return false;
   const fiveMinutes = 5 * 60 * 1000;
   return Date.now() + fiveMinutes >= tokens.expiresAt;
 }
@@ -357,6 +442,11 @@ export function completeNewPasswordChallenge(
   userAttributes: Record<string, string> = {}
 ): Promise<SignInResult> {
   return new Promise((resolve, reject) => {
+    if (isMockMode()) {
+      reject(new Error('Mock mode'));
+      return;
+    }
+    
     const authenticationDetails = new AuthenticationDetails({
       Username: email,
       Password: tempPassword,
@@ -364,7 +454,7 @@ export function completeNewPasswordChallenge(
 
     const cognitoUser = new CognitoUser({
       Username: email,
-      Pool: userPool,
+      Pool: getUserPool()!,
     });
 
     cognitoUser.authenticateUser(authenticationDetails, {
