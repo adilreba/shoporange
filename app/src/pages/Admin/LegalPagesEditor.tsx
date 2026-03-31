@@ -16,7 +16,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { legalPagesAdminApi, type LegalPage } from '@/services/legalPagesApi';
 
@@ -50,6 +49,7 @@ export function LegalPagesEditor() {
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
   
   const [formData, setFormData] = useState<Partial<LegalPage>>({
     title: '',
@@ -68,10 +68,16 @@ export function LegalPagesEditor() {
     }
   }, [id, isNew]);
 
+  // isPublished değiştiğinde formData'yı güncelle
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, isPublished }));
+  }, [isPublished]);
+
   const loadPage = async (pageId: string) => {
     try {
       const page = await legalPagesAdminApi.getById(pageId);
       setFormData(page);
+      setIsPublished(page.isPublished);
     } catch (error) {
       toast.error('Sayfa yüklenemedi');
       navigate('/admin/legal-pages');
@@ -134,6 +140,7 @@ export function LegalPagesEditor() {
   };
 
   const handleSave = async () => {
+    // Validasyon
     if (!formData.title?.trim()) {
       toast.error('Başlık gerekli');
       return;
@@ -156,11 +163,13 @@ export function LegalPagesEditor() {
     try {
       setSaving(true);
       
+      const dataToSave = { ...formData, isPublished };
+      
       if (isNew) {
-        await legalPagesAdminApi.create(formData);
+        await legalPagesAdminApi.create(dataToSave);
         toast.success('Sayfa oluşturuldu');
       } else if (id) {
-        await legalPagesAdminApi.update(id, formData);
+        await legalPagesAdminApi.update(id, dataToSave);
         toast.success('Sayfa güncellendi');
       }
       
@@ -217,6 +226,7 @@ export function LegalPagesEditor() {
       </div>
 
       {preview ? (
+        // Önizleme Modu
         <div className="bg-white rounded-lg border p-8 max-w-4xl mx-auto">
           <div className="prose prose-orange max-w-none">
             <h1>{formData.title}</h1>
@@ -224,6 +234,7 @@ export function LegalPagesEditor() {
           </div>
         </div>
       ) : (
+        // Düzenleme Modu
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Sol Kolon - Ana İçerik */}
           <div className="lg:col-span-2 space-y-6">
@@ -309,10 +320,12 @@ export function LegalPagesEditor() {
                     Sayfayı herkese açık yap
                   </p>
                 </div>
-                <Switch
+                <input
+                  type="checkbox"
                   id="published"
-                  checked={formData.isPublished}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isPublished: checked })}
+                  checked={isPublished}
+                  onChange={(e) => setIsPublished(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                 />
               </div>
 
