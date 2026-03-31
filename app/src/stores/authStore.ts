@@ -66,8 +66,6 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false 
             });
           } else {
-            // Token geçersiz
-            localStorage.removeItem('auth_token');
             set({ 
               user: null, 
               token: null, 
@@ -77,7 +75,6 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (error) {
           console.error('Token verification failed:', error);
-          localStorage.removeItem('auth_token');
           set({ 
             user: null, 
             token: null, 
@@ -94,7 +91,6 @@ export const useAuthStore = create<AuthState>()(
           const response = await authApi.login(credentials.email, credentials.password);
           
           if (response.token && response.user) {
-            localStorage.setItem('auth_token', response.token);
             set({ 
               user: response.user, 
               token: response.token,
@@ -131,7 +127,6 @@ export const useAuthStore = create<AuthState>()(
           });
           
           if (response.token && response.user) {
-            localStorage.setItem('auth_token', response.token);
             set({ 
               user: response.user, 
               token: response.token,
@@ -158,12 +153,8 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         try {
-          // Backend'e logout isteği gönder (opsiyonel)
-          await authApi.logout().catch(() => {
-            // Hata olsa bile devam et
-          });
+          await authApi.logout().catch(() => {});
         } finally {
-          localStorage.removeItem('auth_token');
           set({ 
             user: null, 
             token: null,
@@ -188,7 +179,6 @@ export const useAuthStore = create<AuthState>()(
           const response = await authApi.socialLogin(provider, token);
           
           if (response.token && response.user) {
-            localStorage.setItem('auth_token', response.token);
             set({ 
               user: response.user, 
               token: response.token,

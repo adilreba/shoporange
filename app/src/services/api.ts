@@ -51,7 +51,11 @@ const isMockMode = () => {
   if (FORCE_MOCK_MODE) return true;
   
   const envUrl = import.meta.env.VITE_API_URL;
-  return !envUrl || envUrl === DEFAULT_API_URL || envUrl === '';
+  if (!envUrl || envUrl === '' || envUrl === DEFAULT_API_URL) return true;
+  // Placeholder URL iceriyorsa mock mode
+  if (envUrl.includes('your-api-gateway-url')) return true;
+  
+  return false;
 };
 
 // Helper function for API calls

@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 
 export function Register() {
   const navigate = useNavigate();
-  const { register, socialLogin, isLoading } = useAuthStore();
+  const { register, socialLogin, isLoading, error, clearError } = useAuthStore();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -27,6 +27,7 @@ export function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    clearError();
     
     // Form validasyonu
     if (!formData.name.trim()) {
@@ -86,7 +87,7 @@ export function Register() {
       toast.success('Kayıt başarılı! Hoş geldiniz.');
       navigate('/');
     } else {
-      toast.error('Kayıt başarısız. Lütfen tekrar deneyin.');
+      toast.error(error || 'Kayıt başarısız. Lütfen tekrar deneyin.');
     }
   };
 

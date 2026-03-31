@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 
 export function Login() {
   const navigate = useNavigate();
-  const { login, socialLogin, isLoading } = useAuthStore();
+  const { login, socialLogin, isLoading, error, clearError } = useAuthStore();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,6 +22,7 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    clearError();
     
     // Form validasyonu
     if (!email.trim()) {
@@ -46,7 +47,7 @@ export function Login() {
       toast.success('Giriş başarılı!');
       navigate('/');
     } else {
-      toast.error('Giriş başarısız. Bilgilerinizi kontrol edin.');
+      toast.error(error || 'Giriş başarısız. Bilgilerinizi kontrol edin.');
     }
   };
 
