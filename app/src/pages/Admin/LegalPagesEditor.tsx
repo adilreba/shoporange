@@ -6,7 +6,12 @@ import {
   Eye, 
   EyeOff,
   Loader2,
-  FileText
+  FileText,
+  Bold,
+  Italic,
+  Heading,
+  List,
+  Link as LinkIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,26 +19,28 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { legalPagesAdminApi, type LegalPage } from '@/services/legalPagesApi';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 
-// Quill editör modülleri
-const quillModules = {
-  toolbar: [
-    [{ 'header': [1, 2, 3, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-    [{ 'indent': '-1'}, { 'indent': '+1' }],
-    ['link', 'clean']
-  ],
-};
-
-const quillFormats = [
-  'header',
-  'bold', 'italic', 'underline', 'strike',
-  'list', 'bullet', 'indent',
-  'link'
-];
+// HTML etiketlerini araç çubuğu butonları ile ekle
+const ToolbarButton = ({ 
+  icon: Icon, 
+  label, 
+  onClick,
+  active = false 
+}: { 
+  icon: React.ElementType; 
+  label: string; 
+  onClick: () => void;
+  active?: boolean;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`p-2 rounded hover:bg-gray-100 transition-colors ${active ? 'bg-gray-200' : ''}`}
+    title={label}
+  >
+    <Icon className="h-4 w-4" />
+  </button>
+);
 
 export function LegalPagesEditor() {
   const navigate = useNavigate();
@@ -73,8 +80,60 @@ export function LegalPagesEditor() {
     }
   };
 
+  const insertTag = (tag: string, attrs = '') => {
+    const textarea = document.getElementById('content-editor') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const content = formData.content || '';
+    const selected = content.substring(start, end);
+
+    let replacement = '';
+    switch (tag) {
+      case 'h2':
+        replacement = `<h2>${selected || 'Başlık'}</h2>`;
+        break;
+      case 'h3':
+        replacement = `<h3>${selected || 'Alt Başlık'}</h3>`;
+        break;
+      case 'p':
+        replacement = `<p>${selected || 'Paragraf'}</p>`;
+        break;
+      case 'strong':
+        replacement = `<strong>${selected || 'Kalın metin'}</strong>`;
+        break;
+      case 'em':
+        replacement = `<em>${selected || 'İtalik metin'}</em>`;
+        break;
+      case 'ul':
+        replacement = `<ul>\n  <li>${selected || 'Madde 1'}</li>\n  <li>Madde 2</li>\n</ul>`;
+        break;
+      case 'ol':
+        replacement = `<ol>\n  <li>${selected || 'Madde 1'}</li>\n  <li>Madde 2</li>\n</ol>`;
+        break;
+      case 'a':
+        replacement = `<a href="https://">${selected || 'Link metni'}</a>`;
+        break;
+      case 'br':
+        replacement = '<br>';
+        break;
+      default:
+        replacement = `<${tag}${attrs ? ' ' + attrs : ''}>${selected}</${tag}>`;
+    }
+
+    const newContent = content.substring(0, start) + replacement + content.substring(end);
+    setFormData({ ...formData, content: newContent });
+
+    // Cursor pozisyonunu güncelle
+    setTimeout(() => {
+      textarea.focus();
+      const newPos = start + replacement.length;
+      textarea.setSelectionRange(newPos, newPos);
+    }, 0);
+  };
+
   const handleSave = async () => {
-    // Validasyon
     if (!formData.title?.trim()) {
       toast.error('Başlık gerekli');
       return;
@@ -88,7 +147,6 @@ export function LegalPagesEditor() {
       return;
     }
 
-    // Slug formatını kontrol et
     const slugRegex = /^[a-z0-9-]+$/;
     if (!slugRegex.test(formData.slug)) {
       toast.error('Slug sadece küçük harf, rakam ve tire içerebilir');
@@ -159,7 +217,6 @@ export function LegalPagesEditor() {
       </div>
 
       {preview ? (
-        // Önizleme Modu
         <div className="bg-white rounded-lg border p-8 max-w-4xl mx-auto">
           <div className="prose prose-orange max-w-none">
             <h1>{formData.title}</h1>
@@ -167,7 +224,6 @@ export function LegalPagesEditor() {
           </div>
         </div>
       ) : (
-        // Düzenleme Modu
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Sol Kolon - Ana İçerik */}
           <div className="lg:col-span-2 space-y-6">
@@ -208,16 +264,31 @@ export function LegalPagesEditor() {
 
               <div className="space-y-2">
                 <Label htmlFor="content">Sayfa İçeriği *</Label>
-                <div className="border rounded-lg overflow-hidden">
-                  <ReactQuill
-                    theme="snow"
-                    value={formData.content}
-                    onChange={(content) => setFormData({ ...formData, content })}
-                    modules={quillModules}
-                    formats={quillFormats}
-                    className="min-h-[400px]"
-                  />
+                
+                {/* Araç Çubuğu */}
+                <div className="flex items-center gap-1 p-2 bg-gray-50 border rounded-t-lg">
+                  <ToolbarButton icon={Heading} label="H2 Başlık" onClick={() => insertTag('h2')} />
+                  <ToolbarButton icon={FileText} label="H3 Alt Başlık" onClick={() => insertTag('h3')} />
+                  <div className="w-px h-6 bg-gray-300 mx-1" />
+                  <ToolbarButton icon={Bold} label="Kalın" onClick={() => insertTag('strong')} />
+                  <ToolbarButton icon={Italic} label="İtalik" onClick={() => insertTag('em')} />
+                  <div className="w-px h-6 bg-gray-300 mx-1" />
+                  <ToolbarButton icon={List} label="Sırasız Liste" onClick={() => insertTag('ul')} />
+                  <ToolbarButton icon={List} label="Sıralı Liste" onClick={() => insertTag('ol')} />
+                  <div className="w-px h-6 bg-gray-300 mx-1" />
+                  <ToolbarButton icon={LinkIcon} label="Link" onClick={() => insertTag('a')} />
                 </div>
+
+                <textarea
+                  id="content-editor"
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  placeholder="<h2>Başlık</h2>\n<p>İçerik buraya...</p>"
+                  className="w-full min-h-[400px] px-4 py-3 border-x border-b rounded-b-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <p className="text-xs text-muted-foreground">
+                  HTML etiketleri kullanabilirsiniz: &lt;h2&gt;, &lt;p&gt;, &lt;strong&gt;, &lt;ul&gt;, &lt;li&gt; vb.
+                </p>
               </div>
             </div>
           </div>
@@ -294,13 +365,16 @@ export function LegalPagesEditor() {
 
             {/* Bilgi Kartı */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-800 mb-2">💡 İpuçları</h4>
-              <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-                <li>Başlık ve içerik zorunludur</li>
-                <li>Slug benzersiz olmalıdır</li>
-                <li>Yayınlamadan önce önizleyin</li>
-                <li>SEO alanları boş bırakılırsa başlık kullanılır</li>
-              </ul>
+              <h4 className="font-medium text-blue-800 mb-2">💡 HTML Etiketleri</h4>
+              <div className="text-sm text-blue-700 space-y-1">
+                <p><code>&lt;h2&gt;</code> - Ana başlık</p>
+                <p><code>&lt;h3&gt;</code> - Alt başlık</p>
+                <p><code>&lt;p&gt;</code> - Paragraf</p>
+                <p><code>&lt;strong&gt;</code> - Kalın metin</p>
+                <p><code>&lt;ul&gt;&lt;li&gt;</code> - Liste</p>
+                <p><code>&lt;a href=""&gt;</code> - Link</p>
+                <p><code>&lt;br&gt;</code> - Satır sonu</p>
+              </div>
             </div>
           </div>
         </div>
