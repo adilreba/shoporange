@@ -3,6 +3,11 @@ import { persist } from 'zustand/middleware';
 import type { User, LoginCredentials, RegisterData } from '@/types';
 import * as cognito from '@/services/cognito';
 import * as googleAuth from '@/services/googleAuth';
+import { checkPasswordStrength, isValidEmail, ClientRateLimiter } from '@/utils/security';
+
+// Rate limiters for auth operations
+const loginRateLimiter = new ClientRateLimiter();
+const registerRateLimiter = new ClientRateLimiter();
 
 // Mock kullanıcılar (demo için)
 const MOCK_USERS = [
@@ -211,6 +216,21 @@ export const useAuthStore = create<AuthState>()(
       },
 
       login: async (credentials: LoginCredentials) => {
+        // Rate limiting - brute force protection
+        if (!loginRateLimiter.check('login', 5, 300000)) { // 5 deneme, 5 dakika
+          set({ 
+            error: 'Çok fazla giriş denemesi. Lütfen 5 dakika sonra tekrar deneyin.',
+            isLoading: false 
+          });
+          return false;
+        }
+
+        // Input validation
+        if (!isValidEmail(credentials.email)) {
+          set({ error: 'Geçersiz e-posta formatı', isLoading: false });
+          return false;
+        }
+
         set({ isLoading: true, error: null, needsVerification: false });
         
         try {
@@ -241,6 +261,31 @@ export const useAuthStore = create<AuthState>()(
       },
 
       register: async (data: RegisterData) => {
+        // Rate limiting
+        if (!registerRateLimiter.check('register', 3, 3600000)) { // 3 deneme, 1 saat
+          set({ 
+            error: 'Çok fazla kayıt denemesi. Lütfen daha sonra tekrar deneyin.',
+            isLoading: false 
+          });
+          return false;
+        }
+
+        // Email validation
+        if (!isValidEmail(data.email)) {
+          set({ error: 'Geçersiz e-posta formatı', isLoading: false });
+          return false;
+        }
+
+        // Password strength validation
+        const passwordCheck = checkPasswordStrength(data.password);
+        if (!passwordCheck.valid) {
+          set({ 
+            error: `Şifre güvenlik gereksinimlerini karşılamıyor: ${passwordCheck.feedback.join(', ')}`,
+            isLoading: false 
+          });
+          return false;
+        }
+
         set({ isLoading: true, error: null, needsVerification: false });
         
         try {
