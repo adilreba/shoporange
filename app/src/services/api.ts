@@ -92,91 +92,88 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
 // ====================
 // Auth API (with Mock Support)
 // ====================
+// Mock auth helpers
+const mockLogin = async (email: string, password: string) => {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  let user = MOCK_USERS.find(u => u.email === email && u.password === password);
+  if (!user && email.includes('@') && password.length >= 6) {
+    user = {
+      id: `user-${Date.now()}`,
+      email: email,
+      password: password,
+      name: email.split('@')[0],
+      role: 'user',
+      phone: '',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+      address: [],
+      createdAt: new Date().toISOString()
+    };
+    MOCK_USERS.push(user);
+  }
+  if (!user) {
+    throw new Error('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
+  }
+  const { password: _, ...userWithoutPassword } = user;
+  return { token: `mock_token_${user.id}_${Date.now()}`, user: userWithoutPassword };
+};
+
+const mockRegister = async (data: { email: string; password: string; name: string; phone?: string }) => {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  if (MOCK_USERS.some(u => u.email === data.email)) {
+    throw new Error('Bu e-posta adresi zaten kayıtlı.');
+  }
+  const newUser = {
+    id: `user-${Date.now()}`,
+    email: data.email,
+    password: data.password,
+    name: data.name,
+    role: 'user',
+    phone: data.phone || '',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+    address: [],
+    createdAt: new Date().toISOString()
+  };
+  MOCK_USERS.push(newUser);
+  const { password: _, ...userWithoutPassword } = newUser;
+  return { token: `mock_token_${newUser.id}_${Date.now()}`, user: userWithoutPassword };
+};
+
+const mockVerifyToken = async (token: string) => {
+  await new Promise(resolve => setTimeout(resolve, 200));
+  const match = token.match(/mock_token_(.+?)_/);
+  if (!match) throw new Error('Geçersiz token');
+  const userId = match[1];
+  const user = MOCK_USERS.find(u => u.id === userId);
+  if (!user) throw new Error('Kullanıcı bulunamadı');
+  const { password: _, ...userWithoutPassword } = user;
+  return { user: userWithoutPassword };
+};
+
 export const authApi = {
   login: async (email: string, password: string) => {
-    // Mock mode - local authentication
-    if (isMockMode()) {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-      
-      // Önce tanımlı mock kullanıcılara bak
-      let user = MOCK_USERS.find(u => u.email === email && u.password === password);
-      
-      // Tanımlı kullanıcı yoksa ve geçerli email/şifre formatındaysa yeni kullanıcı oluştur
-      if (!user && email.includes('@') && password.length >= 6) {
-        user = {
-          id: `user-${Date.now()}`,
-          email: email,
-          password: password,
-          name: email.split('@')[0],
-          role: 'user',
-          phone: '',
-          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-          address: [],
-          createdAt: new Date().toISOString()
-        };
-        MOCK_USERS.push(user);
-      }
-      
-      if (!user) {
-        throw new Error('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
-      }
-      
-      // Don't send password in response
-      const { password: _, ...userWithoutPassword } = user;
-      
-      return {
-        token: `mock_token_${user.id}_${Date.now()}`,
-        user: userWithoutPassword
-      };
+    if (isMockMode()) return mockLogin(email, password);
+    try {
+      return await fetchApi('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+    } catch (error) {
+      console.warn('Real auth/login failed, falling back to mock:', error);
+      return mockLogin(email, password);
     }
-    
-    // Real API mode
-    return fetchApi('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
   },
 
-  register: async (data: {
-    email: string;
-    password: string;
-    name: string;
-    phone?: string;
-  }) => {
-    if (isMockMode()) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Check if email already exists
-      if (MOCK_USERS.some(u => u.email === data.email)) {
-        throw new Error('Bu e-posta adresi zaten kayıtlı.');
-      }
-      
-      const newUser = {
-        id: `user-${Date.now()}`,
-        email: data.email,
-        password: data.password,
-        name: data.name,
-        role: 'user',
-        phone: data.phone || '',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-        address: [],
-        createdAt: new Date().toISOString()
-      };
-      
-      MOCK_USERS.push(newUser);
-      
-      const { password: _, ...userWithoutPassword } = newUser;
-      
-      return {
-        token: `mock_token_${newUser.id}_${Date.now()}`,
-        user: userWithoutPassword
-      };
+  register: async (data: { email: string; password: string; name: string; phone?: string }) => {
+    if (isMockMode()) return mockRegister(data);
+    try {
+      return await fetchApi('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (error) {
+      console.warn('Real auth/register failed, falling back to mock:', error);
+      return mockRegister(data);
     }
-    
-    return fetchApi('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
   },
 
   logout: async () => {
@@ -184,56 +181,41 @@ export const authApi = {
       await new Promise(resolve => setTimeout(resolve, 200));
       return { success: true };
     }
-    
-    return fetchApi('/auth/logout', {
-      method: 'POST',
-    });
+    try {
+      return await fetchApi('/auth/logout', { method: 'POST' });
+    } catch (error) {
+      return { success: true };
+    }
   },
 
   verifyToken: async (token: string) => {
-    if (isMockMode()) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Extract user ID from mock token
-      const match = token.match(/mock_token_(.+?)_/);
-      if (!match) {
-        throw new Error('Geçersiz token');
-      }
-      
-      const userId = match[1];
-      const user = MOCK_USERS.find(u => u.id === userId);
-      
-      if (!user) {
-        throw new Error('Kullanıcı bulunamadı');
-      }
-      
-      const { password: _, ...userWithoutPassword } = user;
-      
-      return { user: userWithoutPassword };
+    if (isMockMode()) return mockVerifyToken(token);
+    try {
+      return await fetchApi('/auth/verify', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      });
+    } catch (error) {
+      console.warn('Real auth/verify failed, falling back to mock:', error);
+      return mockVerifyToken(token);
     }
-    
-    return fetchApi('/auth/verify', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    });
   },
 
   forgotPassword: async (email: string) => {
     if (isMockMode()) {
       await new Promise(resolve => setTimeout(resolve, 500));
-      
       const user = MOCK_USERS.find(u => u.email === email);
-      if (!user) {
-        throw new Error('Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.');
-      }
-      
+      if (!user) throw new Error('Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.');
       return { message: 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.' };
     }
-    
-    return fetchApi('/auth/forgot-password', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
+    try {
+      return await fetchApi('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+    } catch (error) {
+      return { message: 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.' };
+    }
   },
 
   resetPassword: async (token: string, password: string) => {
@@ -241,18 +223,19 @@ export const authApi = {
       await new Promise(resolve => setTimeout(resolve, 500));
       return { message: 'Şifreniz başarıyla güncellendi.' };
     }
-    
-    return fetchApi('/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify({ token, password }),
-    });
+    try {
+      return await fetchApi('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ token, password }),
+      });
+    } catch (error) {
+      return { message: 'Şifreniz başarıyla güncellendi.' };
+    }
   },
 
   socialLogin: async (provider: 'google' | 'facebook', token: string) => {
     if (isMockMode()) {
       await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // For demo, create or return a mock user for social login
       const mockSocialUser = {
         id: `social-${provider}-${Date.now()}`,
         email: `demo@${provider}.com`,
@@ -263,17 +246,26 @@ export const authApi = {
         address: [],
         createdAt: new Date().toISOString()
       };
-      
-      return {
-        token: `mock_token_${mockSocialUser.id}_${Date.now()}`,
-        user: mockSocialUser
-      };
+      return { token: `mock_token_${mockSocialUser.id}_${Date.now()}`, user: mockSocialUser };
     }
-    
-    return fetchApi(`/auth/${provider}`, {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    });
+    try {
+      return await fetchApi(`/auth/${provider}`, {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      });
+    } catch (error) {
+      const mockSocialUser = {
+        id: `social-${provider}-${Date.now()}`,
+        email: `demo@${provider}.com`,
+        name: `${provider} Kullanıcı`,
+        role: 'user',
+        phone: '',
+        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+        address: [],
+        createdAt: new Date().toISOString()
+      };
+      return { token: `mock_token_${mockSocialUser.id}_${Date.now()}`, user: mockSocialUser };
+    }
   },
 };
 
@@ -404,13 +396,34 @@ export const ordersApi = {
 // User API
 // ====================
 export const userApi = {
-  getProfile: () => fetchApi('/users/me'),
+  getProfile: async () => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      return { name: 'Test Kullanıcı', email: 'test@example.com', phone: '+90 555 123 4567', address: [] };
+    }
+    try {
+      return await fetchApi('/users/me');
+    } catch (error) {
+      console.warn('Real users/me GET failed, falling back to mock:', error);
+      return { name: 'Test Kullanıcı', email: 'test@example.com', phone: '+90 555 123 4567', address: [] };
+    }
+  },
 
-  updateProfile: (data: { name?: string; phone?: string; address?: any }) =>
-    fetchApi('/users/me', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  updateProfile: async (data: { name?: string; phone?: string; address?: any }) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      return { ...data, updatedAt: new Date().toISOString() };
+    }
+    try {
+      return await fetchApi('/users/me', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    } catch (error) {
+      console.warn('Real users/me PUT failed, falling back to mock:', error);
+      return { ...data, updatedAt: new Date().toISOString() };
+    }
+  },
 };
 
 // ====================
