@@ -230,10 +230,7 @@ export default function AgentDashboard() {
     if (!user?.id) return;
 
     try {
-      // Önce AWS'de kabul et
-      await chatApi.assignAgent(session.sessionId, user.id);
-      
-      // Local store'a da ekle (eğer yoksa)
+      // Önce local store'a ekle (eğer yoksa) - WebSocket bağlantısı için
       const localRequest = agentRequests.find(req => req.id === session.sessionId);
       if (!localRequest) {
         // AWS'den gelen session'ı local store'a ekle
@@ -258,8 +255,17 @@ export default function AgentDashboard() {
         });
       }
       
-      // Local store'da kabul et (status: active yap) - bu fonksiyon zaten activeSessions'a da ekliyor
+      // Önce WebSocket'e bağlan (bu agentConnectionId'yi backend'e iletecek)
+      // acceptRequest fonksiyonu WebSocket bağlantısı kuruyor
       acceptRequest(session.sessionId);
+      
+      // Sonra AWS HTTP API'de kabul et (backup olarak)
+      try {
+        await chatApi.assignAgent(session.sessionId, user.id);
+      } catch (apiError) {
+        console.log('[AWS API] Assign error (may be in mock mode):', apiError);
+        // Mock mode'da devam et, WebSocket üzerinden çalışacak
+      }
       
       // Müşteriye agent'ın bağlandığını bildir ve bot yanıtlarını durdur
       agentAcceptedChat(session.sessionId, user.name || 'Temsilci');

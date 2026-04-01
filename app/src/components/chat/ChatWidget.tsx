@@ -208,6 +208,15 @@ export function ChatWidget() {
           });
         }
       }
+      
+      // WebSocket connection status değişikliklerini takip et
+      if (state.connectionStatus !== prevState.connectionStatus) {
+        console.log('[ChatWidget] Connection status:', state.connectionStatus);
+        if (state.connectionStatus === 'connected' && state.waitingForAgent) {
+          // WebSocket bağlandı ve agent bekleniyor
+          toast.success('Canlı destek sistemine bağlandınız');
+        }
+      }
     });
     
     // Cross-tab sync: Diğer sekmelerden gelen mesajları dinle
@@ -419,21 +428,21 @@ export function ChatWidget() {
     const userName = isAuthenticated && user ? user.name : 'Misafir Kullanıcı';
     const userEmail = isAuthenticated && user ? user.email : 'misafir@atushome.com';
     
-    // Local store'a kaydet
+    // WebSocket üzerinden agent isteği gönder (bu otomatik bağlanacak)
     storeRequestAgent({
       userId,
       userName,
       userEmail,
     });
     
-    // AWS API'ye de gönder (gerçek bildirim için)
+    // AWS API'ye de gönder (gerçek bildirim için - backup)
     chatApi.requestAgent({
       userId,
       userName,
       userEmail,
     }).catch(error => {
       console.log('AWS API error (mock mode da olabilir):', error);
-      // Hata olsa bile local store'da çalışmaya devam et
+      // Hata olsa bile WebSocket üzerinden çalışmaya devam et
     });
     
     setTimeout(() => {

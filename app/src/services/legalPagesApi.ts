@@ -227,6 +227,6 @@ export const legalPagesPublicApi = {
       if (!page) throw new Error('Sayfa bulunamadı');
       return page;
     }
-    return fetchApi(`/legal-pages/${slug}`);
+    return fetchApi(`/legal-pages/by-slug/${slug}`);
   },
 };

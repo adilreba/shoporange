@@ -101,30 +101,52 @@ async function handleConnect(event: WebSocketEvent): Promise<APIGatewayProxyResu
 
     // If agent, update session if sessionId provided
     if (userType === 'agent' && sessionId) {
-      await docClient.send(new UpdateCommand({
-        TableName: CHAT_SESSIONS_TABLE,
-        Key: { sessionId },
-        UpdateExpression: 'SET agentId = :agentId, agentConnectionId = :connectionId, #status = :status, updatedAt = :now',
-        ExpressionAttributeNames: { '#status': 'status' },
-        ExpressionAttributeValues: {
-          ':agentId': userId,
-          ':connectionId': connectionId,
-          ':status': 'active',
-          ':now': new Date().toISOString()
-        }
-      }));
-
-      // Notify customer that agent joined
+      // First get the session to check if it's waiting
       const session = await docClient.send(new GetCommand({
         TableName: CHAT_SESSIONS_TABLE,
         Key: { sessionId }
       }));
 
-      if (session.Item?.customerConnectionId) {
-        await sendToConnection(session.Item.customerConnectionId, {
-          type: 'agent_joined',
+      if (session.Item) {
+        // Update session with agent info
+        await docClient.send(new UpdateCommand({
+          TableName: CHAT_SESSIONS_TABLE,
+          Key: { sessionId },
+          UpdateExpression: 'SET agentId = :agentId, agentConnectionId = :connectionId, #status = :status, updatedAt = :now',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':agentId': userId,
+            ':connectionId': connectionId,
+            ':status': 'active',
+            ':now': new Date().toISOString()
+          }
+        }));
+
+        // Update connection record with sessionId
+        await docClient.send(new UpdateCommand({
+          TableName: CHAT_CONNECTIONS_TABLE,
+          Key: { connectionId },
+          UpdateExpression: 'SET sessionId = :sessionId',
+          ExpressionAttributeValues: {
+            ':sessionId': sessionId
+          }
+        }));
+
+        // Notify customer that agent joined
+        if (session.Item.customerConnectionId) {
+          await sendToConnection(session.Item.customerConnectionId, {
+            type: 'agent_joined',
+            agentId: userId,
+            message: 'Müşteri temsilcimiz bağlandı. Size nasıl yardımcı olabilirim?'
+          });
+        }
+
+        // Notify other agents that this session is taken
+        await notifyAgents({
+          type: 'session_assigned',
+          sessionId,
           agentId: userId,
-          message: 'Müşteri temsilcimiz bağlandı. Size nasıl yardımcı olabilirim?'
+          timestamp: new Date().toISOString()
         });
       }
     }
@@ -492,33 +514,48 @@ async function assignAgent(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     return createResponse(400, { success: false, message: 'Request body required' });
   }
 
-  const { sessionId, agentId } = JSON.parse(event.body);
+  const { sessionId, agentId, agentConnectionId } = JSON.parse(event.body);
 
   if (!sessionId || !agentId) {
     return createResponse(400, { success: false, message: 'sessionId and agentId required' });
   }
 
   try {
-    // Update session
-    await docClient.send(new UpdateCommand({
-      TableName: CHAT_SESSIONS_TABLE,
-      Key: { sessionId },
-      UpdateExpression: 'SET agentId = :agentId, #status = :status, updatedAt = :now',
-      ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: {
-        ':agentId': agentId,
-        ':status': 'active',
-        ':now': new Date().toISOString()
-      }
-    }));
-
-    // Get session to find customer connection
+    // Get current session
     const session = await docClient.send(new GetCommand({
       TableName: CHAT_SESSIONS_TABLE,
       Key: { sessionId }
     }));
 
-    if (session.Item?.customerConnectionId) {
+    if (!session.Item) {
+      return createResponse(404, { success: false, message: 'Session not found' });
+    }
+
+    // Update session
+    const updateExpression = agentConnectionId 
+      ? 'SET agentId = :agentId, agentConnectionId = :agentConnectionId, #status = :status, updatedAt = :now'
+      : 'SET agentId = :agentId, #status = :status, updatedAt = :now';
+    
+    const expressionValues: any = {
+      ':agentId': agentId,
+      ':status': 'active',
+      ':now': new Date().toISOString()
+    };
+    
+    if (agentConnectionId) {
+      expressionValues[':agentConnectionId'] = agentConnectionId;
+    }
+
+    await docClient.send(new UpdateCommand({
+      TableName: CHAT_SESSIONS_TABLE,
+      Key: { sessionId },
+      UpdateExpression: updateExpression,
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: expressionValues
+    }));
+
+    // Notify customer
+    if (session.Item.customerConnectionId) {
       await sendToConnection(session.Item.customerConnectionId, {
         type: 'agent_assigned',
         agentId,

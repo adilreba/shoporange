@@ -519,7 +519,7 @@ export const api = {
 
 // Chat API URLs
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || 'https://tfc7anixgd.execute-api.eu-west-1.amazonaws.com/prod';
-const CHAT_WS_URL = import.meta.env.VITE_CHAT_WS_URL || 'wss://jjhtiwu2j9.execute-api.eu-west-1.amazonaws.com/prod';
+const CHAT_WS_URL = import.meta.env.VITE_CHAT_WS_URL || 'wss://faj6241vp7.execute-api.eu-west-1.amazonaws.com/prod';
 
 // Chat API
 export const chatApi = {

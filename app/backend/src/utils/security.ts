@@ -92,6 +92,26 @@ export function validatePasswordStrength(password: string): {
   return { valid: errors.length === 0, errors };
 }
 
+// Get client IP from event
+export function getClientIP(event: APIGatewayProxyEvent): string {
+  return event.requestContext?.identity?.sourceIp || 
+         event.headers?.['X-Forwarded-For']?.split(',')[0]?.trim() || 
+         'unknown';
+}
+
+// Log security event
+export function logSecurityEvent(
+  event: string,
+  details: Record<string, any>,
+  severity: 'low' | 'medium' | 'high' | 'critical' = 'low'
+): void {
+  console.log(`[SECURITY EVENT] [${severity.toUpperCase()}] ${event}:`, JSON.stringify({
+    timestamp: new Date().toISOString(),
+    severity,
+    ...details
+  }));
+}
+
 // Secure response
 export function createSecureResponse(
   statusCode: number,

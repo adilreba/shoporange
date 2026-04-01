@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { chatApi } from '@/services/api';
+
+// WebSocket URL
+const WS_URL = import.meta.env.VITE_CHAT_WS_URL || 'wss://faj6241vp7.execute-api.eu-west-1.amazonaws.com/prod';
 
 interface Message {
   id: string;
@@ -9,7 +13,6 @@ interface Message {
   isRead?: boolean;
 }
 
-// Agent isteği tipi
 interface AgentRequest {
   id: string;
   userId: string;
@@ -30,6 +33,13 @@ interface ChatState {
   agentName: string | null;
   queuePosition: number | null;
   waitingForAgent: boolean;
+  
+  // WebSocket
+  ws: WebSocket | null;
+  sessionId: string | null;
+  userId: string | null;
+  userType: 'customer' | 'agent' | null;
+  
   // Agent requests for admin panel
   agentRequests: AgentRequest[];
   activeSessions: AgentRequest[];
@@ -39,24 +49,26 @@ interface ChatState {
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
   clearChat: () => void;
   setAgentTyping: (isTyping: boolean) => void;
-  connect: (userId: string, type: 'customer' | 'agent') => void;
+  
+  // WebSocket Actions
+  connect: (userId: string, type: 'customer' | 'agent', sessionId?: string) => void;
   disconnect: () => void;
+  sendWebSocketMessage: (action: string, data?: any) => void;
+  
+  // Chat Actions
   sendMessage: (text: string) => void;
   sendTyping: () => void;
   closeSession: () => void;
   requestAgent: (userInfo?: { userId: string; userName: string; userEmail: string }) => void;
   markAsRead: () => void;
+  
   // Admin actions
   getAgentRequests: () => AgentRequest[];
   acceptRequest: (requestId: string) => void;
   completeRequest: (requestId: string) => void;
-  // Agent accepted chat - notify customer
   agentAcceptedChat: (requestId: string, agentName: string) => void;
-  // Send message from agent to specific session
   sendAgentMessage: (requestId: string, text: string) => void;
-  // Get messages for a specific session
   getSessionMessages: (requestId: string) => Message[];
-  // Add customer message to specific session (for admin panel)
   addCustomerMessage: (requestId: string, text: string) => void;
 }
 
@@ -100,6 +112,14 @@ export const useChatStore = create<ChatState>()(
       agentName: null,
       queuePosition: null,
       waitingForAgent: false,
+      
+      // WebSocket
+      ws: null,
+      sessionId: null,
+      userId: null,
+      userType: null,
+      
+      // Agent requests
       agentRequests: [],
       activeSessions: [],
 
@@ -136,43 +156,139 @@ export const useChatStore = create<ChatState>()(
         set({ isAgentTyping: isTyping });
       },
 
-      connect: (_userId, _type) => {
+      // WebSocket Connection
+      connect: (userId, type, sessionId) => {
+        const { ws } = get();
+        
+        // Close existing connection
+        if (ws) {
+          ws.close();
+        }
+        
         set({ 
-          isConnected: true, 
-          connectionStatus: 'connected',
+          connectionStatus: 'connecting',
+          userId,
+          userType: type,
+          sessionId: sessionId || null,
         });
         
-        // Eğer mesaj yoksa karşılama mesajı ekle
-        const { messages } = get();
-        if (messages.length === 0) {
-          setTimeout(() => {
-            get().addMessage({
-              text: 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?',
-              sender: 'bot',
+        try {
+          // Build WebSocket URL with query parameters
+          const params = new URLSearchParams();
+          params.append('userId', userId);
+          params.append('userType', type);
+          if (sessionId) {
+            params.append('sessionId', sessionId);
+          }
+          
+          const wsUrl = `${WS_URL}?${params.toString()}`;
+          console.log(`[WebSocket] Connecting to ${WS_URL} as ${type}...`);
+          
+          const newWs = new WebSocket(wsUrl);
+          
+          newWs.onopen = () => {
+            console.log('[WebSocket] Connected');
+            set({ 
+              ws: newWs,
+              isConnected: true,
+              connectionStatus: 'connected',
             });
-          }, 500);
+            
+            // Add welcome message if no messages
+            const { messages } = get();
+            if (messages.length === 0 && type === 'customer') {
+              setTimeout(() => {
+                get().addMessage({
+                  text: 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Size nasıl yardımcı olabilirim?',
+                  sender: 'bot',
+                });
+              }, 500);
+            }
+          };
+          
+          newWs.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              console.log('[WebSocket] Message received:', data);
+              
+              handleWebSocketMessage(data, set, get);
+            } catch (error) {
+              console.error('[WebSocket] Error parsing message:', error);
+            }
+          };
+          
+          newWs.onclose = () => {
+            console.log('[WebSocket] Disconnected');
+            set({ 
+              ws: null,
+              isConnected: false,
+              connectionStatus: 'disconnected',
+            });
+          };
+          
+          newWs.onerror = (error) => {
+            console.error('[WebSocket] Error:', error);
+            set({ 
+              ws: null,
+              isConnected: false,
+              connectionStatus: 'disconnected',
+            });
+          };
+        } catch (error) {
+          console.error('[WebSocket] Connection error:', error);
+          set({ connectionStatus: 'disconnected' });
         }
       },
 
       disconnect: () => {
+        const { ws } = get();
+        if (ws) {
+          ws.close();
+        }
         set({ 
-          isConnected: false, 
+          ws: null,
+          isConnected: false,
           connectionStatus: 'disconnected',
           agentName: null,
         });
       },
 
+      sendWebSocketMessage: (action, data = {}) => {
+        const { ws, sessionId, userId, userType } = get();
+        
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          console.error('[WebSocket] Not connected');
+          return;
+        }
+        
+        const message = {
+          action,
+          sessionId,
+          userId,
+          userType,
+          ...data,
+        };
+        
+        console.log('[WebSocket] Sending message:', message);
+        ws.send(JSON.stringify(message));
+      },
+
       sendMessage: (text) => {
-        // Kullanıcı mesajını ekle
+        const { waitingForAgent, isConnected, userType } = get();
+        
+        // Add user message locally
         get().addMessage({
           text,
           sender: 'user',
         });
-
-        const { waitingForAgent } = get();
         
-        // Eğer temsilci beklenmiyorsa bot yanıt verir
-        if (!waitingForAgent) {
+        // If connected to WebSocket and waiting for agent or in active session, send via WebSocket
+        if (isConnected && userType === 'customer') {
+          get().sendWebSocketMessage('send_message', { message: text });
+        }
+        
+        // If not waiting for agent, provide bot response
+        if (!waitingForAgent && userType !== 'agent') {
           set({ isAgentTyping: true });
           
           setTimeout(() => {
@@ -187,15 +303,23 @@ export const useChatStore = create<ChatState>()(
       },
 
       sendTyping: () => {
-        // Typing indicator logic
+        const { isConnected, userType } = get();
+        if (isConnected && userType) {
+          get().sendWebSocketMessage('typing');
+        }
       },
 
       closeSession: () => {
+        const { isConnected } = get();
+        if (isConnected) {
+          get().sendWebSocketMessage('close_session');
+        }
         set({
           connectionStatus: 'disconnected',
           agentName: null,
           queuePosition: null,
           waitingForAgent: false,
+          sessionId: null,
         });
       },
 
@@ -205,6 +329,7 @@ export const useChatStore = create<ChatState>()(
         const userName = userInfo?.userName || 'Misafir Kullanıcı';
         const userEmail = userInfo?.userEmail || 'misafir@atushome.com';
         
+        // Create local request
         const newRequest: AgentRequest = {
           id: requestId,
           userId,
@@ -220,19 +345,47 @@ export const useChatStore = create<ChatState>()(
           }],
         };
         
-        set({ 
+        set((state) => ({ 
           waitingForAgent: true, 
           queuePosition: 1,
-          agentRequests: [...get().agentRequests, newRequest],
-        });
+          agentRequests: [...state.agentRequests, newRequest],
+          userId,
+        }));
         
-        // Simülasyon: Temsilci yanıtı
+        // Connect to WebSocket as customer
+        get().connect(userId, 'customer');
+        
+        // Send request_agent action via WebSocket when connected
+        setTimeout(() => {
+          const { isConnected } = get();
+          if (isConnected) {
+            get().sendWebSocketMessage('request_agent', {
+              userName,
+              userEmail,
+            });
+          }
+        }, 1000);
+        
+        // Show waiting message
         setTimeout(() => {
           get().addMessage({
             text: 'Bir temsilcimiz en kısa sürede sizinle ilgilenecektir. Lütfen bekleyin... 🕐',
             sender: 'agent',
           });
         }, 1000);
+        
+        // Try AWS API as backup (for notification to other agents)
+        chatApi.requestAgent({
+          userId,
+          userName,
+          userEmail,
+        }).catch(error => {
+          console.log('[AWS API] Error (may be in mock mode):', error);
+        });
+      },
+
+      markAsRead: () => {
+        set({ unreadCount: 0 });
       },
 
       getAgentRequests: () => {
@@ -240,14 +393,21 @@ export const useChatStore = create<ChatState>()(
       },
 
       acceptRequest: (requestId: string) => {
+        const { userId } = get();
+        
         set((state) => {
-          // Zaten aktifse tekrar ekleme
+          // Already active
           if (state.activeSessions.some(req => req.id === requestId)) {
             return { agentRequests: state.agentRequests };
           }
           
           const request = state.agentRequests.find(req => req.id === requestId);
           if (!request) return { agentRequests: state.agentRequests };
+          
+          // Connect to WebSocket as agent with this session
+          if (userId) {
+            get().connect(userId, 'agent', requestId);
+          }
           
           return {
             agentRequests: state.agentRequests.map(req =>
@@ -259,6 +419,13 @@ export const useChatStore = create<ChatState>()(
       },
 
       completeRequest: (requestId: string) => {
+        const { isConnected } = get();
+        
+        // Send close via WebSocket
+        if (isConnected) {
+          get().sendWebSocketMessage('close_session');
+        }
+        
         set((state) => ({
           agentRequests: state.agentRequests.map(req =>
             req.id === requestId ? { ...req, status: 'completed' as const } : req
@@ -267,14 +434,11 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
-      // Agent chat'i kabul ettiğinde - müşteriye bildir ve bot yanıtlarını durdur
       agentAcceptedChat: (requestId: string, agentName: string) => {
         set((state) => {
-          // Request'i bul
           const request = state.agentRequests.find(req => req.id === requestId);
           if (!request) return {};
           
-          // Müşteriye agent bağlandı mesajı ekle
           const agentConnectedMessage: Message = {
             id: `msg_${Date.now()}`,
             text: `${agentName} size bağlandı. Size nasıl yardımcı olabilirim?`,
@@ -283,7 +447,6 @@ export const useChatStore = create<ChatState>()(
           };
           
           return {
-            // Eğer bu request'in mesajları varsa onlara da ekle
             messages: [...state.messages, agentConnectedMessage],
             waitingForAgent: false,
             agentName: agentName,
@@ -301,13 +464,64 @@ export const useChatStore = create<ChatState>()(
         });
       },
 
-      // Agent'dan müşteriye mesaj gönder
       sendAgentMessage: (requestId: string, text: string) => {
+        const { isConnected, ws } = get();
+        
+        const newMessage: Message = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          text,
+          sender: 'agent',
+          timestamp: new Date().toISOString(),
+        };
+        
+        // Send via WebSocket if connected
+        if (isConnected && ws?.readyState === WebSocket.OPEN) {
+          get().sendWebSocketMessage('send_message', { 
+            message: text,
+            sessionId: requestId,
+          });
+        }
+        
+        // Update local state
+        set((state) => ({
+          messages: [...state.messages, newMessage],
+          agentRequests: state.agentRequests.map(req =>
+            req.id === requestId 
+              ? { ...req, messages: [...req.messages, newMessage] } 
+              : req
+          ),
+          activeSessions: state.activeSessions.map(req =>
+            req.id === requestId 
+              ? { ...req, messages: [...req.messages, newMessage] } 
+              : req
+          ),
+        }));
+        
+        // Broadcast to other tabs
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('chat-message', { 
+            detail: { requestId, message: newMessage } 
+          }));
+        }
+      },
+
+      getSessionMessages: (requestId: string) => {
+        const state = get();
+        const activeSession = state.activeSessions.find(req => req.id === requestId);
+        if (activeSession) return activeSession.messages;
+        
+        const request = state.agentRequests.find(req => req.id === requestId);
+        if (request) return request.messages;
+        
+        return [];
+      },
+
+      addCustomerMessage: (requestId: string, text: string) => {
         set((state) => {
           const newMessage: Message = {
             id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             text,
-            sender: 'agent',
+            sender: 'user',
             timestamp: new Date().toISOString(),
           };
           
@@ -318,7 +532,6 @@ export const useChatStore = create<ChatState>()(
             }));
           }
           
-          // Hem genel messages'a hem de session'ın messages'ına ekle
           return {
             messages: [...state.messages, newMessage],
             agentRequests: state.agentRequests.map(req =>
@@ -334,59 +547,6 @@ export const useChatStore = create<ChatState>()(
           };
         });
       },
-
-      // Belirli bir session'ın mesajlarını getir
-      getSessionMessages: (requestId: string) => {
-        const state = get();
-        // Önce activeSessions'da ara
-        const activeSession = state.activeSessions.find(req => req.id === requestId);
-        if (activeSession) return activeSession.messages;
-        
-        // Sonra agentRequests'de ara
-        const request = state.agentRequests.find(req => req.id === requestId);
-        if (request) return request.messages;
-        
-        return [];
-      },
-
-      // Müşteri mesajını session'a ekle (admin panelinde görünmesi için)
-      addCustomerMessage: (requestId: string, text: string) => {
-        set((state) => {
-          const newMessage: Message = {
-            id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            text,
-            sender: 'user',
-            timestamp: new Date().toISOString(),
-          };
-          
-          const newState = {
-            messages: [...state.messages, newMessage],
-            agentRequests: state.agentRequests.map(req =>
-              req.id === requestId 
-                ? { ...req, messages: [...req.messages, newMessage] } 
-                : req
-            ),
-            activeSessions: state.activeSessions.map(req =>
-              req.id === requestId 
-                ? { ...req, messages: [...req.messages, newMessage] } 
-                : req
-            ),
-          };
-          
-          // Broadcast to other tabs (cross-tab sync)
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('chat-message', { 
-              detail: { requestId, message: newMessage } 
-            }));
-          }
-          
-          return newState;
-        });
-      },
-
-      markAsRead: () => {
-        set({ unreadCount: 0 });
-      },
     }),
     {
       name: 'chat-storage',
@@ -398,3 +558,120 @@ export const useChatStore = create<ChatState>()(
     }
   )
 );
+
+// Handle incoming WebSocket messages
+function handleWebSocketMessage(
+  data: any, 
+  set: any, 
+  get: () => ChatState
+) {
+  const { userType } = get();
+  
+  switch (data.type) {
+    case 'session_created':
+      set({ sessionId: data.sessionId });
+      break;
+      
+    case 'agent_assigned':
+    case 'agent_joined':
+      set({ 
+        agentName: data.agentId || 'Temsilci',
+        waitingForAgent: false,
+      });
+      get().addMessage({
+        text: data.message || 'Müşteri temsilcimiz bağlandı. Size nasıl yardımcı olabilirim?',
+        sender: 'agent',
+      });
+      break;
+      
+    case 'new_message':
+      const msg = data.message;
+      if (msg) {
+        const newMessage: Message = {
+          id: msg.messageId || `msg_${Date.now()}`,
+          text: msg.content || msg.text,
+          sender: msg.senderType === 'agent' ? 'agent' : msg.senderType === 'customer' ? 'user' : 'bot',
+          timestamp: msg.timestamp || new Date().toISOString(),
+        };
+        
+        set((state: ChatState) => ({
+          messages: [...state.messages, newMessage],
+        }));
+        
+        // Also add to session if admin
+        if (userType === 'agent' && msg.sessionId) {
+          set((state: ChatState) => ({
+            activeSessions: state.activeSessions.map(req =>
+              req.id === msg.sessionId 
+                ? { ...req, messages: [...req.messages, newMessage] } 
+                : req
+            ),
+          }));
+          
+          // Broadcast for cross-tab sync
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('chat-message', { 
+              detail: { requestId: msg.sessionId, message: newMessage } 
+            }));
+          }
+        }
+      }
+      break;
+      
+    case 'queue_status':
+      set({ 
+        queuePosition: data.position,
+      });
+      if (data.message) {
+        get().addMessage({
+          text: data.message,
+          sender: 'agent',
+        });
+      }
+      break;
+      
+    case 'typing':
+      set({ isAgentTyping: true });
+      setTimeout(() => set({ isAgentTyping: false }), 3000);
+      break;
+      
+    case 'agent_left':
+      get().addMessage({
+        text: data.message || 'Temsilcimiz bağlantısı kesildi.',
+        sender: 'agent',
+      });
+      set({ 
+        agentName: null,
+        waitingForAgent: true,
+      });
+      break;
+      
+    case 'chat_closed':
+      get().addMessage({
+        text: data.message || 'Sohbet sonlandırıldı.',
+        sender: 'agent',
+      });
+      set({ 
+        agentName: null,
+        waitingForAgent: false,
+        connectionStatus: 'disconnected',
+      });
+      break;
+      
+    case 'new_waiting_customer':
+      // Agent tarafında yeni müşteri bildirimi
+      if (userType === 'agent') {
+        // Trigger a refresh of waiting sessions
+        console.log('[WebSocket] New waiting customer:', data);
+      }
+      break;
+      
+    case 'message_sent':
+      // Message sent confirmation
+      console.log('[WebSocket] Message sent:', data);
+      break;
+      
+    default:
+      console.log('[WebSocket] Unknown message type:', data.type);
+  }
+}
