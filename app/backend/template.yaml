@@ -23,6 +23,9 @@ Globals:
         CHAT_CONNECTIONS_TABLE: !Ref ChatConnectionsTable
         CHAT_SESSIONS_TABLE: !Ref ChatSessionsTable
         CHAT_MESSAGES_TABLE: !Ref ChatMessagesTable
+        CATEGORY_ATTRIBUTES_TABLE: !Ref CategoryAttributesTable
+        PRODUCT_VARIATIONS_TABLE: !Ref ProductVariationsTable
+        CATEGORIES_TABLE: !Ref CategoriesTable
         FROM_EMAIL: !Ref FromEmail
         SMS_ORIGINATOR: 'AtusHome'
         COGNITO_USER_POOL_ID: !Ref UserPool
@@ -60,6 +63,78 @@ Resources:
         - IndexName: CategoryIndex
           KeySchema:
             - AttributeName: category
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Category Attributes Schema Table (Amazon-style dynamic attributes)
+  CategoryAttributesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-CategoryAttributes
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: categoryId
+          AttributeType: S
+        - AttributeName: attributeId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: categoryId
+          KeyType: HASH
+        - AttributeName: attributeId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: AttributeIndex
+          KeySchema:
+            - AttributeName: attributeId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Product Variations Table (SKU level inventory/pricing)
+  ProductVariationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-ProductVariations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: productId
+          AttributeType: S
+        - AttributeName: variationId
+          AttributeType: S
+        - AttributeName: sku
+          AttributeType: S
+      KeySchema:
+        - AttributeName: productId
+          KeyType: HASH
+        - AttributeName: variationId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: SkuIndex
+          KeySchema:
+            - AttributeName: sku
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Categories Table (for dynamic category management)
+  CategoriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Categories
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: categoryId
+          AttributeType: S
+        - AttributeName: slug
+          AttributeType: S
+      KeySchema:
+        - AttributeName: categoryId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: SlugIndex
+          KeySchema:
+            - AttributeName: slug
               KeyType: HASH
           Projection:
             ProjectionType: ALL
@@ -1368,6 +1443,180 @@ Resources:
           Properties:
             Path: /chat/{sessionId}/close
             Method: post
+            RestApiId: !Ref ApiGateway
+
+  # ============================================
+  # Category Attributes Functions (Amazon-style)
+  # ============================================
+
+  CategoryAttributesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/category-attributes
+      Handler: index.handler
+      MemorySize: 256
+      Environment:
+        Variables:
+          CATEGORY_ATTRIBUTES_TABLE: !Ref CategoryAttributesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoryAttributesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /category-schemas
+            Method: get
+            RestApiId: !Ref ApiGateway
+        ApiEventGetByCategory:
+          Type: Api
+          Properties:
+            Path: /category-attributes/{categoryId}
+            Method: get
+            RestApiId: !Ref ApiGateway
+        ApiEventSeed:
+          Type: Api
+          Properties:
+            Path: /category-attributes/seed
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  # ============================================
+  # Product Variations Functions (Amazon-style)
+  # ============================================
+
+  ProductVariationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/product-variations
+      Handler: index.handler
+      MemorySize: 256
+      Environment:
+        Variables:
+          PRODUCT_VARIATIONS_TABLE: !Ref ProductVariationsTable
+          PRODUCTS_TABLE: !Ref ProductsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductVariationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        ApiEventGetAll:
+          Type: Api
+          Properties:
+            Path: /products/{productId}/variations
+            Method: get
+            RestApiId: !Ref ApiGateway
+        ApiEventCreate:
+          Type: Api
+          Properties:
+            Path: /products/{productId}/variations
+            Method: post
+            RestApiId: !Ref ApiGateway
+        ApiEventBulkCreate:
+          Type: Api
+          Properties:
+            Path: /products/{productId}/variations/bulk
+            Method: post
+            RestApiId: !Ref ApiGateway
+        ApiEventGetOptions:
+          Type: Api
+          Properties:
+            Path: /products/{productId}/variations/options
+            Method: get
+            RestApiId: !Ref ApiGateway
+        ApiEventFind:
+          Type: Api
+          Properties:
+            Path: /products/{productId}/variations/find
+            Method: get
+            RestApiId: !Ref ApiGateway
+        ApiEventGetOne:
+          Type: Api
+          Properties:
+            Path: /products/{productId}/variations/{variationId}
+            Method: get
+            RestApiId: !Ref ApiGateway
+        ApiEventUpdate:
+          Type: Api
+          Properties:
+            Path: /products/{productId}/variations/{variationId}
+            Method: put
+            RestApiId: !Ref ApiGateway
+        ApiEventDelete:
+          Type: Api
+          Properties:
+            Path: /products/{productId}/variations/{variationId}
+            Method: delete
+            RestApiId: !Ref ApiGateway
+
+  # ============================================
+  # Categories Management Functions (Dynamic)
+  # ============================================
+
+  CategoriesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/categories
+      Handler: index.handler
+      MemorySize: 256
+      Environment:
+        Variables:
+          CATEGORIES_TABLE: !Ref CategoriesTable
+          CATEGORY_ATTRIBUTES_TABLE: !Ref CategoryAttributesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoryAttributesTable
+      Events:
+        ApiEventList:
+          Type: Api
+          Properties:
+            Path: /categories
+            Method: get
+            RestApiId: !Ref ApiGateway
+        ApiEventCreate:
+          Type: Api
+          Properties:
+            Path: /categories
+            Method: post
+            RestApiId: !Ref ApiGateway
+        ApiEventGet:
+          Type: Api
+          Properties:
+            Path: /categories/{categoryId}
+            Method: get
+            RestApiId: !Ref ApiGateway
+        ApiEventUpdate:
+          Type: Api
+          Properties:
+            Path: /categories/{categoryId}
+            Method: put
+            RestApiId: !Ref ApiGateway
+        ApiEventDelete:
+          Type: Api
+          Properties:
+            Path: /categories/{categoryId}
+            Method: delete
+            RestApiId: !Ref ApiGateway
+        ApiEventAddAttribute:
+          Type: Api
+          Properties:
+            Path: /categories/{categoryId}/attributes
+            Method: post
+            RestApiId: !Ref ApiGateway
+        ApiEventUpdateAttribute:
+          Type: Api
+          Properties:
+            Path: /categories/{categoryId}/attributes/{attributeId}
+            Method: put
+            RestApiId: !Ref ApiGateway
+        ApiEventDeleteAttribute:
+          Type: Api
+          Properties:
+            Path: /categories/{categoryId}/attributes/{attributeId}
+            Method: delete
             RestApiId: !Ref ApiGateway
 
 # ============================================

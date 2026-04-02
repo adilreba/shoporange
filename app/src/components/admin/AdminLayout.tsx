@@ -40,6 +40,7 @@ const menuItems = [
   { path: '/admin/support', icon: Headphones, label: 'Canlı Destek' },
   { path: '/admin/legal-pages', icon: FileText, label: 'Yasal Sayfalar' },
   { path: '/admin/payment-methods', icon: CreditCard, label: 'Ödeme Yöntemleri' },
+  { path: '/admin/categories', icon: Tag, label: 'Kategoriler' },
   { path: '/admin/settings', icon: Settings, label: 'Ayarlar' },
 ];
 

@@ -44,13 +44,20 @@ async function handleConnect(event: WebSocketEvent): Promise<APIGatewayProxyResu
   const queryParams = event.queryStringParameters || {};
   const { userId, userType = 'customer', sessionId } = queryParams;
 
-  console.log('WebSocket connect:', { connectionId, userId, userType, sessionId });
+  console.log('========== WEBSOCKET CONNECT ==========');
+  console.log('ConnectionID:', connectionId);
+  console.log('UserID:', userId);
+  console.log('UserType:', userType);
+  console.log('SessionID:', sessionId || 'YOK');
+  console.log('Timestamp:', new Date().toISOString());
 
   if (!userId) {
+    console.error('HATA: userId gerekli');
     return { statusCode: 400, body: 'userId required' };
   }
 
   try {
+    console.log('DynamoDB: Bağlantı kaydediliyor...');
     // Save connection
     await docClient.send(new PutCommand({
       TableName: CHAT_CONNECTIONS_TABLE,
@@ -63,10 +70,13 @@ async function handleConnect(event: WebSocketEvent): Promise<APIGatewayProxyResu
         ttl: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours TTL
       }
     }));
+    console.log('DynamoDB: Bağlantı kaydedildi - ConnectionID:', connectionId);
 
     // If customer and no sessionId, create new session
     if (userType === 'customer' && !sessionId) {
       const newSessionId = `chat_${Date.now()}`;
+      console.log('Yeni müşteri session oluşturuluyor:', newSessionId);
+      
       await docClient.send(new PutCommand({
         TableName: CHAT_SESSIONS_TABLE,
         Item: {
@@ -81,26 +91,33 @@ async function handleConnect(event: WebSocketEvent): Promise<APIGatewayProxyResu
           lastMessage: null
         }
       }));
+      console.log('Session oluşturuldu:', newSessionId);
 
       // Notify customer about session
+      console.log('Müşteriye session_created mesajı gönderiliyor...');
       await sendToConnection(connectionId, {
         type: 'session_created',
         sessionId: newSessionId,
         status: 'waiting',
         message: 'Bekleme listesine alındınız. Müşteri temsilcimiz en kısa sürede bağlanacak.'
       });
+      console.log('Müşteriye bildirim gönderildi');
 
       // Notify all agents about new waiting customer
+      console.log('Tüm agentlara yeni müşteri bildirimi gönderiliyor...');
       await notifyAgents({
         type: 'new_waiting_customer',
         sessionId: newSessionId,
         customerId: userId,
         timestamp: new Date().toISOString()
       });
+      console.log('Agentlara bildirim gönderildi');
     }
 
     // If agent, update session if sessionId provided
     if (userType === 'agent' && sessionId) {
+      console.log('Agent bağlantısı - Session kontrol ediliyor:', sessionId);
+      
       // First get the session to check if it's waiting
       const session = await docClient.send(new GetCommand({
         TableName: CHAT_SESSIONS_TABLE,
@@ -108,6 +125,9 @@ async function handleConnect(event: WebSocketEvent): Promise<APIGatewayProxyResu
       }));
 
       if (session.Item) {
+        console.log('Session bulundu, agent atanıyor...');
+        console.log('CustomerConnectionID:', session.Item.customerConnectionId);
+        
         // Update session with agent info
         await docClient.send(new UpdateCommand({
           TableName: CHAT_SESSIONS_TABLE,
@@ -121,6 +141,7 @@ async function handleConnect(event: WebSocketEvent): Promise<APIGatewayProxyResu
             ':now': new Date().toISOString()
           }
         }));
+        console.log('Session güncellendi - Agent atandı');
 
         // Update connection record with sessionId
         await docClient.send(new UpdateCommand({
@@ -131,29 +152,39 @@ async function handleConnect(event: WebSocketEvent): Promise<APIGatewayProxyResu
             ':sessionId': sessionId
           }
         }));
+        console.log('Bağlantı kaydı güncellendi');
 
         // Notify customer that agent joined
         if (session.Item.customerConnectionId) {
+          console.log('Müşteriye agent_joined mesajı gönderiliyor. CustomerConnectionID:', session.Item.customerConnectionId);
           await sendToConnection(session.Item.customerConnectionId, {
             type: 'agent_joined',
             agentId: userId,
             message: 'Müşteri temsilcimiz bağlandı. Size nasıl yardımcı olabilirim?'
           });
+          console.log('Müşteriye agent_joined mesajı gönderildi');
+        } else {
+          console.warn('UYARI: Customer connection ID bulunamadı!');
         }
 
         // Notify other agents that this session is taken
+        console.log('Diğer agentlara session_assigned bildirimi gönderiliyor...');
         await notifyAgents({
           type: 'session_assigned',
           sessionId,
           agentId: userId,
           timestamp: new Date().toISOString()
         });
+      } else {
+        console.warn('UYARI: Session bulunamadı:', sessionId);
       }
     }
 
+    console.log('========== CONNECT BAŞARILI ==========');
     return { statusCode: 200, body: 'Connected' };
   } catch (error) {
-    console.error('Connect error:', error);
+    console.error('========== CONNECT HATASI ==========');
+    console.error('Hata:', error);
     return { statusCode: 500, body: 'Connection failed' };
   }
 }
@@ -233,10 +264,16 @@ async function handleDisconnect(event: WebSocketEvent): Promise<APIGatewayProxyR
 
 // Send message to a connection
 async function sendToConnection(connectionId: string, data: any): Promise<void> {
+  console.log('---------- SEND TO CONNECTION ----------');
+  console.log('Hedef ConnectionID:', connectionId);
+  console.log('Gönderilen data:', JSON.stringify(data));
+  
   try {
     const endpoint = process.env.WEBSOCKET_API_ENDPOINT?.replace('wss://', 'https://');
+    console.log('WebSocket Endpoint:', endpoint);
+    
     if (!endpoint) {
-      console.error('WebSocket endpoint not configured');
+      console.error('HATA: WebSocket endpoint yapılandırılmamış!');
       return;
     }
 
@@ -245,21 +282,29 @@ async function sendToConnection(connectionId: string, data: any): Promise<void> 
       endpoint
     });
 
+    console.log('PostToConnectionCommand gönderiliyor...');
     await apiGateway.send(new PostToConnectionCommand({
       ConnectionId: connectionId,
       Data: Buffer.from(JSON.stringify(data))
     }));
+    console.log('✅ Mesaj başarıyla gönderildi - ConnectionID:', connectionId);
   } catch (error: any) {
+    console.error('❌ Mesaj gönderim hatası:', error.name || 'Bilinmeyen hata');
+    console.error('Hata detayı:', error.message || error);
+    
     if (error.name === 'GoneException') {
+      console.log('GoneException: Bağlantı artık aktif değil, temizleniyor...');
       // Connection is stale, remove it
       await docClient.send(new DeleteCommand({
         TableName: CHAT_CONNECTIONS_TABLE,
         Key: { connectionId }
       }));
+      console.log('Eski bağlantı temizlendi');
     } else {
       console.error('Send to connection error:', error);
     }
   }
+  console.log('----------------------------------------');
 }
 
 // Notify all connected agents
@@ -289,23 +334,34 @@ async function handleMessage(event: WebSocketEvent): Promise<APIGatewayProxyResu
   const body = JSON.parse(event.body || '{}');
   const { action, message, sessionId } = body;
 
-  console.log('WebSocket message:', { connectionId, action, sessionId });
+  console.log('========== WEBSOCKET MESSAGE ==========');
+  console.log('ConnectionID:', connectionId);
+  console.log('Action:', action);
+  console.log('SessionID (body):', sessionId);
+  console.log('Message:', message);
+  console.log('Body:', JSON.stringify(body));
 
   try {
     // Get sender info
+    console.log('DynamoDB: Bağlantı bilgisi alınıyor...');
     const connection = await docClient.send(new GetCommand({
       TableName: CHAT_CONNECTIONS_TABLE,
       Key: { connectionId }
     }));
 
     if (!connection.Item) {
+      console.error('HATA: Bağlantı bulunamadı - ConnectionID:', connectionId);
       return { statusCode: 400, body: 'Connection not found' };
     }
 
     const { userId, userType } = connection.Item;
     const chatSessionId = sessionId || connection.Item.sessionId;
+    
+    console.log('Bağlantı bulundu - UserID:', userId, 'UserType:', userType);
+    console.log('ChatSessionID:', chatSessionId);
 
     if (!chatSessionId) {
+      console.error('HATA: Session ID yok');
       return { statusCode: 400, body: 'No session' };
     }
 
@@ -370,6 +426,11 @@ async function handleMessage(event: WebSocketEvent): Promise<APIGatewayProxyResu
         return { statusCode: 200, body: 'Agent requested' };
 
       case 'send_message':
+        console.log('---------- SEND_MESSAGE İŞLENİYOR ----------');
+        console.log('Gönderen:', userId, 'Tip:', userType);
+        console.log('Session:', chatSessionId);
+        console.log('Mesaj:', message);
+        
         // Save message
         const messageId = `msg_${Date.now()}`;
         const messageData = {
@@ -381,13 +442,17 @@ async function handleMessage(event: WebSocketEvent): Promise<APIGatewayProxyResu
           timestamp: new Date().toISOString(),
           isRead: false
         };
+        console.log('Mesaj verisi oluşturuldu:', messageData);
 
+        console.log('DynamoDB: Mesaj kaydediliyor...');
         await docClient.send(new PutCommand({
           TableName: CHAT_MESSAGES_TABLE,
           Item: messageData
         }));
+        console.log('Mesaj kaydedildi');
 
         // Update session last message
+        console.log('Session son mesajı güncelleniyor...');
         await docClient.send(new UpdateCommand({
           TableName: CHAT_SESSIONS_TABLE,
           Key: { sessionId: chatSessionId },
@@ -397,17 +462,29 @@ async function handleMessage(event: WebSocketEvent): Promise<APIGatewayProxyResu
             ':now': new Date().toISOString()
           }
         }));
+        console.log('Session güncellendi');
 
         // Broadcast to session participants
+        console.log('Alıcı connection ID belirleniyor...');
+        console.log('Session.AgentConnectionID:', session.Item.agentConnectionId);
+        console.log('Session.CustomerConnectionID:', session.Item.customerConnectionId);
+        
         const recipientConnectionId = userType === 'customer' 
           ? session.Item.agentConnectionId 
           : session.Item.customerConnectionId;
 
+        console.log('Alıcı ConnectionID:', recipientConnectionId);
+
         if (recipientConnectionId) {
+          console.log('Alıcıya mesaj gönderiliyor...');
           await sendToConnection(recipientConnectionId, {
             type: 'new_message',
             message: messageData
           });
+          console.log('Alıcıya mesaj gönderildi');
+        } else {
+          console.warn('UYARI: Alıcı ConnectionID bulunamadı!');
+          console.warn('Session durumu:', JSON.stringify(session.Item, null, 2));
         }
 
         // Confirm to sender

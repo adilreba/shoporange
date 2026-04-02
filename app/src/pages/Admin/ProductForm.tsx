@@ -6,72 +6,114 @@ import {
   Upload, 
   X, 
   Plus,
-  Trash2
+  Trash2,
+  Package,
+  Settings2,
+  Layers,
+  AlertCircle,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { 
+  PRODUCT_CATEGORIES, 
+  getCategoryAttributes, 
+  type CategoryAttribute,
+  getCategoryName 
+} from '@/services/categoryAttributesApi';
+import { 
+  bulkCreateVariations,
+  getProductVariations,
+  type ProductVariation
+} from '@/services/productVariationsApi';
 
-const categories = [
-  { id: 'living-room', name: 'Oturma Odası' },
-  { id: 'bedroom', name: 'Yatak Odası' },
-  { id: 'dining-room', name: 'Yemek Odası' },
-  { id: 'kitchen', name: 'Mutfak' },
-  { id: 'office', name: 'Ofis' },
-  { id: 'outdoor', name: 'Bahçe' },
-  { id: 'lighting', name: 'Aydınlatma' },
-  { id: 'decor', name: 'Dekorasyon' },
-  { id: 'electronics', name: 'Elektronik' },
-];
+// Renk eşleştirme
+const COLOR_MAP: Record<string, string> = {
+  'Siyah': '#000000',
+  'Beyaz': '#FFFFFF',
+  'Kırmızı': '#FF0000',
+  'Mavi': '#0000FF',
+  'Yeşil': '#008000',
+  'Sarı': '#FFFF00',
+  'Pembe': '#FFC0CB',
+  'Mor': '#800080',
+  'Gri': '#808080',
+  'Kahverengi': '#8B4513',
+  'Bej': '#F5F5DC',
+  'Gümüş': '#C0C0C0',
+  'Altın': '#FFD700',
+  'Turuncu': '#FFA500',
+  'Lacivert': '#000080',
+  'Şeffaf': 'transparent',
+};
+
+type TabType = 'basic' | 'variations';
 
 export default function ProductForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEditMode = Boolean(id);
   
+  const [activeTab, setActiveTab] = useState<TabType>('basic');
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  
+  // Basic form data
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    price: '',
+    basePrice: '',
     category: '',
-    stock: '',
     brand: '',
-    sku: '',
-    weight: '',
-    dimensions: { length: '', width: '', height: '' },
     tags: [] as string[],
     featured: false,
     active: true
   });
+  
+  // Category attributes
+  const [categoryAttributes, setCategoryAttributes] = useState<CategoryAttribute[]>([]);
+  
+  // Variations
+  const [variations, setVariations] = useState<ProductVariation[]>([]);
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string[]>>({});
+  const [generatingVariations, setGeneratingVariations] = useState(false);
+  
   const [tagInput, setTagInput] = useState('');
 
+  // Load category attributes when category changes
   useEffect(() => {
-    if (isEditMode) {
-      // Mock data for edit mode
-      setFormData({
-        name: 'Modern Koltuk Takımı',
-        description: 'Lüks ve konforlu modern koltuk takımı. Oturma odanıza şıklık katacak tasarım.',
-        price: '15000',
-        category: 'living-room',
-        stock: '10',
-        brand: 'AtusHome',
-        sku: 'KTK-001',
-        weight: '45',
-        dimensions: { length: '200', width: '90', height: '85' },
-        tags: ['koltuk', 'oturma odası', 'modern'],
-        featured: true,
-        active: true
-      });
-      setImages([
-        'https://via.placeholder.com/400x300',
-        'https://via.placeholder.com/400x300'
-      ]);
+    if (formData.category) {
+      loadCategoryAttributes(formData.category);
     }
-  }, [isEditMode]);
+  }, [formData.category]);
+
+  // Load existing variations in edit mode
+  useEffect(() => {
+    if (isEditMode && id) {
+      loadExistingVariations(id);
+    }
+  }, [isEditMode, id]);
+
+  const loadCategoryAttributes = async (categoryId: string) => {
+    try {
+      const schema = await getCategoryAttributes(categoryId);
+      setCategoryAttributes(schema.attributes);
+    } catch (error) {
+      toast.error('Kategori özellikleri yüklenemedi');
+    }
+  };
+
+  const loadExistingVariations = async (productId: string) => {
+    try {
+      const data = await getProductVariations(productId);
+      setVariations(data.variations);
+    } catch (error) {
+      console.error('Varyasyonlar yüklenemedi:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +138,6 @@ export default function ProductForm() {
   };
 
   const handleImageUpload = () => {
-    // Mock image upload
     const newImage = `https://via.placeholder.com/400x300?text=Image+${images.length + 1}`;
     setImages([...images, newImage]);
     toast.success('Resim yüklendi');
@@ -104,6 +145,122 @@ export default function ProductForm() {
 
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
+  };
+
+  // Toggle attribute option selection
+  const toggleAttributeOption = (attributeId: string, option: string) => {
+    setSelectedAttributes(prev => {
+      const current = prev[attributeId] || [];
+      if (current.includes(option)) {
+        return { ...prev, [attributeId]: current.filter(o => o !== option) };
+      }
+      return { ...prev, [attributeId]: [...current, option] };
+    });
+  };
+
+  // Generate all variation combinations
+  const generateVariations = async () => {
+    if (!id) {
+      toast.error('Önce ürünü kaydetmelisiniz');
+      return;
+    }
+
+    const hasSelections = Object.values(selectedAttributes).some(arr => arr.length > 0);
+    if (!hasSelections) {
+      toast.error('En az bir özellik seçmelisiniz');
+      return;
+    }
+
+    setGeneratingVariations(true);
+    try {
+      const basePrice = parseFloat(formData.basePrice) || 0;
+      const result = await bulkCreateVariations(id, {
+        attributes: selectedAttributes,
+        basePrice,
+        stock: 10,
+      });
+      
+      setVariations(result.variations);
+      toast.success(`${result.created} varyasyon oluşturuldu`);
+    } catch (error) {
+      toast.error('Varyasyonlar oluşturulamadı');
+    } finally {
+      setGeneratingVariations(false);
+    }
+  };
+
+  // Update variation price/stock
+  const updateVariation = (variationId: string, field: 'price' | 'stock', value: string) => {
+    setVariations(prev => prev.map(v => {
+      if (v.variationId === variationId) {
+        return { ...v, [field]: parseFloat(value) || 0 };
+      }
+      return v;
+    }));
+  };
+
+  // Delete variation
+  const deleteVariation = async (variationId: string) => {
+    if (!id) return;
+    try {
+      // API call would go here
+      setVariations(prev => prev.filter(v => v.variationId !== variationId));
+      toast.success('Varyasyon silindi');
+    } catch (error) {
+      toast.error('Varyasyon silinemedi');
+    }
+  };
+
+  // Render color option
+  const renderColorOption = (attribute: CategoryAttribute, option: string) => {
+    const isSelected = (selectedAttributes[attribute.attributeId] || []).includes(option);
+    const colorCode = COLOR_MAP[option] || '#ccc';
+    
+    return (
+      <button
+        key={option}
+        type="button"
+        onClick={() => toggleAttributeOption(attribute.attributeId, option)}
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+          isSelected 
+            ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200' 
+            : 'border-gray-200 hover:border-orange-300'
+        }`}
+      >
+        <span 
+          className="w-5 h-5 rounded-full border border-gray-200"
+          style={{ 
+            backgroundColor: colorCode,
+            backgroundImage: colorCode === 'transparent' 
+              ? 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)' 
+              : undefined,
+            backgroundSize: colorCode === 'transparent' ? '10px 10px' : undefined,
+          }}
+        />
+        <span className="text-sm">{option}</span>
+        {isSelected && <Check className="w-4 h-4 text-orange-500" />}
+      </button>
+    );
+  };
+
+  // Render select option
+  const renderSelectOption = (attribute: CategoryAttribute, option: string) => {
+    const isSelected = (selectedAttributes[attribute.attributeId] || []).includes(option);
+    
+    return (
+      <button
+        key={option}
+        type="button"
+        onClick={() => toggleAttributeOption(attribute.attributeId, option)}
+        className={`px-3 py-2 rounded-lg border text-sm transition-all ${
+          isSelected 
+            ? 'border-orange-500 bg-orange-50 text-orange-700 ring-2 ring-orange-200' 
+            : 'border-gray-200 hover:border-orange-300'
+        }`}
+      >
+        {option}
+      </button>
+    );
   };
 
   return (
@@ -140,223 +297,362 @@ export default function ProductForm() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Basic Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Temel Bilgiler</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Ürün Adı *</label>
-                <Input 
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="Ürün adı girin"
-                  required
-                />
-              </div>
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-gray-200">
+        <button
+          type="button"
+          onClick={() => setActiveTab('basic')}
+          className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
+            activeTab === 'basic'
+              ? 'border-orange-500 text-orange-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          Temel Bilgiler
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('variations')}
+          className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
+            activeTab === 'variations'
+              ? 'border-orange-500 text-orange-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          Varyasyonlar
+          {variations.length > 0 && (
+            <Badge variant="secondary" className="ml-1">{variations.length}</Badge>
+          )}
+        </button>
+      </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Açıklama *</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Ürün açıklaması girin"
-                  className="w-full px-3 py-2 border rounded-md min-h-[120px] resize-none"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Basic Info Tab */}
+      {activeTab === 'basic' && (
+        <form className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Basic Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Temel Bilgiler</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Kategori *</label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-md"
-                    required
-                  >
-                    <option value="">Kategori seçin</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Marka</label>
+                  <label className="text-sm font-medium">Ürün Adı *</label>
                   <Input 
-                    value={formData.brand}
-                    onChange={(e) => setFormData({...formData, brand: e.target.value})}
-                    placeholder="Marka adı"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Fiyat (₺) *</label>
-                  <Input 
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: e.target.value})}
-                    placeholder="0.00"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    placeholder="Ürün adı girin"
                     required
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Stok Miktarı *</label>
-                  <Input 
-                    type="number"
-                    value={formData.stock}
-                    onChange={(e) => setFormData({...formData, stock: e.target.value})}
-                    placeholder="0"
+                  <label className="text-sm font-medium">Açıklama *</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    placeholder="Ürün açıklaması girin"
+                    className="w-full px-3 py-2 border rounded-md min-h-[120px] resize-none"
                     required
                   />
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Etiketler</label>
-                <div className="flex gap-2">
-                  <Input 
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                    placeholder="Etiket ekleyin ve Enter'a basın"
-                  />
-                  <Button type="button" onClick={handleAddTag} variant="outline">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="gap-1">
-                      {tag}
-                      <button 
-                        type="button"
-                        onClick={() => handleRemoveTag(tag)}
-                        className="ml-1 hover:text-red-500"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Images */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Ürün Görselleri</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {images.map((image, index) => (
-                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden border group">
-                    <img 
-                      src={image} 
-                      alt={`Ürün ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveImage(index)}
-                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Kategori *</label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({...formData, category: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-md"
+                      required
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <option value="">Kategori seçin</option>
+                      {PRODUCT_CATEGORIES.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                    {formData.category && (
+                      <p className="text-xs text-orange-600">
+                        <AlertCircle className="w-3 h-3 inline mr-1" />
+                        {getCategoryName(formData.category)} için {categoryAttributes.length} özellik mevcut
+                      </p>
+                    )}
                   </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={handleImageUpload}
-                  className="aspect-square rounded-lg border-2 border-dashed border-gray-300 hover:border-orange-500 flex flex-col items-center justify-center gap-2 transition-colors"
-                >
-                  <Upload className="w-8 h-8 text-gray-400" />
-                  <span className="text-sm text-gray-500">Resim Yükle</span>
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Marka</label>
+                    <Input 
+                      value={formData.brand}
+                      onChange={(e) => setFormData({...formData, brand: e.target.value})}
+                      placeholder="Marka adı"
+                    />
+                  </div>
+                </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Durum</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Aktif</span>
-                <Switch 
-                  checked={formData.active}
-                  onCheckedChange={(checked) => setFormData({...formData, active: checked})}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Öne Çıkan</span>
-                <Switch 
-                  checked={formData.featured}
-                  onCheckedChange={(checked) => setFormData({...formData, featured: checked})}
-                />
-              </div>
-            </CardContent>
-          </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Temel Fiyat (₺) *</label>
+                    <Input 
+                      type="number"
+                      value={formData.basePrice}
+                      onChange={(e) => setFormData({...formData, basePrice: e.target.value})}
+                      placeholder="0.00"
+                      required
+                    />
+                    <p className="text-xs text-gray-500">Varyasyonlar için temel fiyat</p>
+                  </div>
+                </div>
 
-          {/* SKU & Barcode */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Stok Bilgileri</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">SKU</label>
-                <Input 
-                  value={formData.sku}
-                  onChange={(e) => setFormData({...formData, sku: e.target.value})}
-                  placeholder="SKU-001"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Ağırlık (kg)</label>
-                <Input 
-                  type="number"
-                  value={formData.weight}
-                  onChange={(e) => setFormData({...formData, weight: e.target.value})}
-                  placeholder="0"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Boyutlar (cm)</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <Input 
-                    placeholder="Uzunluk"
-                    value={formData.dimensions.length}
-                    onChange={(e) => setFormData({...formData, dimensions: {...formData.dimensions, length: e.target.value}})}
-                  />
-                  <Input 
-                    placeholder="Genişlik"
-                    value={formData.dimensions.width}
-                    onChange={(e) => setFormData({...formData, dimensions: {...formData.dimensions, width: e.target.value}})}
-                  />
-                  <Input 
-                    placeholder="Yükseklik"
-                    value={formData.dimensions.height}
-                    onChange={(e) => setFormData({...formData, dimensions: {...formData.dimensions, height: e.target.value}})}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Etiketler</label>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
+                      placeholder="Etiket ekleyin ve Enter'a basın"
+                    />
+                    <Button type="button" onClick={handleAddTag} variant="outline">
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="gap-1">
+                        {tag}
+                        <button 
+                          type="button"
+                          onClick={() => handleRemoveTag(tag)}
+                          className="ml-1 hover:text-red-500"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Images */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Ürün Görselleri</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {images.map((image, index) => (
+                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden border group">
+                      <img 
+                        src={image} 
+                        alt={`Ürün ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={handleImageUpload}
+                    className="aspect-square rounded-lg border-2 border-dashed border-gray-300 hover:border-orange-500 flex flex-col items-center justify-center gap-2 transition-colors"
+                  >
+                    <Upload className="w-8 h-8 text-gray-400" />
+                    <span className="text-sm text-gray-500">Resim Yükle</span>
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Durum</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Aktif</span>
+                  <Switch 
+                    checked={formData.active}
+                    onCheckedChange={(checked) => setFormData({...formData, active: checked})}
                   />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Öne Çıkan</span>
+                  <Switch 
+                    checked={formData.featured}
+                    onCheckedChange={(checked) => setFormData({...formData, featured: checked})}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </form>
+      )}
+
+      {/* Variations Tab */}
+      {activeTab === 'variations' && (
+        <div className="space-y-6">
+          {!formData.category ? (
+            <Card className="p-8 text-center">
+              <Settings2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">Varyasyon oluşturmak için önce "Temel Bilgiler" sekmesinden kategori seçin.</p>
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => setActiveTab('basic')}
+              >
+                Temel Bilgiler'e Git
+              </Button>
+            </Card>
+          ) : (
+            <>
+              {/* Attribute Selector */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings2 className="w-5 h-5" />
+                    {getCategoryName(formData.category)} Özellikleri
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {categoryAttributes.length === 0 ? (
+                    <p className="text-gray-500 text-center py-4">
+                      Bu kategori için önceden tanımlanmış özellik bulunmuyor.
+                    </p>
+                  ) : (
+                    categoryAttributes.map((attr) => (
+                      <div key={attr.attributeId} className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="font-medium">
+                            {attr.name}
+                            {attr.required && <span className="text-red-500 ml-1">*</span>}
+                          </label>
+                          <span className="text-xs text-gray-500">
+                            {(selectedAttributes[attr.attributeId] || []).length} seçili
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {attr.type === 'color' 
+                            ? attr.options.map(option => renderColorOption(attr, option))
+                            : attr.options.map(option => renderSelectOption(attr, option))
+                          }
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  <div className="pt-4 border-t">
+                    <Button
+                      type="button"
+                      onClick={generateVariations}
+                      disabled={generatingVariations || !id}
+                      className="w-full bg-orange-500 hover:bg-orange-600"
+                    >
+                      {generatingVariations ? (
+                        'Oluşturuluyor...'
+                      ) : (
+                        <>
+                          <Layers className="w-4 h-4 mr-2" />
+                          Varyasyonları Oluştur
+                        </>
+                      )}
+                    </Button>
+                    {!id && (
+                      <p className="text-xs text-orange-600 mt-2 text-center">
+                        <AlertCircle className="w-3 h-3 inline mr-1" />
+                        Varyasyon oluşturmak için önce ürünü kaydetmelisiniz
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Variations List */}
+              {variations.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>Varyasyonlar ({variations.length})</span>
+                      <Badge variant="secondary">
+                        Toplam Stok: {variations.reduce((sum, v) => sum + v.stock, 0)}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {variations.map((variation) => (
+                        <div 
+                          key={variation.variationId}
+                          className="flex items-center gap-4 p-4 border rounded-lg hover:bg-gray-50"
+                        >
+                          {/* Attributes */}
+                          <div className="flex-1">
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(variation.attributes).map(([key, value]) => (
+                                <Badge key={key} variant="outline" className="text-xs">
+                                  {key}: {value}
+                                </Badge>
+                              ))}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">SKU: {variation.sku}</p>
+                          </div>
+
+                          {/* Price */}
+                          <div className="w-32">
+                            <label className="text-xs text-gray-500">Fiyat</label>
+                            <Input
+                              type="number"
+                              value={variation.price}
+                              onChange={(e) => updateVariation(variation.variationId, 'price', e.target.value)}
+                              className="mt-1"
+                            />
+                          </div>
+
+                          {/* Stock */}
+                          <div className="w-32">
+                            <label className="text-xs text-gray-500">Stok</label>
+                            <Input
+                              type="number"
+                              value={variation.stock}
+                              onChange={(e) => updateVariation(variation.variationId, 'stock', e.target.value)}
+                              className={`mt-1 ${variation.stock < 5 ? 'border-red-300' : ''}`}
+                            />
+                            {variation.stock < 5 && (
+                              <p className="text-xs text-red-500 mt-1">Düşük stok!</p>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteVariation(variation.variationId)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
         </div>
-      </form>
+      )}
     </div>
   );
 }

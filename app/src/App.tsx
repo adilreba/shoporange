@@ -53,6 +53,7 @@ import AdminProducts from '@/pages/Admin/AdminProducts';
 import AdminOrders from '@/pages/Admin/AdminOrders';
 import AdminUsers from '@/pages/Admin/AdminUsers';
 import AdminSettings from '@/pages/Admin/Settings';
+import CategoryManagement from '@/pages/Admin/CategoryManagement';
 import ProductForm from '@/pages/Admin/ProductForm';
 import AdminCoupons from '@/pages/Admin/Coupons';
 import AdminCampaigns from '@/pages/Admin/Campaigns';
@@ -220,6 +221,7 @@ function App() {
           <Route path="coupons" element={<AdminCoupons />} />
           <Route path="campaigns" element={<AdminCampaigns />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="categories" element={<CategoryManagement />} />
           <Route path="shipping" element={<ShippingSettings />} />
           <Route path="invoices" element={<InvoiceManagement />} />
           <Route path="support" element={<AgentDashboard />} />

@@ -135,4 +135,31 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["PaymentMethodsListAdminFunction", "PaymentMethodsListPublicFunction", "PaymentMethodsGetByIdFunction", "PaymentMethodsUpdateFunction", "PaymentMethodsTestFunction", "PaymentMethodsSeedFunction"]
 
+[function_build_definitions.1eb4e0b6-8342-4368-8b01-fb65b392f954]
+codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/category-attributes"
+runtime = "nodejs20.x"
+architecture = "x86_64"
+handler = "index.handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["CategoryAttributesFunction"]
+
+[function_build_definitions.42daa27d-9787-4037-9ea6-67ce8b2ca0e0]
+codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/product-variations"
+runtime = "nodejs20.x"
+architecture = "x86_64"
+handler = "index.handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["ProductVariationsFunction"]
+
+[function_build_definitions.470326d3-6ea9-4ee6-86ec-d01dfd523fdb]
+codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/categories"
+runtime = "nodejs20.x"
+architecture = "x86_64"
+handler = "index.handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["CategoriesFunction"]
+
 [layer_build_definitions]

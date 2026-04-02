@@ -160,8 +160,13 @@ export const useChatStore = create<ChatState>()(
       connect: (userId, type, sessionId) => {
         const { ws } = get();
         
+        console.log(`[WebSocket] ========== CONNECT BAŞLATILIYOR ==========`);
+        console.log(`[WebSocket] UserID: ${userId}, Type: ${type}, SessionID: ${sessionId || 'yok'}`);
+        console.log(`[WebSocket] Mevcut bağlantı:`, ws ? (ws.readyState === WebSocket.OPEN ? 'AÇIK' : 'KAPALI') : 'YOK');
+        
         // Close existing connection
         if (ws) {
+          console.log('[WebSocket] Önceki bağlantı kapatılıyor...');
           ws.close();
         }
         
@@ -182,12 +187,14 @@ export const useChatStore = create<ChatState>()(
           }
           
           const wsUrl = `${WS_URL}?${params.toString()}`;
-          console.log(`[WebSocket] Connecting to ${WS_URL} as ${type}...`);
+          console.log(`[WebSocket] Bağlantı URL: ${wsUrl}`);
+          console.log(`[WebSocket] WebSocket nesnesi oluşturuluyor...`);
           
           const newWs = new WebSocket(wsUrl);
           
           newWs.onopen = () => {
-            console.log('[WebSocket] Connected');
+            console.log('[WebSocket] ✅ BAĞLANTI BAŞARILI - onopen tetiklendi');
+            console.log('[WebSocket] Bağlantı durumu:', newWs.readyState, '(1 = OPEN)');
             set({ 
               ws: newWs,
               isConnected: true,
@@ -207,9 +214,10 @@ export const useChatStore = create<ChatState>()(
           };
           
           newWs.onmessage = (event) => {
+            console.log('[WebSocket] 📩 MESAJ ALINDI:', event.data);
             try {
               const data = JSON.parse(event.data);
-              console.log('[WebSocket] Message received:', data);
+              console.log('[WebSocket] Mesaj JSON parse edildi:', data);
               
               handleWebSocketMessage(data, set, get);
             } catch (error) {
@@ -217,8 +225,11 @@ export const useChatStore = create<ChatState>()(
             }
           };
           
-          newWs.onclose = () => {
-            console.log('[WebSocket] Disconnected');
+          newWs.onclose = (event) => {
+            console.log('[WebSocket] ❌ BAĞLANTI KAPANDI - onclose tetiklendi');
+            console.log('[WebSocket] Kapatma kodu:', event.code);
+            console.log('[WebSocket] Kapatma nedeni:', event.reason || 'Belirtilmemiş');
+            console.log('[WebSocket] Temiz kapanma mı?:', event.wasClean ? 'Evet' : 'Hayır (hata olabilir)');
             set({ 
               ws: null,
               isConnected: false,
@@ -227,7 +238,12 @@ export const useChatStore = create<ChatState>()(
           };
           
           newWs.onerror = (error) => {
-            console.error('[WebSocket] Error:', error);
+            console.error('[WebSocket] ❌ HATA OLUŞTU - onerror tetiklendi');
+            console.error('[WebSocket] Hata detayı:', error);
+            console.error('[WebSocket] WebSocket durumu:', newWs.readyState);
+            // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
+            const states = ['CONNECTING (0)', 'OPEN (1)', 'CLOSING (2)', 'CLOSED (3)'];
+            console.error('[WebSocket] Durum açıklaması:', states[newWs.readyState] || 'Bilinmiyor');
             set({ 
               ws: null,
               isConnected: false,
@@ -235,15 +251,19 @@ export const useChatStore = create<ChatState>()(
             });
           };
         } catch (error) {
-          console.error('[WebSocket] Connection error:', error);
+          console.error('[WebSocket] ❌ BAĞLANTI HATASI:', error);
           set({ connectionStatus: 'disconnected' });
         }
       },
 
       disconnect: () => {
         const { ws } = get();
+        console.log('[WebSocket] Manuel bağlantı kesme isteği');
         if (ws) {
+          console.log('[WebSocket] Bağlantı kapatılıyor...');
           ws.close();
+        } else {
+          console.log('[WebSocket] Kapatılacak aktif bağlantı yok');
         }
         set({ 
           ws: null,
@@ -256,8 +276,20 @@ export const useChatStore = create<ChatState>()(
       sendWebSocketMessage: (action, data = {}) => {
         const { ws, sessionId, userId, userType } = get();
         
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-          console.error('[WebSocket] Not connected');
+        console.log(`[WebSocket] ========== MESAJ GÖNDERİLİYOR ==========`);
+        console.log(`[WebSocket] Action: ${action}`);
+        console.log(`[WebSocket] SessionID: ${sessionId}`);
+        console.log(`[WebSocket] UserID: ${userId}`);
+        console.log(`[WebSocket] UserType: ${userType}`);
+        
+        if (!ws) {
+          console.error('[WebSocket] ❌ GÖNDERİM HATASI: WebSocket nesnesi yok (null)');
+          return;
+        }
+        
+        if (ws.readyState !== WebSocket.OPEN) {
+          const states = ['CONNECTING (0)', 'OPEN (1)', 'CLOSING (2)', 'CLOSED (3)'];
+          console.error(`[WebSocket] ❌ GÖNDERİM HATASI: Bağlantı açık değil. Durum: ${states[ws.readyState]}`);
           return;
         }
         
@@ -269,8 +301,14 @@ export const useChatStore = create<ChatState>()(
           ...data,
         };
         
-        console.log('[WebSocket] Sending message:', message);
-        ws.send(JSON.stringify(message));
+        console.log('[WebSocket] Gönderilen mesaj:', JSON.stringify(message, null, 2));
+        
+        try {
+          ws.send(JSON.stringify(message));
+          console.log('[WebSocket] ✅ Mesaj başarıyla gönderildi');
+        } catch (error) {
+          console.error('[WebSocket] ❌ Mesaj gönderiminde hata:', error);
+        }
       },
 
       sendMessage: (text) => {
