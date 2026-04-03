@@ -135,11 +135,33 @@ export default function CategoryManagement() {
     }
   };
 
-// Check if category name already exists
+// Normalize Turkish characters for comparison
+  const normalizeTurkishString = (str: string): string => {
+    return str
+      .toLowerCase()
+      .trim()
+      .replace(/ğ/g, 'g')
+      .replace(/ü/g, 'u')
+      .replace(/ş/g, 's')
+      .replace(/ı/g, 'i')
+      .replace(/ö/g, 'o')
+      .replace(/ç/g, 'c')
+      .replace(/İ/g, 'i')
+      .replace(/Ğ/g, 'g')
+      .replace(/Ü/g, 'u')
+      .replace(/Ş/g, 's')
+      .replace(/Ö/g, 'o')
+      .replace(/Ç/g, 'c')
+      .replace(/\s+/g, ' '); // Multiple spaces to single space
+  };
+
+  // Check if category name already exists (with Turkish character support)
   const isCategoryNameExists = (name: string): boolean => {
-    return categories.some(
-      cat => cat.name.toLowerCase().trim() === name.toLowerCase().trim()
-    );
+    const normalizedInput = normalizeTurkishString(name);
+    return categories.some(cat => {
+      const normalizedExisting = normalizeTurkishString(cat.name);
+      return normalizedExisting === normalizedInput;
+    });
   };
 
   // Check for similar slugs
