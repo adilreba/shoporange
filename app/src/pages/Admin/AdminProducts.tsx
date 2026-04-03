@@ -131,6 +131,28 @@ const mockProducts: Product[] = [
     }
   },
   {
+    id: 'PROD-001-VAR',
+    name: 'Koltuk Örtüsü',
+    description: 'Yıkanabilir koltuk örtüsü - Çeşitli renklerde',
+    price: 199,
+    category: 'ev-tekstili',
+    stock: 30,
+    images: ['https://via.placeholder.com/150'],
+    rating: 4.3,
+    reviews: 56,
+    salesCount: 120,
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    featured: false,
+    tags: ['koltuk örtüsü', 'tekstil', 'ev'],
+    variants: [
+      { id: 'VAR-001', name: 'Beyaz - Standart', sku: 'KORT-BEYAZ-STD', price: 199, stock: 10 },
+      { id: 'VAR-002', name: 'Siyah - Standart', sku: 'KORT-SIYAH-STD', price: 199, stock: 20 },
+      { id: 'VAR-003', name: 'Krem - Standart', sku: 'KORT-KREM-STD', price: 219, stock: 15 },
+      { id: 'VAR-004', name: 'Gri - Standart', sku: 'KORT-GRI-STD', price: 199, stock: 8 },
+    ]
+  },
+  {
     id: 'PROD-002',
     name: 'Yemek Masası',
     description: 'Ahşap masa',
@@ -566,6 +588,7 @@ export default function AdminProducts() {
                   <TableHead>Ürün</TableHead>
                   <TableHead>Fiyat</TableHead>
                   <TableHead>Stok</TableHead>
+                  <TableHead>Varyasyonlar</TableHead>
                   <TableHead>Satış</TableHead>
                   <TableHead>Durum</TableHead>
                   <TableHead>İndirim</TableHead>
@@ -660,6 +683,20 @@ export default function AdminProducts() {
                           />
                           {getStockBadge(product.stock, product.status)}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {product.variants && product.variants.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="secondary" className="w-fit">
+                              {product.variants.length} varyasyon
+                            </Badge>
+                            <span className="text-xs text-gray-500">
+                              Toplam: {product.variants.reduce((sum, v) => sum + v.stock, 0)} stok
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
