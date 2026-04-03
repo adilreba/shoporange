@@ -686,13 +686,16 @@ function handleWebSocketMessage(
       
     case 'chat_closed':
       get().addMessage({
-        text: data.message || 'Sohbet sonlandırıldı.',
-        sender: 'agent',
+        text: data.message || 'Sohbet sonlandırıldı. Yeni bir konuda yardımcı olmamı ister misiniz?',
+        sender: 'bot',
       });
       set({ 
         agentName: null,
         waitingForAgent: false,
         connectionStatus: 'disconnected',
+        sessionId: null,
+        isConnected: false,
+        ws: null,
       });
       break;
       

@@ -153,8 +153,15 @@ export function ModernChatWidget() {
         setIsAgentMode(true);
       }
       
+      // Sohbet kapandığında agent modu kapat
+      if (state.connectionStatus === 'disconnected' && prevState.connectionStatus === 'connected') {
+        setIsAgentConnected(false);
+        setIsAgentMode(false);
+        setCurrentRequestId(null);
+      }
+      
       if (state.messages !== prevState.messages) {
-        const agentMsgs = state.messages.filter(m => m.sender === 'agent');
+        const agentMsgs = state.messages.filter(m => m.sender === 'agent' || m.sender === 'bot');
         
         if (agentMsgs.length > 0) {
           setMessages(prev => {
@@ -167,7 +174,7 @@ export function ModernChatWidget() {
             const formatted: Message[] = newMsgs.map(m => ({
               id: m.id,
               text: m.text,
-              sender: 'agent',
+              sender: m.sender as 'agent' | 'bot',
               timestamp: new Date(m.timestamp),
             }));
             
@@ -611,7 +618,7 @@ export function ModernChatWidget() {
               </div>
             )}
 
-            {/* Agent Request Button */}
+            {/* Agent Request Button veya Yeni Sohbet */}
             {!isAgentMode && !isTyping && (
               <div className="px-4 py-2 bg-gray-50/50">
                 <button
@@ -625,6 +632,30 @@ export function ModernChatWidget() {
                 >
                   <Headphones className="w-3.5 h-3.5" />
                   <span>Canlı Temsilciyle Görüş</span>
+                </button>
+              </div>
+            )}
+            
+            {/* Sohbet Sonlandı - Yeni Sohbet Başlat */}
+            {!isAgentConnected && messages.length > 0 && 
+             messages[messages.length - 1].text.includes('sonlandırıldı') && (
+              <div className="px-4 py-2 bg-gray-50/50">
+                <button
+                  onClick={() => {
+                    setMessages([]);
+                    setShowQuickReplies(true);
+                    setIsAgentMode(false);
+                    setCurrentRequestId(null);
+                  }}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl",
+                    "bg-gradient-to-r from-green-500 to-green-600 text-white",
+                    "hover:from-green-400 hover:to-green-500",
+                    "transition-all text-xs font-medium shadow-md shadow-green-500/20"
+                  )}
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>Yeni Sohbet Başlat</span>
                 </button>
               </div>
             )}

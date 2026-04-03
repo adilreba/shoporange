@@ -523,6 +523,53 @@ async function handleMessage(event: WebSocketEvent): Promise<APIGatewayProxyResu
         }
         break;
 
+      case 'close_session':
+        // Close chat session
+        console.log('---------- CLOSE_SESSION İŞLENİYOR ----------');
+        console.log('Session:', chatSessionId);
+        console.log('UserType:', userType);
+        
+        // Get session details
+        const sessionToClose = await docClient.send(new GetCommand({
+          TableName: CHAT_SESSIONS_TABLE,
+          Key: { sessionId: chatSessionId }
+        }));
+
+        if (sessionToClose.Item) {
+          // Update session status
+          await docClient.send(new UpdateCommand({
+            TableName: CHAT_SESSIONS_TABLE,
+            Key: { sessionId: chatSessionId },
+            UpdateExpression: 'SET #status = :status, closedAt = :now, updatedAt = :now',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: {
+              ':status': 'closed',
+              ':now': new Date().toISOString()
+            }
+          }));
+
+          // Notify customer
+          if (sessionToClose.Item.customerConnectionId) {
+            console.log('Müşteriye chat_closed mesajı gönderiliyor...');
+            await sendToConnection(sessionToClose.Item.customerConnectionId, {
+              type: 'chat_closed',
+              message: 'Sohbet sonlandırıldı. Başka bir konuda yardımcı olabilir miyim?'
+            });
+          }
+
+          // Notify agent
+          if (sessionToClose.Item.agentConnectionId) {
+            console.log('Agent\'e chat_closed mesajı gönderiliyor...');
+            await sendToConnection(sessionToClose.Item.agentConnectionId, {
+              type: 'chat_closed',
+              sessionId: chatSessionId
+            });
+          }
+          
+          console.log('✅ Sohbet başarıyla kapatıldı');
+        }
+        break;
+
       default:
         return { statusCode: 400, body: 'Unknown action' };
     }
