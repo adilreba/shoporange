@@ -14,8 +14,7 @@ import {
   Mail,
   Paperclip,
   ChevronDown,
-  ShoppingBag,
-  XCircle
+  ShoppingBag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,20 +83,7 @@ const botResponses: Record<string, string> = {
   'bay': 'Hoşça kalın! 👋 Size yardımcı olmaktan memnuniyet duyduk.',
 };
 
-// Emoji kategorileri
-interface EmojiCategory {
-  name: string;
-  emojis: string[];
-}
 
-const emojiCategories: EmojiCategory[] = [
-  { name: 'Sık Kullanılan', emojis: ['😊', '👋', '😂', '❤️', '👍', '🎉', '🔥', '👏'] },
-  { name: 'Yüzler', emojis: ['😍', '🤔', '😢', '😡', '😴', '😎', '🤗', '😘', '🙄', '😬'] },
-  { name: 'İşaretler', emojis: ['👌', '🙏', '💪', '✌️', '👆', '👇', '✋', '👊', '🤝', '💅'] },
-  { name: 'Nesneler', emojis: ['✨', '🎁', '📦', '🚚', '💰', '🛍️', '🏠', '🛋️', '📱', '💻'] },
-  { name: 'Yiyecek', emojis: ['☕', '🍕', '🍔', '🍟', '🌭', '🍿', '🍩', '🍪', '🎂', '🍰'] },
-  { name: 'Doğa', emojis: ['🌟', '⭐', '☀️', '🌙', '⚡', '🔥', '💧', '🌈', '🌸', '🌺'] },
-];
 
 // Bot yanıtı bul
 const findBotResponse = (message: string): string | null => {
@@ -136,7 +122,6 @@ export function ModernChatWidget() {
   
   // Yeni özellikler
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [activeEmojiCategory, setActiveEmojiCategory] = useState(0);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -702,45 +687,15 @@ export function ModernChatWidget() {
                     <Smile className="w-5 h-5" />
                   </Button>
                   
-                  {/* Modern Emoji Picker */}
+                  {/* Basit Emoji Picker */}
                   {showEmojiPicker && (
-                    <div className="absolute bottom-full left-0 mb-2 w-[280px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50">
-                      {/* Header */}
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                        <span className="text-sm font-medium text-gray-700">Emojiler</span>
-                        <button 
-                          onClick={() => setShowEmojiPicker(false)}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <XCircle className="w-5 h-5" />
-                        </button>
-                      </div>
-                      
-                      {/* Category Tabs */}
-                      <div className="flex gap-1 px-2 py-2 border-b border-gray-100 overflow-x-auto scrollbar-hide">
-                        {emojiCategories.map((cat, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => setActiveEmojiCategory(idx)}
-                            className={cn(
-                              "px-3 py-1.5 text-xs rounded-full whitespace-nowrap transition-colors",
-                              activeEmojiCategory === idx
-                                ? "bg-orange-100 text-orange-600 font-medium"
-                                : "text-gray-500 hover:bg-gray-100"
-                            )}
-                          >
-                            {cat.name}
-                          </button>
-                        ))}
-                      </div>
-                      
-                      {/* Emoji Grid */}
-                      <div className="p-3 grid grid-cols-6 gap-1 max-h-[200px] overflow-y-auto">
-                        {emojiCategories[activeEmojiCategory].emojis.map((emoji, idx) => (
+                    <div className="absolute bottom-full left-0 mb-2 p-3 bg-white rounded-2xl shadow-xl border border-gray-100 z-50">
+                      <div className="grid grid-cols-8 gap-1">
+                        {['😊', '👋', '😂', '❤️', '👍', '🎉', '🔥', '👏', '😍', '🤔', '😢', '🙏', '💪', '✨', '🎁', '🌟'].map((emoji, idx) => (
                           <button
                             key={idx}
                             onClick={() => handleEmojiClick(emoji)}
-                            className="w-9 h-9 flex items-center justify-center hover:bg-orange-50 rounded-lg text-xl transition-colors"
+                            className="w-8 h-8 flex items-center justify-center hover:bg-orange-50 rounded-lg text-lg transition-colors"
                           >
                             {emoji}
                           </button>
