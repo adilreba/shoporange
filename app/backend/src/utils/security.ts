@@ -1,125 +1,132 @@
 /**
- * ENTERPRISE SECURITY MODULE
- * Amazon/Trendyol level security implementations
+ * Security Utilities
+ * IP extraction, security headers, and request validation
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { APIGatewayProxyEvent } from 'aws-lambda';
 
-// Security Headers - HTTP Strict Transport Security, CSP, etc.
+/**
+ * Extract client IP from various sources
+ */
+export function getClientIP(event: APIGatewayProxyEvent): string {
+  return (
+    event.headers?.['X-Forwarded-For']?.split(',')[0]?.trim() ||
+    event.headers?.['x-forwarded-for']?.split(',')[0]?.trim() ||
+    event.requestContext?.identity?.sourceIp ||
+    'unknown'
+  );
+}
+
+/**
+ * Security headers for all responses
+ */
 export const securityHeaders = {
-  // HTTPS zorunlu - 2 yıl
-  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-  
-  // Content Security Policy - XSS koruması
-  'Content-Security-Policy': [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
-    "connect-src 'self'",
-    "frame-ancestors 'none'",
-  ].join('; '),
-  
-  // Clickjacking koruması
-  'X-Frame-Options': 'DENY',
-  
-  // MIME sniffing koruması
+  'Content-Type': 'application/json',
   'X-Content-Type-Options': 'nosniff',
-  
-  // XSS koruması
+  'X-Frame-Options': 'DENY',
   'X-XSS-Protection': '1; mode=block',
-  
-  // Referrer policy
+  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+  'Content-Security-Policy': "default-src 'self'",
   'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
 };
 
-// Input sanitization
+/**
+ * Validate email format
+ */
+export function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Validate phone format (basic)
+ */
+export function isValidPhone(phone: string): boolean {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 10 && digits.length <= 15;
+}
+
+/**
+ * Sanitize string input (basic XSS prevention)
+ */
 export function sanitizeInput(input: string): string {
-  if (!input || typeof input !== 'string') return '';
   return input
     .replace(/[<>]/g, '')
     .replace(/javascript:/gi, '')
+    .replace(/on\w+=/gi, '')
     .trim();
 }
 
-// Rate limiting - In memory (Production'da Redis)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+/**
+ * Rate limiting helper (simple in-memory implementation)
+ * For production, use Redis or DynamoDB
+ */
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 export function checkRateLimit(
   identifier: string,
   maxRequests: number = 100,
   windowMs: number = 60000
-): { allowed: boolean; remaining: number } {
+): { allowed: boolean; remaining: number; resetTime: number } {
   const now = Date.now();
-  const current = rateLimitMap.get(identifier);
-  
-  if (!current || now > current.resetTime) {
-    rateLimitMap.set(identifier, { count: 1, resetTime: now + windowMs });
-    return { allowed: true, remaining: maxRequests - 1 };
+  const record = rateLimitStore.get(identifier);
+
+  if (!record || now > record.resetTime) {
+    // New window
+    rateLimitStore.set(identifier, {
+      count: 1,
+      resetTime: now + windowMs,
+    });
+    return { allowed: true, remaining: maxRequests - 1, resetTime: now + windowMs };
   }
-  
-  if (current.count >= maxRequests) {
-    return { allowed: false, remaining: 0 };
+
+  if (record.count >= maxRequests) {
+    return { allowed: false, remaining: 0, resetTime: record.resetTime };
   }
-  
-  current.count++;
-  return { allowed: true, remaining: maxRequests - current.count };
-}
 
-// SQL Injection detection
-export function detectSQLInjection(input: string): boolean {
-  const sqlPatterns = [
-    /\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|WHERE|FROM|TABLE)\b/i,
-    /(--|#|\/\*)/,
-    /(\bOR\b|\bAND\b)\s+\d+\s*=\s*\d+/i,
-  ];
-  return sqlPatterns.some(pattern => pattern.test(input));
-}
-
-// Password strength
-export function validatePasswordStrength(password: string): {
-  valid: boolean;
-  errors: string[];
-} {
-  const errors: string[] = [];
-  
-  if (password.length < 8) errors.push('En az 8 karakter');
-  if (!/[A-Z]/.test(password)) errors.push('Büyük harf');
-  if (!/[a-z]/.test(password)) errors.push('Küçük harf');
-  if (!/[0-9]/.test(password)) errors.push('Rakam');
-  if (!/[!@#$%^&*]/.test(password)) errors.push('Özel karakter');
-  
-  return { valid: errors.length === 0, errors };
-}
-
-// Get client IP from event
-export function getClientIP(event: APIGatewayProxyEvent): string {
-  return event.requestContext?.identity?.sourceIp || 
-         event.headers?.['X-Forwarded-For']?.split(',')[0]?.trim() || 
-         'unknown';
-}
-
-// Log security event
-export function logSecurityEvent(
-  event: string,
-  details: Record<string, any>,
-  severity: 'low' | 'medium' | 'high' | 'critical' = 'low'
-): void {
-  console.log(`[SECURITY EVENT] [${severity.toUpperCase()}] ${event}:`, JSON.stringify({
-    timestamp: new Date().toISOString(),
-    severity,
-    ...details
-  }));
-}
-
-// Secure response
-export function createSecureResponse(
-  statusCode: number,
-  body: any
-): APIGatewayProxyResult {
+  record.count++;
   return {
-    statusCode,
-    headers: securityHeaders,
-    body: JSON.stringify(body),
+    allowed: true,
+    remaining: maxRequests - record.count,
+    resetTime: record.resetTime,
   };
+}
+
+/**
+ * Generate secure random token
+ */
+export function generateSecureToken(length: number = 32): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for (let i = 0; i < length; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+
+/**
+ * Hash password (bcrypt-style with salt)
+ * Note: In production, use bcrypt or Argon2
+ */
+export async function hashPassword(password: string): Promise<string> {
+  const crypto = await import('crypto');
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
+}
+
+/**
+ * Verify password
+ */
+export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  const crypto = await import('crypto');
+  const [salt, hash] = hashedPassword.split(':');
+  if (!salt || !hash) return false;
+  
+  const verifyHash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+  return hash === verifyHash;
 }

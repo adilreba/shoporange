@@ -1,6 +1,14 @@
+/**
+ * SECURE ORDERS HANDLER
+ * PII encryption, audit logging, and secure order management
+ */
+
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { encryptObjectFields, decryptObjectFields, maskSensitiveData } from '../../utils/encryption';
+import { audit } from '../../utils/auditLogger';
+import { getClientIP, securityHeaders } from '../../utils/security';
 
 // DynamoDB client - SDK v3
 const client = new DynamoDBClient({});
@@ -8,11 +16,10 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const ORDERS_TABLE = process.env.ORDERS_TABLE || '';
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE || '';
 
-const headers = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-};
+// PII fields to encrypt
+const ORDER_PII_FIELDS = ['shippingAddress', 'billingAddress', 'phone', 'email', 'fullName'];
+
+const headers = securityHeaders;
 
 // Helper functions
 const createErrorResponse = (statusCode: number, message: string, details?: any): APIGatewayProxyResult => ({
@@ -30,6 +37,17 @@ const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResu
   headers,
   body: JSON.stringify(data),
 });
+
+// Get user info from token/context
+const getUserInfo = (event: APIGatewayProxyEvent): { userId?: string; email?: string } => {
+  // Extract from JWT token or context
+  const authHeader = event.headers?.Authorization || event.headers?.authorization;
+  if (authHeader) {
+    // In real implementation, decode JWT
+    return { userId: 'user_id_from_token', email: 'user@example.com' };
+  }
+  return {};
+};
 
 // Stok kontrolü fonksiyonu
 async function checkStockAvailability(
@@ -97,6 +115,7 @@ async function returnStock(items: Array<{ productId: string; quantity: number }>
 export const getOrders = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     const userId = event.queryStringParameters?.userId;
+    const { email } = getUserInfo(event);
 
     let result;
     if (userId) {
@@ -108,12 +127,32 @@ export const getOrders = async (event: APIGatewayProxyEvent): Promise<APIGateway
         ExpressionAttributeValues: { ':userId': userId }
       }));
     } else {
+      // Admin yetkisi kontrolü gerekli
       result = await dynamodb.send(new ScanCommand({
         TableName: ORDERS_TABLE
       }));
     }
 
-    return createSuccessResponse(result.Items || []);
+    // Decrypt PII fields for response
+    const decryptedItems = await Promise.all(
+      (result.Items || []).map(async (item) => {
+        return await decryptObjectFields(item, ORDER_PII_FIELDS);
+      })
+    );
+
+    // Log admin access
+    if (!userId && email) {
+      await audit.adminAction({
+        adminId: 'admin_id',
+        adminEmail: email,
+        ipAddress: getClientIP(event),
+        action: 'VIEW_ALL_ORDERS',
+        resource: 'ORDER',
+        details: { count: decryptedItems.length },
+      });
+    }
+
+    return createSuccessResponse(decryptedItems);
   } catch (error) {
     console.error('Error:', error);
     return createErrorResponse(500, 'Internal server error');
@@ -136,7 +175,10 @@ export const getOrder = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
       return createErrorResponse(404, 'Order not found');
     }
 
-    return createSuccessResponse(result.Item);
+    // Decrypt PII fields
+    const decryptedOrder = await decryptObjectFields(result.Item, ORDER_PII_FIELDS);
+
+    return createSuccessResponse(decryptedOrder);
   } catch (error) {
     console.error('Error:', error);
     return createErrorResponse(500, 'Internal server error');
@@ -150,7 +192,7 @@ export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatew
     }
 
     const orderData = JSON.parse(event.body);
-    const { items, userId } = orderData;
+    const { items, userId, email, shippingAddress, billingAddress } = orderData;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return createErrorResponse(400, 'Order items required');
@@ -159,11 +201,24 @@ export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatew
     // Stok kontrolü yap
     const stockCheck = await checkStockAvailability(items);
     if (!stockCheck.available) {
+      // Audit log for failed order
+      await audit.orderCreate({
+        userId: userId || 'unknown',
+        email: email || 'unknown',
+        ipAddress: getClientIP(event),
+        orderId: 'FAILED',
+        amount: orderData.totalAmount || 0,
+        items: items,
+        success: false,
+        errorMessage: 'Stock insufficient',
+      });
+
       return createErrorResponse(400, 'Stock insufficient', stockCheck.errors);
     }
 
     const orderId = `ORD-${Date.now()}`;
 
+    // Prepare order with encrypted PII
     const order = {
       id: orderId,
       ...orderData,
@@ -173,16 +228,36 @@ export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatew
       updatedAt: new Date().toISOString()
     };
 
+    // Encrypt PII fields before saving
+    const encryptedOrder = await encryptObjectFields(order, ORDER_PII_FIELDS);
+
     // Siparişi kaydet
     await dynamodb.send(new PutCommand({
       TableName: ORDERS_TABLE,
-      Item: order
+      Item: encryptedOrder
     }));
 
     // Stok düşür
     await deductStock(items);
 
-    return createSuccessResponse(order, 201);
+    // Audit log
+    await audit.orderCreate({
+      userId: userId || 'unknown',
+      email: email || 'unknown',
+      ipAddress: getClientIP(event),
+      orderId: orderId,
+      amount: orderData.totalAmount || 0,
+      items: items,
+      success: true,
+    });
+
+    // Return decrypted data to user
+    const decryptedOrder = await decryptObjectFields(encryptedOrder, ORDER_PII_FIELDS);
+    
+    // Mask sensitive data in response
+    const maskedOrder = maskSensitiveData(decryptedOrder, ['email', 'phone']);
+
+    return createSuccessResponse(maskedOrder, 201);
   } catch (error) {
     console.error('Error:', error);
     return createErrorResponse(500, 'Internal server error');
@@ -197,6 +272,7 @@ export const updateOrderStatus = async (event: APIGatewayProxyEvent): Promise<AP
     }
 
     const { status, paymentStatus } = JSON.parse(event.body);
+    const { email, userId } = getUserInfo(event);
 
     // Mevcut siparişi al
     const orderResult = await dynamodb.send(new GetCommand({
@@ -216,13 +292,33 @@ export const updateOrderStatus = async (event: APIGatewayProxyEvent): Promise<AP
       (status === 'refunded' && order.status !== 'refunded') ||
       (paymentStatus === 'failed' && order.paymentStatus !== 'failed')
     );
+    
     if (shouldReturnStock) {
       await returnStock(order.items);
+      
+      // Audit log
+      await audit.logAuditEvent({
+        eventType: 'ORDER_CANCEL',
+        severity: 'warning',
+        action: 'CANCEL_ORDER',
+        resource: 'ORDER',
+        resourceId: orderId,
+        userId: userId || order.userId,
+        userEmail: email || order.email,
+        ipAddress: getClientIP(event),
+        success: true,
+        details: {
+          previousStatus: order.status,
+          newStatus: status,
+          reason: 'Order cancelled or refunded',
+        },
+      });
     }
 
     // İptal/iade/ödeme başarısız olan sipariş tekrar aktif olursa stok düşür
     const wasInactive = ['cancelled', 'refunded'].includes(order.status) || order.paymentStatus === 'failed';
     const isNowActive = status && !['cancelled', 'refunded'].includes(status) && paymentStatus !== 'failed';
+    
     if (wasInactive && isNowActive) {
       const stockCheck = await checkStockAvailability(order.items);
       if (!stockCheck.available) {

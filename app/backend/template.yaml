@@ -26,6 +26,8 @@ Globals:
         CATEGORY_ATTRIBUTES_TABLE: !Ref CategoryAttributesTable
         PRODUCT_VARIATIONS_TABLE: !Ref ProductVariationsTable
         CATEGORIES_TABLE: !Ref CategoriesTable
+        AUDIT_LOGS_TABLE: !Ref AuditLogsTable
+        KMS_KEY_ID: !Ref PIIEncryptionKey
         FROM_EMAIL: !Ref FromEmail
         SMS_ORIGINATOR: 'AtusHome'
         COGNITO_USER_POOL_ID: !Ref UserPool
@@ -384,6 +386,95 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+  # ============================================
+  # Security: Audit Logs & Encryption
+  # ============================================
+
+  # KMS Key for PII Encryption
+  PIIEncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for PII data encryption (GDPR/PCI-DSS compliance)
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow Lambda Functions
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Resource: '*'
+          - Sid: Allow DynamoDB
+            Effect: Allow
+            Principal:
+              Service: dynamodb.amazonaws.com
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Resource: '*'
+
+  PIIEncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/atushome-pii-encryption
+      TargetKeyId: !Ref PIIEncryptionKey
+
+  # Audit Logs Table for compliance
+  AuditLogsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-AuditLogs
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: logId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: eventType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: logId
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: EventTypeIndex
+          KeySchema:
+            - AttributeName: eventType
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+        KMSMasterKeyId: !Ref PIIEncryptionKey
+        SSEType: KMS
+
   # Cognito
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -471,7 +562,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /products/{id}
+            Path: /products/{productId}
             Method: get
             RestApiId: !Ref ApiGateway
 
@@ -497,7 +588,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /users/{id}
+            Path: /users/{userId}
             Method: get
             RestApiId: !Ref ApiGateway
 
@@ -523,7 +614,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /users/{id}
+            Path: /users/{userId}
             Method: put
             RestApiId: !Ref ApiGateway
 
@@ -545,6 +636,19 @@ Resources:
     Properties:
       CodeUri: dist/handlers/orders
       Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt PIIEncryptionKey.Arn
       Events:
         ApiEvent:
           Type: Api
@@ -558,11 +662,23 @@ Resources:
     Properties:
       CodeUri: dist/handlers/orders
       Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+              Resource: !GetAtt PIIEncryptionKey.Arn
       Events:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /orders/{id}
+            Path: /orders/{orderId}
             Method: get
             RestApiId: !Ref ApiGateway
 
@@ -571,6 +687,20 @@ Resources:
     Properties:
       CodeUri: dist/handlers/orders
       Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+              Resource: !GetAtt PIIEncryptionKey.Arn
       Events:
         ApiEvent:
           Type: Api
@@ -835,7 +965,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /admin/orders/{id}
+            Path: /admin/orders/{orderId}
             Method: put
             RestApiId: !Ref ApiGateway
 
@@ -1895,7 +2025,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /legal-pages/{id}/admin
+            Path: /legal-pages/{legalPageId}/admin
             Method: get
             RestApiId: !Ref ApiGateway
 
@@ -1929,7 +2059,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /legal-pages/{id}
+            Path: /legal-pages/{legalPageId}
             Method: put
             RestApiId: !Ref ApiGateway
 
@@ -1946,7 +2076,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /legal-pages/{id}
+            Path: /legal-pages/{legalPageId}
             Method: delete
             RestApiId: !Ref ApiGateway
 
@@ -2202,3 +2332,11 @@ Outputs:
   ChatWebSocketEndpoint:
     Description: WebSocket API Endpoint for Live Chat
     Value: !Sub wss://${ChatWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+  
+  KMSKeyId:
+    Description: KMS Key ID for PII Encryption
+    Value: !Ref PIIEncryptionKey
+  
+  AuditLogsTableName:
+    Description: Audit Logs Table Name
+    Value: !Ref AuditLogsTable
