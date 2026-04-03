@@ -9,6 +9,7 @@ import {
   GripVertical,
   Save,
   X,
+  Check,
   Palette,
   List,
   Type,
@@ -134,9 +135,46 @@ export default function CategoryManagement() {
     }
   };
 
+// Check if category name already exists
+  const isCategoryNameExists = (name: string): boolean => {
+    return categories.some(
+      cat => cat.name.toLowerCase().trim() === name.toLowerCase().trim()
+    );
+  };
+
+  // Check for similar slugs
+  const generateUniqueSlug = (name: string): string => {
+    const baseSlug = name.toLowerCase()
+      .replace(/ğ/g, 'g')
+      .replace(/ü/g, 'u')
+      .replace(/ş/g, 's')
+      .replace(/ı/g, 'i')
+      .replace(/ö/g, 'o')
+      .replace(/ç/g, 'c')
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    
+    let slug = baseSlug;
+    let counter = 1;
+    
+    while (categories.some(cat => cat.slug === slug)) {
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+    
+    return slug;
+  };
+
   const handleCreateCategory = async () => {
     if (!newCategory.name) {
       toast.error('Kategori adı gereklidir');
+      return;
+    }
+
+    // Check if category name already exists
+    if (isCategoryNameExists(newCategory.name)) {
+      toast.error(`"${newCategory.name}" kategorisi zaten mevcut!`);
       return;
     }
 
@@ -144,7 +182,7 @@ export default function CategoryManagement() {
       const category: Category = {
         categoryId: `cat_${Date.now()}`,
         name: newCategory.name,
-        slug: newCategory.name.toLowerCase().replace(/\s+/g, '-'),
+        slug: generateUniqueSlug(newCategory.name),
         description: newCategory.description,
         icon: newCategory.icon,
         order: categories.length + 1,
@@ -279,13 +317,42 @@ export default function CategoryManagement() {
               <DialogTitle>Yeni Kategori Oluştur</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
+              {/* Existing Categories Info */}
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-xs font-medium text-gray-600 mb-2">Mevcut Kategoriler ({categories.length}):</p>
+                <div className="flex flex-wrap gap-1">
+                  {categories.map(cat => (
+                    <Badge key={cat.categoryId} variant="secondary" className="text-xs">
+                      {cat.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Kategori Adı *</label>
                 <Input
                   value={newCategory.name}
                   onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
                   placeholder="örn: Aksesuar"
+                  className={isCategoryNameExists(newCategory.name) ? 'border-red-500 focus-visible:ring-red-500' : ''}
                 />
+                {/* Real-time validation message */}
+                {newCategory.name && (
+                  <div className="text-xs">
+                    {isCategoryNameExists(newCategory.name) ? (
+                      <span className="text-red-500 flex items-center gap-1">
+                        <X className="w-3 h-3" />
+                        "{newCategory.name}" kategorisi zaten mevcut! Lütfen farklı bir ad girin.
+                      </span>
+                    ) : (
+                      <span className="text-green-600 flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        Bu kategori adı kullanılabilir.
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Açıklama</label>
@@ -316,7 +383,8 @@ export default function CategoryManagement() {
               </div>
               <Button 
                 onClick={handleCreateCategory}
-                className="w-full bg-orange-500 hover:bg-orange-600"
+                disabled={!newCategory.name || isCategoryNameExists(newCategory.name)}
+                className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4 mr-2" />
                 Kategori Oluştur
