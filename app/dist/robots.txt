@@ -1,0 +1,26 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://atushome.com/sitemap.xml
+
+# Disallow admin routes
+Disallow: /admin/
+Disallow: /login
+Disallow: /register
+Disallow: /profile
+Disallow: /orders
+Disallow: /settings
+Disallow: /cart
+Disallow: /checkout
+
+# Allow product and category pages
+Allow: /product/
+Allow: /products
+Allow: /campaigns
+Allow: /new-arrivals
+Allow: /bestsellers
+Allow: /about
+Allow: /contact
+Allow: /faq
+Allow: /help
