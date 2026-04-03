@@ -425,6 +425,85 @@ async function handleMessage(event: WebSocketEvent): Promise<APIGatewayProxyResu
 
         return { statusCode: 200, body: 'Agent requested' };
 
+      case 'accept_chat':
+        // Agent accepts a waiting customer
+        const { sessionId: acceptSessionId, agentId } = body;
+        console.log('---------- ACCEPT_CHAT İŞLENİYOR ----------');
+        console.log('Agent:', agentId, 'Session:', acceptSessionId);
+        
+        if (!acceptSessionId || !agentId) {
+          return { statusCode: 400, body: 'sessionId and agentId required' };
+        }
+        
+        // Get agent's connection
+        const agentConnections = await docClient.send(new ScanCommand({
+          TableName: CHAT_CONNECTIONS_TABLE,
+          FilterExpression: 'userId = :agentId AND userType = :agentType',
+          ExpressionAttributeValues: {
+            ':agentId': agentId,
+            ':agentType': 'agent'
+          }
+        }));
+        
+        const agentConnection = agentConnections.Items?.[0];
+        
+        if (!agentConnection) {
+          return { statusCode: 404, body: 'Agent connection not found' };
+        }
+        
+        // Get session
+        const acceptSession = await docClient.send(new GetCommand({
+          TableName: CHAT_SESSIONS_TABLE,
+          Key: { sessionId: acceptSessionId }
+        }));
+        
+        if (!acceptSession.Item) {
+          return { statusCode: 404, body: 'Session not found' };
+        }
+        
+        // Update session with agent
+        await docClient.send(new UpdateCommand({
+          TableName: CHAT_SESSIONS_TABLE,
+          Key: { sessionId: acceptSessionId },
+          UpdateExpression: 'SET agentId = :agentId, agentConnectionId = :agentConnId, #status = :status, updatedAt = :now',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':agentId': agentId,
+            ':agentConnId': agentConnection.connectionId,
+            ':status': 'active',
+            ':now': new Date().toISOString()
+          }
+        }));
+        
+        // Update agent's connection with session
+        await docClient.send(new UpdateCommand({
+          TableName: CHAT_CONNECTIONS_TABLE,
+          Key: { connectionId: agentConnection.connectionId },
+          UpdateExpression: 'SET sessionId = :sessionId',
+          ExpressionAttributeValues: {
+            ':sessionId': acceptSessionId
+          }
+        }));
+        
+        // Notify customer
+        if (acceptSession.Item.customerConnectionId) {
+          await sendToConnection(acceptSession.Item.customerConnectionId, {
+            type: 'agent_assigned',
+            agentId: agentId,
+            message: 'Müşteri temsilciniz bağlandı. Size nasıl yardımcı olabilirim?'
+          });
+        }
+        
+        // Notify agent
+        await sendToConnection(agentConnection.connectionId, {
+          type: 'session_assigned',
+          sessionId: acceptSessionId,
+          customerId: acceptSession.Item.customerId
+        });
+        
+        console.log('✅ Chat accepted by agent:', agentId);
+        return { statusCode: 200, body: 'Chat accepted' };
+
       case 'send_message':
         console.log('---------- SEND_MESSAGE İŞLENİYOR ----------');
         console.log('Gönderen:', userId, 'Tip:', userType);

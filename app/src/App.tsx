@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/sonner';
 import { useAuthStore, initializeAuth } from '@/stores/authStore';
-import { ModernChatWidget } from '@/components/chat/ModernChatWidget';
+import { SimpleChatWidget } from '@/components/chat/SimpleChatWidget';
 import { ScrollToTop } from '@/components/common/ScrollToTop';
 import { useEffect } from 'react';
 
@@ -12,7 +12,7 @@ function ChatWidgetWrapper() {
   const isAdminPage = location.pathname.startsWith('/admin');
   
   if (isAdminPage) return null;
-  return <ModernChatWidget />;
+  return <SimpleChatWidget />;
 }
 
 // Pages
