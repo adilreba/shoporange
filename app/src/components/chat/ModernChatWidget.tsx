@@ -14,7 +14,8 @@ import {
   Mail,
   Paperclip,
   ChevronDown,
-  ShoppingBag
+  ShoppingBag,
+  XCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,8 +84,20 @@ const botResponses: Record<string, string> = {
   'bay': 'Hoşça kalın! 👋 Size yardımcı olmaktan memnuniyet duyduk.',
 };
 
-// Emoji listesi (basit)
-const EMOJIS = ['😊', '👋', '😂', '❤️', '👍', '🎉', '🔥', '👏', '😍', '🤔', '😢', '😡', '👌', '🙏', '💪', '✨', '🎁', '📦', '🚚', '💰'];
+// Emoji kategorileri
+interface EmojiCategory {
+  name: string;
+  emojis: string[];
+}
+
+const emojiCategories: EmojiCategory[] = [
+  { name: 'Sık Kullanılan', emojis: ['😊', '👋', '😂', '❤️', '👍', '🎉', '🔥', '👏'] },
+  { name: 'Yüzler', emojis: ['😍', '🤔', '😢', '😡', '😴', '😎', '🤗', '😘', '🙄', '😬'] },
+  { name: 'İşaretler', emojis: ['👌', '🙏', '💪', '✌️', '👆', '👇', '✋', '👊', '🤝', '💅'] },
+  { name: 'Nesneler', emojis: ['✨', '🎁', '📦', '🚚', '💰', '🛍️', '🏠', '🛋️', '📱', '💻'] },
+  { name: 'Yiyecek', emojis: ['☕', '🍕', '🍔', '🍟', '🌭', '🍿', '🍩', '🍪', '🎂', '🍰'] },
+  { name: 'Doğa', emojis: ['🌟', '⭐', '☀️', '🌙', '⚡', '🔥', '💧', '🌈', '🌸', '🌺'] },
+];
 
 // Bot yanıtı bul
 const findBotResponse = (message: string): string | null => {
@@ -123,6 +136,7 @@ export function ModernChatWidget() {
   
   // Yeni özellikler
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState(0);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -132,6 +146,7 @@ export function ModernChatWidget() {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // İlk mesajı göster
   useEffect(() => {
@@ -221,6 +236,18 @@ export function ModernChatWidget() {
       }
     };
   }, [isRecording]);
+
+  // Emoji picker dışına tıklayınca kapat
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSend = () => {
     if (!inputMessage.trim() && !selectedImage) return;
@@ -315,7 +342,6 @@ export function ModernChatWidget() {
 
   const handleEmojiClick = (emoji: string) => {
     setInputMessage(prev => prev + emoji);
-    setShowEmojiPicker(false);
     inputRef.current?.focus();
   };
 
@@ -344,7 +370,6 @@ export function ModernChatWidget() {
   const stopRecording = () => {
     setIsRecording(false);
     
-    // Simüle edilmiş ses mesajı
     const voiceMessage: Message = {
       id: `user-${Date.now()}`,
       text: '🎤 Ses mesajı',
@@ -424,9 +449,9 @@ export function ModernChatWidget() {
           className={cn(
             "fixed bottom-6 right-6 z-50",
             "w-14 h-14 rounded-full",
-            "bg-gradient-to-br from-purple-600 to-purple-700",
-            "hover:from-purple-500 hover:to-purple-600",
-            "text-white shadow-lg shadow-purple-500/30",
+            "bg-gradient-to-br from-orange-500 to-orange-600",
+            "hover:from-orange-400 hover:to-orange-500",
+            "text-white shadow-lg shadow-orange-500/30",
             "flex items-center justify-center",
             "transition-all duration-300 hover:scale-110",
             "border-2 border-white/20"
@@ -448,8 +473,8 @@ export function ModernChatWidget() {
         <div className="fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-48px)]">
           {/* Main Card */}
           <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-5 py-4">
+            {/* Header - TURUNCU TEMA */}
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-5 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
@@ -506,7 +531,7 @@ export function ModernChatWidget() {
                       'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
                       message.sender === 'agent'
                         ? 'bg-blue-100 text-blue-600' 
-                        : 'bg-purple-100 text-purple-600'
+                        : 'bg-orange-100 text-orange-600'
                     )}>
                       {message.sender === 'agent' ? (
                         <Headphones className="w-4 h-4" />
@@ -524,7 +549,7 @@ export function ModernChatWidget() {
                     <div className={cn(
                       'rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
                       message.sender === 'user'
-                        ? 'bg-purple-600 text-white rounded-br-md'
+                        ? 'bg-orange-500 text-white rounded-br-md'
                         : message.sender === 'agent'
                         ? 'bg-blue-500 text-white rounded-bl-md'
                         : 'bg-white text-gray-800 border border-gray-100 rounded-bl-md shadow-sm'
@@ -562,7 +587,7 @@ export function ModernChatWidget() {
                     )}>
                       <span>{formatTime(message.timestamp)}</span>
                       {message.sender === 'user' && (
-                        <CheckCheck className="w-3 h-3 text-purple-500" />
+                        <CheckCheck className="w-3 h-3 text-orange-500" />
                       )}
                     </div>
                   </div>
@@ -572,7 +597,7 @@ export function ModernChatWidget() {
               {/* Typing indicator */}
               {isTyping && (
                 <div className="flex gap-2">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
                     <Sparkles className="w-4 h-4" />
                   </div>
                   <div className="bg-white border border-gray-100 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
@@ -597,7 +622,7 @@ export function ModernChatWidget() {
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs",
                         "bg-white text-gray-700 border border-gray-200",
-                        "hover:border-purple-300 hover:text-purple-600",
+                        "hover:border-orange-300 hover:text-orange-600",
                         "transition-all shadow-sm"
                       )}
                     >
@@ -616,9 +641,9 @@ export function ModernChatWidget() {
                   onClick={requestAgent}
                   className={cn(
                     "w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl",
-                    "bg-gradient-to-r from-purple-600 to-purple-700 text-white",
-                    "hover:from-purple-500 hover:to-purple-600",
-                    "transition-all text-xs font-medium shadow-md shadow-purple-500/20"
+                    "bg-gradient-to-r from-orange-500 to-orange-600 text-white",
+                    "hover:from-orange-400 hover:to-orange-500",
+                    "transition-all text-xs font-medium shadow-md shadow-orange-500/20"
                   )}
                 >
                   <Headphones className="w-3.5 h-3.5" />
@@ -662,28 +687,65 @@ export function ModernChatWidget() {
               
               <div className="flex items-center gap-2">
                 {/* Emoji Button */}
-                <div className="relative">
+                <div className="relative" ref={emojiPickerRef}>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="h-9 w-9 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-full"
+                    className={cn(
+                      "h-9 w-9 rounded-full transition-colors",
+                      showEmojiPicker 
+                        ? "text-orange-600 bg-orange-50" 
+                        : "text-gray-400 hover:text-orange-600 hover:bg-orange-50"
+                    )}
                   >
                     <Smile className="w-5 h-5" />
                   </Button>
                   
-                  {/* Emoji Picker */}
+                  {/* Modern Emoji Picker */}
                   {showEmojiPicker && (
-                    <div className="absolute bottom-full left-0 mb-2 p-3 bg-white rounded-2xl shadow-xl border border-gray-100 grid grid-cols-5 gap-2 z-10">
-                      {EMOJIS.map((emoji) => (
-                        <button
-                          key={emoji}
-                          onClick={() => handleEmojiClick(emoji)}
-                          className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-lg text-lg transition-colors"
+                    <div className="absolute bottom-full left-0 mb-2 w-[280px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+                      {/* Header */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                        <span className="text-sm font-medium text-gray-700">Emojiler</span>
+                        <button 
+                          onClick={() => setShowEmojiPicker(false)}
+                          className="text-gray-400 hover:text-gray-600"
                         >
-                          {emoji}
+                          <XCircle className="w-5 h-5" />
                         </button>
-                      ))}
+                      </div>
+                      
+                      {/* Category Tabs */}
+                      <div className="flex gap-1 px-2 py-2 border-b border-gray-100 overflow-x-auto scrollbar-hide">
+                        {emojiCategories.map((cat, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setActiveEmojiCategory(idx)}
+                            className={cn(
+                              "px-3 py-1.5 text-xs rounded-full whitespace-nowrap transition-colors",
+                              activeEmojiCategory === idx
+                                ? "bg-orange-100 text-orange-600 font-medium"
+                                : "text-gray-500 hover:bg-gray-100"
+                            )}
+                          >
+                            {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Emoji Grid */}
+                      <div className="p-3 grid grid-cols-6 gap-1 max-h-[200px] overflow-y-auto">
+                        {emojiCategories[activeEmojiCategory].emojis.map((emoji, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => handleEmojiClick(emoji)}
+                            className="w-9 h-9 flex items-center justify-center hover:bg-orange-50 rounded-lg text-xl transition-colors"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -694,19 +756,24 @@ export function ModernChatWidget() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
-                    className="h-9 w-9 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-full"
+                    className={cn(
+                      "h-9 w-9 rounded-full transition-colors",
+                      showAttachmentMenu
+                        ? "text-orange-600 bg-orange-50"
+                        : "text-gray-400 hover:text-orange-600 hover:bg-orange-50"
+                    )}
                   >
                     <Paperclip className="w-5 h-5" />
                   </Button>
                   
                   {/* Attachment Menu */}
                   {showAttachmentMenu && (
-                    <div className="absolute bottom-full left-0 mb-2 py-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-10 min-w-[140px]">
+                    <div className="absolute bottom-full left-0 mb-2 py-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-10 min-w-[160px]">
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-orange-50 transition-colors"
                       >
-                        <ImageIcon className="w-4 h-4 text-purple-500" />
+                        <ImageIcon className="w-4 h-4 text-orange-500" />
                         <span>Fotoğraf</span>
                       </button>
                       <button
@@ -714,7 +781,7 @@ export function ModernChatWidget() {
                           toast.info('Mail gönderme özelliği yakında!');
                           setShowAttachmentMenu(false);
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-orange-50 transition-colors"
                       >
                         <Mail className="w-4 h-4 text-blue-500" />
                         <span>E-posta</span>
@@ -740,14 +807,14 @@ export function ModernChatWidget() {
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  className="flex-1 h-10 bg-gray-100 border-0 rounded-full px-4 text-sm focus-visible:ring-purple-500 focus-visible:ring-offset-0"
+                  className="flex-1 h-10 bg-gray-100 border-0 rounded-full px-4 text-sm focus-visible:ring-orange-500 focus-visible:ring-offset-0"
                 />
                 
                 {/* Voice or Send Button */}
                 {inputMessage.trim() || selectedImage ? (
                   <Button
                     onClick={handleSend}
-                    className="h-10 w-10 p-0 bg-purple-600 hover:bg-purple-700 rounded-full"
+                    className="h-10 w-10 p-0 bg-orange-500 hover:bg-orange-600 rounded-full"
                   >
                     <Send className="w-4 h-4" />
                   </Button>
@@ -756,7 +823,7 @@ export function ModernChatWidget() {
                     variant="ghost"
                     size="icon"
                     onClick={startRecording}
-                    className="h-10 w-10 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-full"
+                    className="h-10 w-10 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-full"
                   >
                     <Mic className="w-5 h-5" />
                   </Button>
