@@ -22,7 +22,6 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
-import { chatApi } from '@/services/api';
 
 // Mesaj tipi
 interface Message {
@@ -379,18 +378,11 @@ export function ModernChatWidget() {
     const userName = isAuthenticated && user ? user.name : 'Misafir Kullanıcı';
     const userEmail = isAuthenticated && user ? user.email : 'misafir@atushome.com';
     
+    // Sadece store'a gönder, store zaten chatApi.requestAgent çağırıyor
     storeRequestAgent({
       userId,
       userName,
       userEmail,
-    });
-    
-    chatApi.requestAgent({
-      userId,
-      userName,
-      userEmail,
-    }).catch(error => {
-      console.log('AWS API error:', error);
     });
     
     setTimeout(() => {

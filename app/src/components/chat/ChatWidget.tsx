@@ -20,7 +20,6 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
-import { chatApi } from '@/services/api';
 
 // Mesaj tipi
 interface Message {
@@ -423,26 +422,15 @@ export function ChatWidget() {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setCurrentRequestId(requestId);
     
-    // Chat store'a agent isteği gönder
+    // Chat store'a agent isteği gönder (store zaten chatApi.requestAgent çağırıyor)
     const userId = isAuthenticated && user ? user.id : `guest_${Date.now()}`;
     const userName = isAuthenticated && user ? user.name : 'Misafir Kullanıcı';
     const userEmail = isAuthenticated && user ? user.email : 'misafir@atushome.com';
     
-    // WebSocket üzerinden agent isteği gönder (bu otomatik bağlanacak)
     storeRequestAgent({
       userId,
       userName,
       userEmail,
-    });
-    
-    // AWS API'ye de gönder (gerçek bildirim için - backup)
-    chatApi.requestAgent({
-      userId,
-      userName,
-      userEmail,
-    }).catch(error => {
-      console.log('AWS API error (mock mode da olabilir):', error);
-      // Hata olsa bile WebSocket üzerinden çalışmaya devam et
     });
     
     setTimeout(() => {
