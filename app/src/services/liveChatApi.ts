@@ -391,7 +391,8 @@ function handleMockMessage(action: string, data: any) {
   
   switch (action) {
     case 'send_message':
-      const { sessionId, message, userType, messageId } = data;
+      const { sessionId, message, senderType, messageId } = data;
+      console.log('[LiveChat] send_message data:', { sessionId, senderType, messageId });
       const session = getMockSessions().get(sessionId);
       if (session) {
         // Eğer messageId geldiyse kullan, yoksa yeni oluştur
@@ -399,7 +400,7 @@ function handleMockMessage(action: string, data: any) {
         const newMessage: ChatMessage = {
           id: finalMessageId,
           text: message,
-          sender: userType === 'agent' ? 'agent' : 'user',
+          sender: senderType === 'agent' ? 'agent' : 'user',
           timestamp: new Date().toISOString(),
           isRead: false
         };
