@@ -575,10 +575,9 @@ export const useLiveChatStore = create<LiveChatStore>()(
     {
       name: 'live-chat-storage',
       partialize: (state) => ({
-        messages: state.messages,
-        unreadCount: state.unreadCount,
-        agentRequests: state.agentRequests,
-        activeSessions: state.activeSessions
+        // Sadece okunmamış mesaj sayısını sakla, mesajların tamamını saklama
+        // Bu sayede sayfa yenilendiğinde yeni sohbet başlar
+        unreadCount: state.unreadCount
       })
     }
   )

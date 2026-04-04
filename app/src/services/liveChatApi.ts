@@ -367,10 +367,19 @@ function handleMockMessage(action: string, data: any) {
       break;
       
     case 'close_session':
+      // Session'ı mock veritabanında kapat
+      const closeSession = mockSessions.get(data.sessionId);
+      if (closeSession) {
+        closeSession.status = 'closed';
+        closeSession.updatedAt = new Date().toISOString();
+      }
+      
       setTimeout(() => {
+        // Tüm bağlı kullanıcılara broadcast yap
         messageCallbacks.forEach(cb => cb({
           type: 'chat_closed',
-          sessionId: data.sessionId
+          sessionId: data.sessionId,
+          message: 'Sohbet sonlandırıldı. Başka bir konuda yardımcı olabilir miyim?'
         }));
       }, 200);
       break;

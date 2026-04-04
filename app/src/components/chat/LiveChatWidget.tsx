@@ -100,23 +100,36 @@ export function LiveChatWidget() {
     }
   }, [isChatOpen]);
 
-  // İlk açılışta hoşgeldin mesajı
+  // Chat açıldığında kontrol et
   useEffect(() => {
-    if (isChatOpen && messages.length === 0) {
-      // Bot hoşgeldin mesajı
-      const welcomeMessage = {
-        id: `welcome_${Date.now()}`,
-        text: 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Ben yapay zeka asistanınızım. Size nasıl yardımcı olabilirim?',
-        sender: 'bot' as const,
-        timestamp: new Date().toISOString(),
-        isRead: true
-      };
+    if (isChatOpen) {
+      // Sohbet sonlandırıldı mı kontrol et
+      const isChatClosed = messages.some(m => 
+        m.text?.includes('sonlandırıldı') && m.sender === 'bot'
+      );
       
-      useLiveChatStore.setState((state) => ({
-        messages: [...state.messages, welcomeMessage]
-      }));
+      // Eğer sohbet sonlandırıldıysa veya mesaj yoksa yeni sohbet başlat
+      if (isChatClosed || messages.length === 0) {
+        if (isChatClosed) {
+          // Önceki sohbeti temizle
+          resetChat();
+        }
+        
+        // Bot hoşgeldin mesajı
+        setTimeout(() => {
+          useLiveChatStore.setState({
+            messages: [{
+              id: `welcome_${Date.now()}`,
+              text: 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Ben yapay zeka asistanınızım. Size nasıl yardımcı olabilirim?',
+              sender: 'bot' as const,
+              timestamp: new Date().toISOString(),
+              isRead: true
+            }]
+          });
+        }, 100);
+      }
     }
-  }, [isChatOpen, messages.length]);
+  }, [isChatOpen]); // Sadece isChatOpen değiştiğinde çalış
 
   // WebSocket bağlantı durumunu logla
   useEffect(() => {
@@ -180,9 +193,10 @@ export function LiveChatWidget() {
     });
   };
 
-  // Son mesaj bot tarafından sonlandırıldı mı kontrol et
-  const isChatClosed = messages.length > 0 && 
-    messages[messages.length - 1].text?.includes('sonlandırıldı');
+  // Sohbet sonlandırıldı mı kontrol et (son 3 mesaj içinde 'sonlandırıldı' var mı)
+  const isChatClosed = messages.some(m => 
+    m.text?.includes('sonlandırıldı') && (m.sender === 'bot' || m.sender === 'system')
+  );
 
   return (
     <>
@@ -419,6 +433,18 @@ export function LiveChatWidget() {
                   onClick={() => {
                     resetChat();
                     setShowQuickReplies(true);
+                    // Yeni hoşgeldin mesajı ekle
+                    setTimeout(() => {
+                      useLiveChatStore.setState({
+                        messages: [{
+                          id: `welcome_${Date.now()}`,
+                          text: 'Merhaba! 👋 Yeni bir sohbet başlattınız. Size nasıl yardımcı olabilirim?',
+                          sender: 'bot' as const,
+                          timestamp: new Date().toISOString(),
+                          isRead: true
+                        }]
+                      });
+                    }, 100);
                   }}
                   className={cn(
                     "w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl",
