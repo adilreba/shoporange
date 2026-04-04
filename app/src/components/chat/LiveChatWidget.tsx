@@ -170,20 +170,13 @@ export function LiveChatWidget() {
     const userName = user.name || 'Misafir Kullanıcı';
     const userEmail = user.email || 'misafir@atushome.com';
 
-    // Önce bağlan
-    if (!isConnected) {
-      connect(userId, 'customer');
-    }
-
-    // Sonra agent iste
-    setTimeout(() => {
-      requestAgent({
-        userId,
-        userName,
-        userEmail
-      });
-      toast.success('Canlı destek talebiniz alındı!');
-    }, 500);
+    // Agent isteği gönder - requestAgent içinde connect de yapılacak
+    requestAgent({
+      userId,
+      userName,
+      userEmail
+    });
+    toast.success('Canlı destek talebiniz alındı!');
   };
 
   const formatTime = (timestamp: string) => {
