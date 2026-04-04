@@ -59,6 +59,9 @@ let connectionCallbacks: ((connected: boolean) => void)[] = [];
 const mockSessions: Map<string, ChatSession> = new Map();
 const mockConnections: Map<string, any> = new Map();
 
+// Mock Broadcast Channel (cross-tab communication)
+const BROADCAST_CHANNEL = 'livechat-mock-broadcast';
+
 /**
  * Bot yanıtları - Gelişmiş AI benzeri yanıtlar
  */
@@ -153,6 +156,63 @@ export function findBotResponse(message: string): string | null {
 }
 
 /**
+ * Broadcast to all tabs (Mock mode için)
+ */
+function broadcastToAllTabs(data: any) {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    // BroadcastChannel API (modern browsers)
+    if ('BroadcastChannel' in window) {
+      const channel = new BroadcastChannel(BROADCAST_CHANNEL);
+      channel.postMessage(data);
+      channel.close();
+    }
+    
+    // localStorage fallback (older browsers)
+    const eventKey = `livechat_broadcast_${Date.now()}`;
+    localStorage.setItem(eventKey, JSON.stringify(data));
+    setTimeout(() => localStorage.removeItem(eventKey), 100);
+  } catch (e) {
+    console.error('[LiveChat] Broadcast error:', e);
+  }
+}
+
+/**
+ * Listen to broadcasts (Mock mode için)
+ */
+function listenToBroadcasts(callback: (data: any) => void) {
+  if (typeof window === 'undefined') return () => {};
+  
+  // BroadcastChannel API
+  let channel: BroadcastChannel | null = null;
+  if ('BroadcastChannel' in window) {
+    channel = new BroadcastChannel(BROADCAST_CHANNEL);
+    channel.onmessage = (event) => {
+      callback(event.data);
+    };
+  }
+  
+  // localStorage fallback
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key && e.key.startsWith('livechat_broadcast_') && e.newValue) {
+      try {
+        const data = JSON.parse(e.newValue);
+        callback(data);
+      } catch (err) {
+        console.error('[LiveChat] Parse error:', err);
+      }
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+  
+  return () => {
+    channel?.close();
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
+/**
  * WebSocket bağlantısı oluştur
  */
 export function connectWebSocket(
@@ -240,6 +300,12 @@ function simulateWebSocket(userId: string, userType: 'customer' | 'agent', sessi
     connectedAt: new Date().toISOString()
   });
   
+  // Broadcast dinlemeye başla
+  listenToBroadcasts((data) => {
+    // Gelen broadcast'i messageCallbacks'e ilet
+    messageCallbacks.forEach(cb => cb(data));
+  });
+  
   // Bağlantı başarılı bildirimi
   setTimeout(() => {
     connectionCallbacks.forEach(cb => cb(true));
@@ -324,45 +390,76 @@ function handleMockMessage(action: string, data: any) {
         };
         session.messages.push(newMessage);
         
-        // Karşı tarafa bildir
+        // Karşı tarafa bildir (broadcast)
         setTimeout(() => {
-          messageCallbacks.forEach(cb => cb({
+          const broadcastData = {
             type: 'new_message',
             message: newMessage,
             sessionId
-          }));
+          };
+          messageCallbacks.forEach(cb => cb(broadcastData));
+          broadcastToAllTabs(broadcastData);
         }, 100);
       }
       break;
       
     case 'request_agent':
-      // Agent isteği oluştur
+      // Session oluştur ve kaydet
+      const newSession: ChatSession = {
+        sessionId: data.sessionId,
+        customerId: data.userId,
+        customerName: data.userName,
+        customerEmail: data.userEmail,
+        status: 'waiting',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        messages: [],
+        unreadCount: 0
+      };
+      mockSessions.set(data.sessionId, newSession);
+      
       setTimeout(() => {
-        messageCallbacks.forEach(cb => cb({
+        // Müşteriye queue_status gönder
+        const queueData = {
           type: 'queue_status',
           position: 1,
           message: 'Sıranız geldi, temsilci atanması bekleniyor...'
-        }));
+        };
+        messageCallbacks.forEach(cb => cb(queueData));
         
-        // Tüm agent'lara bildirim (simülasyon)
-        messageCallbacks.forEach(cb => cb({
+        // Admin'lere new_waiting_customer broadcast et
+        const broadcastData = {
           type: 'new_waiting_customer',
           sessionId: data.sessionId,
           customerId: data.userId,
-          customerName: data.userName
-        }));
+          customerName: data.userName,
+          customerEmail: data.userEmail
+        };
+        messageCallbacks.forEach(cb => cb(broadcastData));
+        broadcastToAllTabs(broadcastData);
       }, 500);
       break;
       
     case 'accept_chat':
-      // Chat kabul edildi
+      // Session'ı güncelle
+      const acceptSession = mockSessions.get(data.sessionId);
+      if (acceptSession) {
+        acceptSession.status = 'active';
+        acceptSession.agentId = data.agentId;
+        acceptSession.agentName = data.agentName;
+        acceptSession.updatedAt = new Date().toISOString();
+      }
+      
       setTimeout(() => {
-        messageCallbacks.forEach(cb => cb({
+        const broadcastData = {
           type: 'agent_assigned',
           agentId: data.agentId,
+          agentName: data.agentName,
           sessionId: data.sessionId,
           message: 'Müşteri temsilciniz bağlandı. Size nasıl yardımcı olabilirim?'
-        }));
+        };
+        messageCallbacks.forEach(cb => cb(broadcastData));
+        broadcastToAllTabs(broadcastData);
       }, 300);
       break;
       
@@ -376,11 +473,13 @@ function handleMockMessage(action: string, data: any) {
       
       setTimeout(() => {
         // Tüm bağlı kullanıcılara broadcast yap
-        messageCallbacks.forEach(cb => cb({
+        const broadcastData = {
           type: 'chat_closed',
           sessionId: data.sessionId,
           message: 'Sohbet sonlandırıldı. Başka bir konuda yardımcı olabilir miyim?'
-        }));
+        };
+        messageCallbacks.forEach(cb => cb(broadcastData));
+        broadcastToAllTabs(broadcastData);
       }, 200);
       break;
   }
@@ -461,7 +560,7 @@ export async function getSessionMessages(sessionId: string): Promise<{ success: 
 /**
  * HTTP API: Session'ı kapat
  */
-export async function closeSession(sessionId: string): Promise<{ success: boolean; error?: string }> {
+export async function closeSessionAPI(sessionId: string): Promise<{ success: boolean; error?: string }> {
   if (isMockMode) {
     const session = mockSessions.get(sessionId);
     if (session) {
