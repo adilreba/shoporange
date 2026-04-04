@@ -196,7 +196,7 @@ export const useLiveChatStore = create<LiveChatStore>()(
         
         if (!text.trim()) return;
 
-        // Kullanıcı mesajını ekle
+        // Kullanıcı mesajını oluştur
         const userMessage: ChatMessage = {
           id: generateId(),
           text: text.trim(),
@@ -205,16 +205,18 @@ export const useLiveChatStore = create<LiveChatStore>()(
           isRead: true
         };
 
+        // Mesajı HEMEN ekle (UI'da göster)
         set((state) => ({
           messages: [...state.messages, userMessage]
         }));
 
-        // WebSocket üzerinden gönder (eğer bağlıysa)
+        // WebSocket BAĞLIYSA: mesajı karşı tarafa gönder
         if (isConnected && sessionId) {
           sendWebSocketMessage('send_message', {
             sessionId,
             message: text.trim(),
-            userType
+            userType,
+            messageId: userMessage.id
           });
         }
 
@@ -469,11 +471,49 @@ export const useLiveChatStore = create<LiveChatStore>()(
 
           case 'new_message':
             if (data.message) {
+              const messageId = data.message.messageId || data.message.id || generateId();
+              
+              // Mesajın sender'ını belirle
+              const senderType = data.message.senderType || data.message.sender;
+              const isOwnMessage = senderType === 'user' || senderType === 'customer';
+              
+              // Duplicate kontrolü - zaten eklenmişse tekrar ekleme
+              const currentState = get();
+              if (currentState.messages.some(m => m.id === messageId)) {
+                console.log('[LiveChatStore] Duplicate message ignored:', messageId);
+                break;
+              }
+              
+              // Eğer bu kendi gönderdiğimiz mesajsa ve zaten eklenmişse ignore et
+              // (sendMessage fonksiyonunda zaten eklenmişti)
+              if (isOwnMessage && currentState.userType === 'customer') {
+                console.log('[LiveChatStore] Own message from broadcast, already in UI');
+                // Bu kendi mesajımız ama admin paneli için session'a eklemeliyiz
+                if (userType === 'agent' && data.sessionId) {
+                  const message: ChatMessage = {
+                    id: messageId,
+                    text: data.message.content || data.message.text,
+                    sender: 'user',
+                    timestamp: data.message.timestamp || new Date().toISOString(),
+                    isRead: false
+                  };
+                  set((state) => ({
+                    activeSessions: state.activeSessions.map(session =>
+                      session.id === data.sessionId
+                        ? { ...session, messages: [...session.messages, message] }
+                        : session
+                    )
+                  }));
+                }
+                break;
+              }
+              
+              // Karşı taraftan gelen mesaj
               const message: ChatMessage = {
-                id: data.message.messageId || generateId(),
+                id: messageId,
                 text: data.message.content || data.message.text,
-                sender: data.message.senderType === 'agent' ? 'agent' : 
-                        data.message.senderType === 'customer' ? 'user' : 'bot',
+                sender: senderType === 'agent' ? 'agent' : 
+                        senderType === 'customer' ? 'user' : 'bot',
                 timestamp: data.message.timestamp || new Date().toISOString(),
                 isRead: false
               };
@@ -511,14 +551,20 @@ export const useLiveChatStore = create<LiveChatStore>()(
             break;
 
           case 'new_waiting_customer':
+            console.log('[LiveChatStore] New waiting customer received:', data);
+            console.log('[LiveChatStore] Current userType:', userType);
+            
             // Admin paneli için yeni müşteri bildirimi
-            if (userType === 'agent' && data.sessionId) {
-              // Session zaten kayıtlı mı kontrol et
+            // VEYA müşteri kendi talebini görebilsin diye userType kontrolü kaldırılabilir
+            if (data.sessionId) {
               set((state) => {
+                // Zaten kayıtlı mı kontrol et
                 if (state.agentRequests.some(r => r.id === data.sessionId)) {
+                  console.log('[LiveChatStore] Request already exists:', data.sessionId);
                   return state;
                 }
 
+                console.log('[LiveChatStore] Adding new request to agentRequests');
                 const newRequest: AgentRequest = {
                   id: data.sessionId,
                   sessionId: data.sessionId,

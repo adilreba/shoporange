@@ -378,24 +378,29 @@ function handleMockMessage(action: string, data: any) {
   switch (action) {
     case 'send_message':
       // Mesajı session'a ekle ve karşı tarafa gönder
-      const { sessionId, message, userType } = data;
-      const session = mockSessions.get(sessionId);
-      if (session) {
+      const { sessionId: sendSessionId, message: sendMessageText, userType: sendUserType, messageId: sendMessageId } = data;
+      const sendSession = mockSessions.get(sendSessionId);
+      if (sendSession) {
+        // Eğer messageId geldiyse kullan, yoksa yeni oluştur
+        const finalMessageId = sendMessageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const newMessage: ChatMessage = {
-          id: `msg_${Date.now()}`,
-          text: message,
-          sender: userType === 'agent' ? 'agent' : 'user',
+          id: finalMessageId,
+          text: sendMessageText,
+          sender: sendUserType === 'agent' ? 'agent' : 'user',
           timestamp: new Date().toISOString(),
           isRead: false
         };
-        session.messages.push(newMessage);
+        sendSession.messages.push(newMessage);
         
         // Karşı tarafa bildir (broadcast)
         setTimeout(() => {
           const broadcastData = {
             type: 'new_message',
-            message: newMessage,
-            sessionId
+            message: {
+              ...newMessage,
+              senderType: newMessage.sender // senderType olarak da ekle
+            },
+            sessionId: sendSessionId
           };
           messageCallbacks.forEach(cb => cb(broadcastData));
           broadcastToAllTabs(broadcastData);
