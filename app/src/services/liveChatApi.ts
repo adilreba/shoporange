@@ -64,9 +64,12 @@ function getMockSessions(): Map<string, ChatSession> {
   if (typeof window === 'undefined') return new Map();
   try {
     const stored = localStorage.getItem(MOCK_SESSIONS_KEY);
+    console.log('[LiveChat] getMockSessions - stored:', stored ? 'found' : 'null');
     if (stored) {
-      const parsed = JSON.parse(stored);
-      return new Map(Object.entries(parsed));
+      const parsed = JSON.parse(stored) as Record<string, ChatSession>;
+      const map = new Map(Object.entries(parsed));
+      console.log('[LiveChat] getMockSessions - parsed size:', map.size);
+      return map;
     }
   } catch (e) {
     console.error('[LiveChat] Error reading mock sessions:', e);
@@ -87,9 +90,11 @@ function saveMockSessions(sessions: Map<string, ChatSession>) {
 
 // Helper to add/update a session
 function addMockSession(session: ChatSession) {
+  console.log('[LiveChat] addMockSession called:', session.sessionId);
   const sessions = getMockSessions();
   sessions.set(session.sessionId, session);
   saveMockSessions(sessions);
+  console.log('[LiveChat] Session saved to localStorage. Total sessions:', sessions.size);
 }
 
 // Helper to get a session
