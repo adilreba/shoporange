@@ -418,8 +418,11 @@ export const useLiveChatStore = create<LiveChatStore>()(
 
       // HTTP API Actions (Admin)
       fetchWaitingSessions: async () => {
+        console.log('[LiveChatStore] fetchWaitingSessions called');
         const result = await getWaitingSessions();
+        console.log('[LiveChatStore] getWaitingSessions result:', result);
         if (result.success && result.data) {
+          console.log('[LiveChatStore] Found', result.data.length, 'waiting sessions');
           // Gelen session'ları agentRequests'a ekle
           set((state) => {
             const newRequests = result.data!.filter(
@@ -435,6 +438,7 @@ export const useLiveChatStore = create<LiveChatStore>()(
               messages: session.messages || []
             }));
 
+            console.log('[LiveChatStore] Adding', newRequests.length, 'new requests');
             return {
               agentRequests: [...state.agentRequests, ...newRequests]
             };

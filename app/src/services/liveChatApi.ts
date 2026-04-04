@@ -550,14 +550,18 @@ function handleMockMessage(action: string, data: any) {
  * HTTP API: Bekleyen session'ları getir
  */
 export async function getWaitingSessions(): Promise<{ success: boolean; data?: ChatSession[]; error?: string }> {
+  console.log('[LiveChat] getWaitingSessions called, isMockMode:', isMockMode);
   if (isMockMode) {
-    const waiting = Array.from(getMockSessions().values())
+    const sessions = getMockSessions();
+    console.log('[LiveChat] Mock sessions from localStorage:', sessions.size);
+    const waiting = Array.from(sessions.values())
       .filter(s => s.status === 'waiting')
       .map(s => ({
         ...s,
         customerName: s.customerName || 'Misafir Kullanıcı',
         customerEmail: s.customerEmail || ''
       }));
+    console.log('[LiveChat] Waiting sessions:', waiting.length);
     return { success: true, data: waiting };
   }
   

@@ -98,6 +98,14 @@ export default function AgentDashboard() {
   useEffect(() => {
     console.log('[AgentDashboard] agentRequests changed:', agentRequests);
   }, [agentRequests]);
+  
+  // Admin paneli açıldığında hemen waiting sessions çek
+  useEffect(() => {
+    console.log('[AgentDashboard] Initial fetch of waiting sessions');
+    fetchWaitingSessions().then(() => {
+      console.log('[AgentDashboard] fetchWaitingSessions completed');
+    });
+  }, []);
 
   // agentRequests değiştiğinde local waiting list'i güncelle
   useEffect(() => {
