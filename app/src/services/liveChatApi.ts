@@ -57,7 +57,22 @@ let connectionCallbacks: ((connected: boolean) => void)[] = [];
 
 // Mock data - IN-MEMORY (cross-tab sync için farklı bir yaklaşım)
 // Note: localStorage cross-origin çalışmaz, o yüzden memory + polling kullanıyoruz
-const mockSessions: Map<string, ChatSession> = new Map();
+// GLOBAL MOCK DATA - Tüm sekmeler tarafından paylaşılan
+// window objesi üzerinde saklanıyor ki tüm sekmeler erişebilsin
+function getMockSessions(): Map<string, ChatSession> {
+  if (typeof window === 'undefined') return new Map();
+  
+  // @ts-ignore
+  if (!window.__LIVECHAT_MOCK_SESSIONS__) {
+    // @ts-ignore
+    window.__LIVECHAT_MOCK_SESSIONS__ = new Map();
+    console.log('[LiveChat] Created global mock sessions');
+  }
+  
+  // @ts-ignore
+  return window.__LIVECHAT_MOCK_SESSIONS__;
+}
+
 const mockConnections: Map<string, any> = new Map();
 
 // Mock Broadcast Channel (cross-tab communication)
@@ -262,7 +277,7 @@ function simulateWebSocket(userId: string, userType: 'customer' | 'agent', sessi
         messages: [],
         unreadCount: 0
       };
-      mockSessions.set(newSessionId, newSession);
+      getMockSessions().set(newSessionId, newSession);
       
       messageCallbacks.forEach(cb => cb({
         type: 'session_created',
@@ -377,7 +392,7 @@ function handleMockMessage(action: string, data: any) {
   switch (action) {
     case 'send_message':
       const { sessionId, message, userType } = data;
-      const session = mockSessions.get(sessionId);
+      const session = getMockSessions().get(sessionId);
       if (session) {
         const newMessage: ChatMessage = {
           id: `msg_${Date.now()}`,
@@ -411,8 +426,8 @@ function handleMockMessage(action: string, data: any) {
         messages: [],
         unreadCount: 0
       };
-      mockSessions.set(data.sessionId, newSession);
-      console.log('[LiveChat] Total sessions:', mockSessions.size);
+      getMockSessions().set(data.sessionId, newSession);
+      console.log('[LiveChat] Total sessions:', getMockSessions().size);
       
       setTimeout(() => {
         // Müşteriye queue_status
@@ -436,7 +451,7 @@ function handleMockMessage(action: string, data: any) {
       break;
       
     case 'accept_chat':
-      const acceptSession = mockSessions.get(data.sessionId);
+      const acceptSession = getMockSessions().get(data.sessionId);
       if (acceptSession) {
         acceptSession.status = 'active';
         acceptSession.agentId = data.agentId;
@@ -456,7 +471,7 @@ function handleMockMessage(action: string, data: any) {
       break;
       
     case 'close_session':
-      const closeSession = mockSessions.get(data.sessionId);
+      const closeSession = getMockSessions().get(data.sessionId);
       if (closeSession) {
         closeSession.status = 'closed';
         closeSession.updatedAt = new Date().toISOString();
@@ -477,9 +492,9 @@ function handleMockMessage(action: string, data: any) {
  * HTTP API: Bekleyen session'ları getir
  */
 export async function getWaitingSessions(): Promise<{ success: boolean; data?: ChatSession[]; error?: string }> {
-  console.log('[LiveChat] getWaitingSessions called, mock sessions:', mockSessions.size);
+  console.log('[LiveChat] getWaitingSessions called, mock sessions:', getMockSessions().size);
   if (isMockMode) {
-    const waiting = Array.from(mockSessions.values())
+    const waiting = Array.from(getMockSessions().values())
       .filter(s => s.status === 'waiting')
       .map(s => ({
         ...s,
@@ -505,7 +520,7 @@ export async function getWaitingSessions(): Promise<{ success: boolean; data?: C
  */
 export async function assignAgent(sessionId: string, agentId: string): Promise<{ success: boolean; error?: string }> {
   if (isMockMode) {
-    const session = mockSessions.get(sessionId);
+    const session = getMockSessions().get(sessionId);
     if (session) {
       session.status = 'active';
       session.agentId = agentId;
@@ -533,7 +548,7 @@ export async function assignAgent(sessionId: string, agentId: string): Promise<{
  */
 export async function getSessionMessages(sessionId: string): Promise<{ success: boolean; data?: ChatMessage[]; error?: string }> {
   if (isMockMode) {
-    const session = mockSessions.get(sessionId);
+    const session = getMockSessions().get(sessionId);
     return { success: true, data: session?.messages || [] };
   }
   
@@ -552,7 +567,7 @@ export async function getSessionMessages(sessionId: string): Promise<{ success: 
  */
 export async function closeSessionAPI(sessionId: string): Promise<{ success: boolean; error?: string }> {
   if (isMockMode) {
-    const session = mockSessions.get(sessionId);
+    const session = getMockSessions().get(sessionId);
     if (session) {
       session.status = 'closed';
       session.updatedAt = new Date().toISOString();
