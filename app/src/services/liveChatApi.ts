@@ -56,7 +56,57 @@ let messageCallbacks: ((data: any) => void)[] = [];
 let connectionCallbacks: ((connected: boolean) => void)[] = [];
 
 // Mock data for development
-const mockSessions: Map<string, ChatSession> = new Map();
+// localStorage key for cross-tab session sync
+const MOCK_SESSIONS_KEY = 'livechat_mock_sessions';
+
+// Helper to get sessions from localStorage
+function getMockSessions(): Map<string, ChatSession> {
+  if (typeof window === 'undefined') return new Map();
+  try {
+    const stored = localStorage.getItem(MOCK_SESSIONS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return new Map(Object.entries(parsed));
+    }
+  } catch (e) {
+    console.error('[LiveChat] Error reading mock sessions:', e);
+  }
+  return new Map();
+}
+
+// Helper to save sessions to localStorage
+function saveMockSessions(sessions: Map<string, ChatSession>) {
+  if (typeof window === 'undefined') return;
+  try {
+    const obj = Object.fromEntries(sessions);
+    localStorage.setItem(MOCK_SESSIONS_KEY, JSON.stringify(obj));
+  } catch (e) {
+    console.error('[LiveChat] Error saving mock sessions:', e);
+  }
+}
+
+// Helper to add/update a session
+function addMockSession(session: ChatSession) {
+  const sessions = getMockSessions();
+  sessions.set(session.sessionId, session);
+  saveMockSessions(sessions);
+}
+
+// Helper to get a session
+function getMockSession(sessionId: string): ChatSession | undefined {
+  return getMockSessions().get(sessionId);
+}
+
+// Helper to update a session
+function updateMockSession(sessionId: string, updates: Partial<ChatSession>) {
+  const sessions = getMockSessions();
+  const session = sessions.get(sessionId);
+  if (session) {
+    sessions.set(sessionId, { ...session, ...updates, updatedAt: new Date().toISOString() });
+    saveMockSessions(sessions);
+  }
+}
+
 const mockConnections: Map<string, any> = new Map();
 
 // Mock Broadcast Channel (cross-tab communication)
@@ -334,7 +384,7 @@ function simulateWebSocket(userId: string, userType: 'customer' | 'agent', sessi
         messages: [],
         unreadCount: 0
       };
-      mockSessions.set(newSessionId, newSession);
+      addMockSession(newSession);
       
       // Session created bildirimi
       messageCallbacks.forEach(cb => cb({
@@ -389,7 +439,7 @@ function handleMockMessage(action: string, data: any) {
     case 'send_message':
       // Mesajı session'a ekle ve karşı tarafa gönder
       const { sessionId: sendSessionId, message: sendMessageText, userType: sendUserType, messageId: sendMessageId } = data;
-      const sendSession = mockSessions.get(sendSessionId);
+      const sendSession = getMockSession(sendSessionId);
       if (sendSession) {
         // Eğer messageId geldiyse kullan, yoksa yeni oluştur
         const finalMessageId = sendMessageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -431,7 +481,7 @@ function handleMockMessage(action: string, data: any) {
         messages: [],
         unreadCount: 0
       };
-      mockSessions.set(data.sessionId, newSession);
+      addMockSession(newSession);
       
       setTimeout(() => {
         // Müşteriye queue_status gönder
@@ -457,13 +507,11 @@ function handleMockMessage(action: string, data: any) {
       
     case 'accept_chat':
       // Session'ı güncelle
-      const acceptSession = mockSessions.get(data.sessionId);
-      if (acceptSession) {
-        acceptSession.status = 'active';
-        acceptSession.agentId = data.agentId;
-        acceptSession.agentName = data.agentName;
-        acceptSession.updatedAt = new Date().toISOString();
-      }
+      updateMockSession(data.sessionId, {
+        status: 'active',
+        agentId: data.agentId,
+        agentName: data.agentName
+      });
       
       setTimeout(() => {
         const broadcastData = {
@@ -480,11 +528,9 @@ function handleMockMessage(action: string, data: any) {
       
     case 'close_session':
       // Session'ı mock veritabanında kapat
-      const closeSession = mockSessions.get(data.sessionId);
-      if (closeSession) {
-        closeSession.status = 'closed';
-        closeSession.updatedAt = new Date().toISOString();
-      }
+      updateMockSession(data.sessionId, {
+        status: 'closed'
+      });
       
       setTimeout(() => {
         // Tüm bağlı kullanıcılara broadcast yap
@@ -505,7 +551,7 @@ function handleMockMessage(action: string, data: any) {
  */
 export async function getWaitingSessions(): Promise<{ success: boolean; data?: ChatSession[]; error?: string }> {
   if (isMockMode) {
-    const waiting = Array.from(mockSessions.values())
+    const waiting = Array.from(getMockSessions().values())
       .filter(s => s.status === 'waiting')
       .map(s => ({
         ...s,
@@ -530,7 +576,7 @@ export async function getWaitingSessions(): Promise<{ success: boolean; data?: C
  */
 export async function assignAgent(sessionId: string, agentId: string): Promise<{ success: boolean; error?: string }> {
   if (isMockMode) {
-    const session = mockSessions.get(sessionId);
+    const session = getMockSession(sessionId);
     if (session) {
       session.status = 'active';
       session.agentId = agentId;
@@ -558,7 +604,7 @@ export async function assignAgent(sessionId: string, agentId: string): Promise<{
  */
 export async function getSessionMessages(sessionId: string): Promise<{ success: boolean; data?: ChatMessage[]; error?: string }> {
   if (isMockMode) {
-    const session = mockSessions.get(sessionId);
+    const session = getMockSession(sessionId);
     return { success: true, data: session?.messages || [] };
   }
   
@@ -577,7 +623,7 @@ export async function getSessionMessages(sessionId: string): Promise<{ success: 
  */
 export async function closeSessionAPI(sessionId: string): Promise<{ success: boolean; error?: string }> {
   if (isMockMode) {
-    const session = mockSessions.get(sessionId);
+    const session = getMockSession(sessionId);
     if (session) {
       session.status = 'closed';
       session.updatedAt = new Date().toISOString();
