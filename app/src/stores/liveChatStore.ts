@@ -215,7 +215,7 @@ export const useLiveChatStore = create<LiveChatStore>()(
           sendWebSocketMessage('send_message', {
             sessionId,
             message: text.trim(),
-            userType,
+            senderType: userType,  // HATA DÜZELTİLDİ: userType yerine senderType kullan
             messageId: userMessage.id
           });
         }
@@ -395,7 +395,7 @@ export const useLiveChatStore = create<LiveChatStore>()(
           sendWebSocketMessage('send_message', {
             sessionId: requestId,
             message: text.trim(),
-            userType: 'agent',
+            senderType: 'agent',  // HATA DÜZELTİLDİ: userType yerine senderType kullan
             agentId: userId,
             messageId  // ID'yi de gönder ki karşı taraf tanıyabilsin
           });
