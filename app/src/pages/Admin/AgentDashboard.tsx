@@ -1,63 +1,68 @@
-import { useState, useEffect, useRef } from 'react';
+/**
+ * Agent Dashboard - Admin Live Support Panel
+ * Canlı destek taleplerini yönetme ve müşterilerle sohbet etme
+ */
+
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  MessageCircle, Clock, CheckCircle, XCircle, 
-  Send, Plus, Headphones, Inbox
+  MessageCircle, 
+  Clock, 
+  CheckCircle, 
+  XCircle, 
+  Send, 
+  Plus, 
+  Headphones, 
+  Inbox,
+  Mail
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
 import { ScrollArea } from '@/components/ui/scroll-area';
-
 import { useAuthStore } from '@/stores/authStore';
-import { useChatStore } from '@/stores/chatStore';
-import { chatApi } from '@/services/api';
+import { useLiveChatStore } from '@/stores/liveChatStore';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { isMockMode } from '@/services/liveChatApi';
 
 interface ChatSession {
   sessionId: string;
   customerId: string;
-  customerName?: string;
-  customerEmail?: string;
-  agentId?: string;
+  customerName: string;
+  customerEmail: string;
   status: 'waiting' | 'active' | 'closed';
   createdAt: string;
-  updatedAt: string;
-  lastMessage?: {
-    content: string;
-    timestamp: string;
-    senderType: string;
-  };
-  unreadCount?: number;
-}
-
-interface ChatMessage {
-  messageId: string;
-  sessionId: string;
-  senderId: string;
-  senderType: 'customer' | 'agent';
-  content: string;
-  timestamp: string;
-  isRead: boolean;
+  messages: any[];
+  unreadCount: number;
 }
 
 export default function AgentDashboard() {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
-  const { agentRequests, activeSessions, acceptRequest, completeRequest, agentAcceptedChat, sendAgentMessage, getSessionMessages } = useChatStore();
-  const [activeTab, setActiveTab] = useState('waiting');
-  const [waitingChats, setWaitingChats] = useState<ChatSession[]>([]);
-  const [activeChats, setActiveChats] = useState<ChatSession[]>([]);
+  
+  const {
+    agentRequests,
+    activeSessions,
+    isConnected,
+    connectionStatus,
+    connect,
+    acceptRequest,
+    completeRequest,
+    sendAgentMessage,
+    fetchWaitingSessions,
+    messages: storeMessages
+  } = useLiveChatStore();
+
+  const [activeTab, setActiveTab] = useState<'waiting' | 'active'>('waiting');
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-
+  const [localWaitingChats, setLocalWaitingChats] = useState<ChatSession[]>([]);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const notifiedRequestsRef = useRef<Set<string>>(new Set());
-  const disconnectedNotifiedRef = useRef<Set<string>>(new Set());
+  const notifiedSessionsRef = useRef<Set<string>>(new Set());
 
-  // Check if user is admin/agent
+  // Admin kontrolü
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
@@ -70,296 +75,139 @@ export default function AgentDashboard() {
     }
   }, [isAuthenticated, user, navigate]);
 
-  // Subscribe to chat store changes
+  // WebSocket bağlantısı (Agent olarak)
   useEffect(() => {
-    const unsubscribe = useChatStore.subscribe((state) => {
-      console.log('Subscribe - state changed:', state);
-      const pendingRequests = state.agentRequests.filter((req: any) => req.status === 'pending');
-      
-      // Show toast for new requests
-      pendingRequests.forEach((request: any) => {
-        if (!notifiedRequestsRef.current.has(request.id)) {
-          toast.info(
-            <div className="flex flex-col gap-1">
-              <span className="font-semibold">🔔 Yeni Canlı Destek Talebi!</span>
-              <span className="text-sm">{request.userName} ({request.userEmail})</span>
-            </div>,
-            { duration: 8000 }
-          );
-          notifiedRequestsRef.current.add(request.id);
-        }
-      });
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // AWS API'den bekleyen talepleri çek
-  const fetchWaitingFromAWS = async () => {
-    try {
-      const response = await chatApi.getWaitingSessions();
-      if (response.success && response.data) {
-        // AWS'den gelen verileri ChatSession formatına çevir
-        const awsWaitingChats: ChatSession[] = response.data.map((session: any) => ({
-          sessionId: session.sessionId,
-          customerId: session.customerId,
-          customerName: session.customerName,
-          customerEmail: session.customerEmail,
-          status: 'waiting',
-          createdAt: session.createdAt,
-          updatedAt: session.updatedAt,
-          lastMessage: session.lastMessage,
-          unreadCount: 1
-        }));
-        
-        // Local state ile birleştir
-        setWaitingChats(prev => {
-          const existingIds = new Set(prev.map(c => c.sessionId));
-          const newChats = awsWaitingChats.filter((c: ChatSession) => !existingIds.has(c.sessionId));
-          
-          // Yeni talepler için bildirim göster
-          newChats.forEach((chat: ChatSession) => {
-            if (!notifiedRequestsRef.current.has(chat.sessionId)) {
-              toast.info(
-                <div className="flex flex-col gap-1">
-                  <span className="font-semibold">🔔 Yeni Canlı Destek Talebi!</span>
-                  <span className="text-sm">{chat.customerName} ({chat.customerEmail})</span>
-                </div>,
-                { duration: 8000 }
-              );
-              notifiedRequestsRef.current.add(chat.sessionId);
-            }
-          });
-          
-          return [...prev, ...newChats];
-        });
-      }
-    } catch (error) {
-      console.log('AWS fetch error:', error);
+    if (user?.id && !isConnected && connectionStatus === 'idle') {
+      console.log('[AgentDashboard] Connecting as agent:', user.id);
+      connect(user.id, 'agent');
     }
-  };
 
-  // Düzenli olarak AWS'den veri çek
-  useEffect(() => {
-    fetchWaitingFromAWS();
-    const interval = setInterval(fetchWaitingFromAWS, 3000); // Her 3 saniyede bir
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      // Component unmount olunca bağlantıyı kesme (başka sayfalarda da kullanılabilir)
+      // disconnect();
+    };
+  }, [user?.id, isConnected, connectionStatus, connect]);
 
-  // Update waiting and active chats when store changes (local mock data)
+  // agentRequests değiştiğinde local waiting list'i güncelle
   useEffect(() => {
     const pendingRequests = agentRequests.filter(req => req.status === 'pending');
     
-    // Convert agentRequests to waitingChats format
-    const mockWaitingChats: ChatSession[] = pendingRequests.map(req => ({
-      sessionId: req.id,
-      customerId: req.userId,
-      customerName: req.userName,
-      customerEmail: req.userEmail,
-      status: 'waiting' as const,
+    const waitingChats: ChatSession[] = pendingRequests.map(req => ({
+      sessionId: req.sessionId,
+      customerId: req.customerId,
+      customerName: req.customerName || 'Misafir Kullanıcı',
+      customerEmail: req.customerEmail || '',
+      status: 'waiting',
       createdAt: req.timestamp,
-      updatedAt: req.timestamp,
-      lastMessage: req.messages.length > 0 ? {
-        content: req.messages[req.messages.length - 1].text,
-        timestamp: req.messages[req.messages.length - 1].timestamp,
-        senderType: req.messages[req.messages.length - 1].sender
-      } : undefined,
+      messages: req.messages || [],
       unreadCount: 1
     }));
 
-    // Local verileri de ekle (AWS'den gelenlerle birleştir)
-    setWaitingChats(prev => {
-      const existingIds = new Set(prev.map(c => c.sessionId));
-      const newLocalChats = mockWaitingChats.filter(c => !existingIds.has(c.sessionId));
-      
-      newLocalChats.forEach(chat => {
-        if (!notifiedRequestsRef.current.has(chat.sessionId)) {
-          toast.info(
-            <div className="flex flex-col gap-1">
-              <span className="font-semibold">🔔 Yeni Canlı Destek Talebi!</span>
-              <span className="text-sm">{chat.customerName} ({chat.customerEmail})</span>
-            </div>,
-            { duration: 8000 }
-          );
-          notifiedRequestsRef.current.add(chat.sessionId);
-        }
-      });
-      
-      return [...prev, ...newLocalChats];
+    setLocalWaitingChats(waitingChats);
+
+    // Yeni talepler için bildirim göster
+    waitingChats.forEach(chat => {
+      if (!notifiedSessionsRef.current.has(chat.sessionId)) {
+        toast.info(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">🔔 Yeni Canlı Destek Talebi!</span>
+            <span className="text-sm">{chat.customerName}</span>
+          </div>,
+          { duration: 8000 }
+        );
+        notifiedSessionsRef.current.add(chat.sessionId);
+      }
     });
+  }, [agentRequests]);
 
-    // Convert activeSessions to activeChats format (disconnected olanları filtrele)
-    const mockActiveChats: ChatSession[] = activeSessions
-      .filter(req => req.status !== 'disconnected')
-      .map(req => ({
-        sessionId: req.id,
-        customerId: req.userId,
-        customerName: req.userName,
-        customerEmail: req.userEmail,
-        status: req.status === 'disconnected' ? 'closed' as const : 'active' as const,
-        createdAt: req.timestamp,
-        updatedAt: req.timestamp,
-        lastMessage: req.messages.length > 0 ? {
-          content: req.messages[req.messages.length - 1].text,
-          timestamp: req.messages[req.messages.length - 1].timestamp,
-          senderType: req.messages[req.messages.length - 1].sender
-        } : undefined,
-        unreadCount: 0
-      }));
-
-    setActiveChats(mockActiveChats);
-    
-    // Eğer seçili session disconnected olduysa bildirim göster
-    if (selectedSession) {
-      const disconnectedSession = activeSessions.find(
-        req => req.id === selectedSession.sessionId && req.status === 'disconnected'
-      );
-      if (disconnectedSession && !disconnectedNotifiedRef.current.has(selectedSession.sessionId)) {
-        toast.warning('⚠️ Müşteri bağlantıyı kesti', {
-          description: 'Müşteri sayfayı kapattı veya bağlantısı kesildi.',
-          duration: 5000,
-        });
-        disconnectedNotifiedRef.current.add(selectedSession.sessionId);
-        // Seçili session'ı kapat
-        setSelectedSession(null);
-      }
-    }
-  }, [agentRequests, activeSessions, selectedSession]);
-
-  const acceptChat = async (session: ChatSession) => {
-    if (!user?.id) return;
-
-    try {
-      // Önce local store'a ekle (eğer yoksa) - WebSocket bağlantısı için
-      const localRequest = agentRequests.find(req => req.id === session.sessionId);
-      if (!localRequest) {
-        // AWS'den gelen session'ı local store'a ekle
-        const newRequest = {
-          id: session.sessionId,
-          userId: session.customerId,
-          userName: session.customerName || 'Misafir',
-          userEmail: session.customerEmail || '',
-          timestamp: session.createdAt,
-          status: 'pending' as const,
-          messages: [{
-            id: `msg_${Date.now()}`,
-            text: 'Canlı destek talebi oluşturuldu',
-            sender: 'user' as const,
-            timestamp: session.createdAt,
-          }],
-        };
-        // Store'a ekle
-        const currentRequests = useChatStore.getState().agentRequests;
-        useChatStore.setState({ 
-          agentRequests: [...currentRequests, newRequest],
-        });
-      }
-      
-      // Önce WebSocket'e bağlan (bu agentConnectionId'yi backend'e iletecek)
-      // acceptRequest fonksiyonu WebSocket bağlantısı kuruyor
-      acceptRequest(session.sessionId);
-      
-      // Sonra AWS HTTP API'de kabul et (backup olarak)
-      try {
-        await chatApi.assignAgent(session.sessionId, user.id);
-      } catch (apiError) {
-        console.log('[AWS API] Assign error (may be in mock mode):', apiError);
-        // Mock mode'da devam et, WebSocket üzerinden çalışacak
-      }
-      
-      // Müşteriye agent'ın bağlandığını bildir ve bot yanıtlarını durdur
-      agentAcceptedChat(session.sessionId, user.name || 'Temsilci');
-      
-      // Listeden kaldır
-      setWaitingChats(prev => prev.filter(c => c.sessionId !== session.sessionId));
-      
-      toast.success('Müşteri kabul edildi');
-      setSelectedSession({ ...session, agentId: user.id, status: 'active' });
-      setActiveTab('active');
-    } catch (error) {
-      console.error('Accept chat error:', error);
-      toast.error('Müşteri kabul edilemedi');
-    }
-  };
-
-  const sendMessage = () => {
-    if (!inputMessage.trim() || !selectedSession || !user) return;
-    
-    // Store'a mesaj gönder (bu fonksiyon müşteriye de iletecek)
-    sendAgentMessage(selectedSession.sessionId, inputMessage.trim());
-    
-    // Input'u temizle
-    setInputMessage('');
-  };
-  
-  // Seçili session değiştiğinde mesajları yükle ve store'dan dinle
+  // Seçili session'ın mesajlarını güncelle
   useEffect(() => {
     if (!selectedSession) {
       setMessages([]);
       return;
     }
-    
-    // İlk yükleme
-    const loadMessages = () => {
-      const sessionMessages = getSessionMessages(selectedSession.sessionId);
-      const formattedMessages: ChatMessage[] = sessionMessages.map(msg => ({
+
+    // Store'dan bu session'a ait mesajları bul
+    const session = activeSessions.find(s => s.id === selectedSession.sessionId);
+    if (session) {
+      const formattedMessages = session.messages.map(msg => ({
         messageId: msg.id,
         sessionId: selectedSession.sessionId,
-        senderId: msg.sender === 'agent' ? user?.id || 'agent' : selectedSession.customerId,
+        senderId: msg.sender === 'agent' ? user?.id : selectedSession.customerId,
         senderType: msg.sender === 'agent' ? 'agent' : 'customer',
         content: msg.text,
         timestamp: msg.timestamp,
-        isRead: true,
+        isRead: true
       }));
       setMessages(formattedMessages);
-    };
+    }
+  }, [selectedSession, activeSessions, user?.id, storeMessages]);
+
+  // Auto-scroll
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  // Periyodik olarak bekleyen session'ları kontrol et (mock mode'da polling)
+  useEffect(() => {
+    if (isMockMode) {
+      const interval = setInterval(() => {
+        fetchWaitingSessions();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [fetchWaitingSessions]);
+
+  const handleAcceptChat = useCallback((session: ChatSession) => {
+    if (!user?.id) {
+      toast.error('Kullanıcı bilgisi bulunamadı');
+      return;
+    }
+
+    // Session'ı kabul et
+    acceptRequest(session.sessionId, user.id, user.name || 'Temsilci');
     
-    loadMessages();
+    toast.success(`${session.customerName} ile sohbet başlatıldı`);
     
-    // Store değişikliklerini dinle (gerçek zamanlı senkronizasyon)
-    const unsubscribe = useChatStore.subscribe((state) => {
-      // Aktif session'ın mesajlarını bul
-      const session = state.activeSessions.find(s => s.id === selectedSession.sessionId);
-      if (session) {
-        const formattedMessages: ChatMessage[] = session.messages.map(msg => ({
-          messageId: msg.id,
-          sessionId: selectedSession.sessionId,
-          senderId: msg.sender === 'agent' ? user?.id || 'agent' : selectedSession.customerId,
-          senderType: msg.sender === 'agent' ? 'agent' : 'customer',
-          content: msg.text,
-          timestamp: msg.timestamp,
-          isRead: true,
-        }));
-        setMessages(formattedMessages);
-      }
+    // Seçili session olarak ayarla
+    setSelectedSession({
+      ...session,
+      status: 'active'
     });
     
-    // Cross-tab sync: Diğer sekmelerden/tarayıcılardan gelen mesajları dinle
-    const handleChatMessage = (event: CustomEvent) => {
-      if (event.detail.requestId === selectedSession.sessionId) {
-        loadMessages(); // Mesajları yeniden yükle
-      }
-    };
-    
-    window.addEventListener('chat-message', handleChatMessage as EventListener);
-    
-    return () => {
-      unsubscribe();
-      window.removeEventListener('chat-message', handleChatMessage as EventListener);
-    };
-  }, [selectedSession, user?.id]);
+    setActiveTab('active');
+  }, [user, acceptRequest]);
 
-  const closeChat = async () => {
+  const handleSendMessage = useCallback(() => {
+    if (!inputMessage.trim() || !selectedSession || !user) return;
+
+    // Store üzerinden mesaj gönder
+    sendAgentMessage(selectedSession.sessionId, inputMessage.trim());
+
+    // Local mesaj listesine ekle
+    const newMessage = {
+      messageId: `msg_${Date.now()}`,
+      sessionId: selectedSession.sessionId,
+      senderId: user.id,
+      senderType: 'agent',
+      content: inputMessage.trim(),
+      timestamp: new Date().toISOString(),
+      isRead: true
+    };
+
+    setMessages(prev => [...prev, newMessage]);
+    setInputMessage('');
+  }, [inputMessage, selectedSession, user, sendAgentMessage]);
+
+  const handleCloseChat = useCallback(() => {
     if (!selectedSession) return;
 
-    try {
-      completeRequest(selectedSession.sessionId);
-      toast.success('Sohbet sonlandırıldı');
-      setSelectedSession(null);
-    } catch (error) {
-      toast.error('Sohbet sonlandırılamadı');
-    }
-  };
+    completeRequest(selectedSession.sessionId);
+    toast.success('Sohbet sonlandırıldı');
+    setSelectedSession(null);
+  }, [selectedSession, completeRequest]);
 
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString('tr-TR', {
@@ -376,9 +224,20 @@ export default function AgentDashboard() {
     return `${minutes}dk`;
   };
 
+  // Test talebi oluştur
+  const createTestRequest = () => {
+    const { requestAgent } = useLiveChatStore.getState();
+    requestAgent({
+      userId: `test_${Date.now()}`,
+      userName: 'Test Müşteri',
+      userEmail: 'test@musteri.com'
+    });
+    toast.success('Test talebi oluşturuldu!');
+  };
+
   return (
     <div className="h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900 flex flex-col">
-      {/* Header - Profesyonel Tasarım */}
+      {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">
           {/* Sol: Başlık ve Durum */}
@@ -391,38 +250,52 @@ export default function AgentDashboard() {
                 Canlı Destek
               </h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-500/10 px-2 py-0.5 rounded-full">
+                <span className={cn(
+                  "flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full",
+                  isConnected 
+                    ? "text-green-600 bg-green-50 dark:bg-green-500/10" 
+                    : "text-red-600 bg-red-50 dark:bg-red-500/10"
+                )}>
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    <span className={cn(
+                      "absolute inline-flex h-full w-full rounded-full opacity-75",
+                      isConnected ? "animate-ping bg-green-400" : "bg-red-400"
+                    )}></span>
+                    <span className={cn(
+                      "relative inline-flex rounded-full h-2 w-2",
+                      isConnected ? "bg-green-500" : "bg-red-500"
+                    )}></span>
                   </span>
-                  Çevrimiçi
+                  {isConnected ? 'Çevrimiçi' : 'Bağlantı Yok'}
                 </span>
+                {isMockMode && (
+                  <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                    Mock Mode
+                  </span>
+                )}
               </div>
             </div>
           </div>
           
-          {/* Orta: Modern İstatistik Kartları */}
+          {/* Orta: İstatistikler */}
           <div className="hidden md:flex items-center gap-4">
-            {/* Bekleyen */}
             <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
               <div className="w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
                 <Clock className="w-4 h-4 text-red-500" />
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Bekleyen</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white leading-none">{waitingChats.length}</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white leading-none">{localWaitingChats.length}</span>
               </div>
             </div>
             
-            {/* Aktif */}
             <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
               <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
                 <MessageCircle className="w-4 h-4 text-orange-500" />
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Aktif</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white leading-none">{activeChats.length}</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white leading-none">{activeSessions.length}</span>
               </div>
             </div>
           </div>
@@ -430,15 +303,7 @@ export default function AgentDashboard() {
           {/* Sağ: Test Butonu */}
           <Button 
             size="sm" 
-            onClick={() => {
-              const { requestAgent } = useChatStore.getState();
-              requestAgent({
-                userId: `test_${Date.now()}`,
-                userName: 'Test Müşteri',
-                userEmail: 'test@musteri.com'
-              });
-              toast.success('Test talebi oluşturuldu!');
-            }}
+            onClick={createTestRequest}
             className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0 shadow-lg shadow-orange-500/25"
           >
             <Plus className="w-4 h-4" />
@@ -454,7 +319,7 @@ export default function AgentDashboard() {
           "w-full lg:w-96 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col absolute lg:relative z-10 h-full transition-transform",
           selectedSession ? "-translate-x-full lg:translate-x-0" : "translate-x-0"
         )}>
-          {/* Profesyonel Tab Tasarımı */}
+          {/* Tabs */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
             <div className="flex gap-1 bg-gray-200/60 dark:bg-gray-700 p-1 rounded-xl">
               <button
@@ -468,9 +333,9 @@ export default function AgentDashboard() {
               >
                 <Clock className="w-4 h-4" />
                 Bekleyen
-                {waitingChats.length > 0 && (
+                {localWaitingChats.length > 0 && (
                   <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
-                    {waitingChats.length}
+                    {localWaitingChats.length}
                   </span>
                 )}
               </button>
@@ -485,23 +350,22 @@ export default function AgentDashboard() {
               >
                 <MessageCircle className="w-4 h-4" />
                 Aktif
-                {activeChats.length > 0 && (
+                {activeSessions.length > 0 && (
                   <span className="bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
-                    {activeChats.length}
+                    {activeSessions.length}
                   </span>
                 )}
               </button>
             </div>
           </div>
 
-          {/* Liste Alanı - Sabit Tab + Scrollable Liste */}
+          {/* Chat List */}
           <div className="flex-1 overflow-hidden">
-            
             {/* Bekleyen Liste */}
             {activeTab === 'waiting' && (
               <ScrollArea className="h-full">
                 <div className="p-3 space-y-2 pb-20">
-                  {waitingChats.length === 0 ? (
+                  {localWaitingChats.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-gray-400">
                       <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
                         <Inbox className="w-10 h-10 text-gray-400" />
@@ -510,13 +374,12 @@ export default function AgentDashboard() {
                       <p className="text-sm text-gray-400 mt-1">Yeni talepler burada görünecek</p>
                     </div>
                   ) : (
-                    waitingChats.map((chat) => (
+                    localWaitingChats.map((chat) => (
                       <div 
                         key={chat.sessionId}
                         className="group relative bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 hover:shadow-lg hover:shadow-red-500/10 hover:border-red-200 dark:hover:border-red-800/50 transition-all duration-300 cursor-pointer overflow-hidden"
-                        onClick={() => acceptChat(chat)}
+                        onClick={() => handleAcceptChat(chat)}
                       >
-                        {/* Üst gradient çizgi */}
                         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-400 to-orange-400 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
                         
                         <div className="flex items-center gap-4">
@@ -528,7 +391,7 @@ export default function AgentDashboard() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
                               <p className="font-semibold text-gray-900 dark:text-white truncate">
-                                {chat.customerName || 'Misafir Kullanıcı'}
+                                {chat.customerName}
                               </p>
                               <span className="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/20 px-2.5 py-1 rounded-full">
                                 <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
@@ -548,13 +411,13 @@ export default function AgentDashboard() {
                   )}
                 </div>
               </ScrollArea>
-          )}
+            )}
 
-          {/* Aktif Liste */}
-          {activeTab === 'active' && (
+            {/* Aktif Liste */}
+            {activeTab === 'active' && (
               <ScrollArea className="h-full">
                 <div className="p-3 space-y-2 pb-20">
-                  {activeChats.length === 0 ? (
+                  {activeSessions.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-gray-400">
                       <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
                         <CheckCircle className="w-10 h-10 text-gray-400" />
@@ -563,37 +426,45 @@ export default function AgentDashboard() {
                       <p className="text-sm text-gray-400 mt-1">Müşteriler burada görünecek</p>
                     </div>
                   ) : (
-                    activeChats.map((chat) => (
+                    activeSessions.map((session) => (
                       <div 
-                        key={chat.sessionId}
+                        key={session.id}
                         className={cn(
                           "group relative bg-white dark:bg-gray-800 border rounded-2xl p-4 cursor-pointer transition-all duration-300 overflow-hidden",
-                          selectedSession?.sessionId === chat.sessionId 
+                          selectedSession?.sessionId === session.id 
                             ? "border-orange-400 shadow-lg shadow-orange-500/10 ring-2 ring-orange-500/20" 
                             : "border-gray-100 dark:border-gray-700 hover:border-orange-200 dark:hover:border-orange-800/50 hover:shadow-md"
                         )}
-                        onClick={() => setSelectedSession(chat)}
+                        onClick={() => setSelectedSession({
+                          sessionId: session.id,
+                          customerId: session.customerId,
+                          customerName: session.customerName,
+                          customerEmail: session.customerEmail,
+                          status: 'active',
+                          createdAt: session.timestamp,
+                          messages: session.messages,
+                          unreadCount: 0
+                        })}
                       >
-                        {/* Seçili göstergesi */}
-                        {selectedSession?.sessionId === chat.sessionId && (
+                        {selectedSession?.sessionId === session.id && (
                           <div className="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-orange-400 to-amber-400 rounded-r-full"></div>
                         )}
                         
                         <div className="flex items-center gap-4">
                           <div className={cn(
                             "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg transition-transform group-hover:scale-105",
-                            selectedSession?.sessionId === chat.sessionId
+                            selectedSession?.sessionId === session.id
                               ? "bg-gradient-to-br from-orange-500 to-amber-500 shadow-orange-500/25"
                               : "bg-gradient-to-br from-green-500 to-emerald-500 shadow-green-500/25"
                           )}>
                             <span className="text-lg font-bold text-white">
-                              {(chat.customerName || 'M').charAt(0).toUpperCase()}
+                              {(session.customerName || 'M').charAt(0).toUpperCase()}
                             </span>
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
                               <p className="font-semibold text-gray-900 dark:text-white truncate">
-                                {chat.customerName || 'Misafir Kullanıcı'}
+                                {session.customerName}
                               </p>
                               <span className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-full">
                                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
@@ -601,11 +472,11 @@ export default function AgentDashboard() {
                               </span>
                             </div>
                             <p className="text-sm text-gray-400 truncate">
-                              {formatDuration(chat.createdAt)} süredir bağlı
+                              {formatDuration(session.timestamp)} süredir bağlı
                             </p>
-                            {chat.lastMessage && (
+                            {session.messages.length > 0 && (
                               <p className="text-sm text-gray-600 dark:text-gray-300 truncate mt-1.5 font-medium bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded-lg">
-                                {chat.lastMessage.content}
+                                {session.messages[session.messages.length - 1].text}
                               </p>
                             )}
                           </div>
@@ -615,7 +486,7 @@ export default function AgentDashboard() {
                   )}
                 </div>
               </ScrollArea>
-          )}
+            )}
           </div>
         </div>
 
@@ -647,18 +518,24 @@ export default function AgentDashboard() {
                   </div>
                   <div>
                     <p className="font-bold text-gray-900 dark:text-white text-lg">
-                      {selectedSession.customerName || 'Misafir Kullanıcı'}
+                      {selectedSession.customerName}
                     </p>
                     <div className="flex items-center gap-2 text-sm text-gray-400">
                       <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                       <span className="font-medium">{formatDuration(selectedSession.createdAt)} bağlı</span>
                     </div>
+                    {selectedSession.customerEmail && (
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                        <Mail className="w-3 h-3" />
+                        <span>{selectedSession.customerEmail}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={closeChat}
+                  onClick={handleCloseChat}
                   className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 rounded-xl px-4"
                 >
                   <XCircle className="w-4 h-4 mr-2" />
@@ -666,64 +543,64 @@ export default function AgentDashboard() {
                 </Button>
               </div>
 
-              {/* Messages - Scrollable Area */}
+              {/* Messages */}
               <div className="flex-1 overflow-hidden relative">
                 <ScrollArea className="h-full p-6">
                   <div className="space-y-4 max-w-4xl mx-auto pb-20">
-                  {messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
-                      <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                        <MessageCircle className="w-12 h-12 text-gray-300" />
+                    {messages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
+                        <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                          <MessageCircle className="w-12 h-12 text-gray-300" />
+                        </div>
+                        <p className="text-lg font-medium text-gray-600 dark:text-gray-400">Henüz mesaj yok</p>
+                        <p className="text-sm mt-1">Sohbete başlamak için mesaj gönderin</p>
                       </div>
-                      <p className="text-lg font-medium text-gray-600 dark:text-gray-400">Henüz mesaj yok</p>
-                      <p className="text-sm mt-1">Sohbete başlamak için mesaj gönderin</p>
-                    </div>
-                  ) : (
-                    messages.map((message) => (
-                      <div
-                        key={message.messageId}
-                        className={cn(
-                          'flex gap-3',
-                          message.senderType === 'agent' ? 'flex-row-reverse' : ''
-                        )}
-                      >
+                    ) : (
+                      messages.map((message) => (
                         <div
+                          key={message.messageId}
                           className={cn(
-                            'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
-                            message.senderType === 'agent'
-                              ? 'bg-orange-100 text-orange-600'
-                              : 'bg-gray-200 text-gray-600'
+                            'flex gap-3',
+                            message.senderType === 'agent' ? 'flex-row-reverse' : ''
                           )}
                         >
-                          <span className="text-sm font-bold">
-                            {message.senderType === 'agent' ? 'A' : 'M'}
-                          </span>
+                          <div
+                            className={cn(
+                              'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+                              message.senderType === 'agent'
+                                ? 'bg-orange-100 text-orange-600'
+                                : 'bg-gray-200 text-gray-600'
+                            )}
+                          >
+                            <span className="text-sm font-bold">
+                              {message.senderType === 'agent' ? 'A' : 'M'}
+                            </span>
+                          </div>
+                          <div
+                            className={cn(
+                              'max-w-[70%] rounded-2xl px-5 py-3',
+                              message.senderType === 'agent'
+                                ? 'bg-orange-500 text-white rounded-br-none shadow-md'
+                                : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none shadow-sm border border-gray-100 dark:border-gray-600'
+                            )}
+                          >
+                            <p className="text-sm leading-relaxed">{message.content}</p>
+                            <p className={cn(
+                              'text-xs mt-2',
+                              message.senderType === 'agent' ? 'text-orange-100' : 'text-gray-400'
+                            )}>
+                              {formatTime(message.timestamp)}
+                            </p>
+                          </div>
                         </div>
-                        <div
-                          className={cn(
-                            'max-w-[70%] rounded-2xl px-5 py-3',
-                            message.senderType === 'agent'
-                              ? 'bg-orange-500 text-white rounded-br-none shadow-md'
-                              : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none shadow-sm border border-gray-100 dark:border-gray-600'
-                          )}
-                        >
-                          <p className="text-sm leading-relaxed">{message.content}</p>
-                          <p className={cn(
-                            'text-xs mt-2',
-                            message.senderType === 'agent' ? 'text-orange-100' : 'text-gray-400'
-                          )}>
-                            {formatTime(message.timestamp)}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
+                      ))
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
                 </ScrollArea>
               </div>
 
-              {/* Input - Fixed at bottom */}
+              {/* Input */}
               <div className="bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 p-4 flex-shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <div className="flex gap-3 max-w-4xl mx-auto">
                   <div className="flex-1 relative">
@@ -731,14 +608,14 @@ export default function AgentDashboard() {
                       value={inputMessage}
                       onChange={(e) => setInputMessage(e.target.value)}
                       onKeyPress={(e) => {
-                        if (e.key === 'Enter') sendMessage();
+                        if (e.key === 'Enter') handleSendMessage();
                       }}
                       placeholder="Mesajınızı yazın..."
                       className="w-full bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 focus:bg-white dark:focus:bg-gray-700 focus:border-orange-400 dark:focus:border-orange-500 rounded-xl pr-12 h-12 transition-all"
                     />
                   </div>
                   <Button 
-                    onClick={sendMessage} 
+                    onClick={handleSendMessage} 
                     className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 rounded-xl px-6 h-12"
                   >
                     <Send className="w-5 h-5" />
@@ -748,19 +625,16 @@ export default function AgentDashboard() {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 relative overflow-hidden">
-              {/* Dekoratif arka plan elementleri */}
               <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-orange-200/20 dark:bg-orange-500/5 rounded-full blur-3xl"></div>
                 <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-200/20 dark:bg-amber-500/5 rounded-full blur-3xl"></div>
               </div>
               
               <div className="text-center px-4 relative z-10">
-                {/* Animasyonlu ikon */}
                 <div className="relative mb-8">
                   <div className="w-24 h-24 bg-gradient-to-br from-orange-400 to-amber-500 rounded-2xl flex items-center justify-center mx-auto shadow-2xl shadow-orange-500/30 rotate-3 hover:rotate-6 transition-transform duration-500">
                     <Headphones className="w-12 h-12 text-white" />
                   </div>
-                  {/* Dekoratif noktalar */}
                   <div className="absolute -top-2 -right-2 w-4 h-4 bg-green-400 rounded-full animate-pulse"></div>
                   <div className="absolute -bottom-1 -left-2 w-3 h-3 bg-orange-400 rounded-full animate-pulse delay-75"></div>
                 </div>
@@ -772,13 +646,12 @@ export default function AgentDashboard() {
                   Müşterilerinizle gerçek zamanlı iletişim kurun. Sol panelden bir sohbet seçin veya yeni bir talebi kabul edin.
                 </p>
                 
-                {/* İstatistik kartları */}
                 <div className="flex items-center justify-center gap-6">
                   <div className="flex flex-col items-center p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 min-w-[120px]">
                     <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-xl flex items-center justify-center mb-2">
                       <Clock className="w-5 h-5 text-red-500" />
                     </div>
-                    <span className="text-2xl font-bold text-gray-900 dark:text-white">{waitingChats.length}</span>
+                    <span className="text-2xl font-bold text-gray-900 dark:text-white">{localWaitingChats.length}</span>
                     <span className="text-xs text-gray-400 font-medium">Bekleyen</span>
                   </div>
                   
@@ -786,7 +659,7 @@ export default function AgentDashboard() {
                     <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/20 rounded-xl flex items-center justify-center mb-2">
                       <MessageCircle className="w-5 h-5 text-orange-500" />
                     </div>
-                    <span className="text-2xl font-bold text-gray-900 dark:text-white">{activeChats.length}</span>
+                    <span className="text-2xl font-bold text-gray-900 dark:text-white">{activeSessions.length}</span>
                     <span className="text-xs text-gray-400 font-medium">Aktif</span>
                   </div>
                 </div>
