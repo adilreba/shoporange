@@ -391,11 +391,13 @@ function handleMockMessage(action: string, data: any) {
   
   switch (action) {
     case 'send_message':
-      const { sessionId, message, userType } = data;
+      const { sessionId, message, userType, messageId } = data;
       const session = getMockSessions().get(sessionId);
       if (session) {
+        // Eğer messageId geldiyse kullan, yoksa yeni oluştur
+        const finalMessageId = messageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const newMessage: ChatMessage = {
-          id: `msg_${Date.now()}`,
+          id: finalMessageId,
           text: message,
           sender: userType === 'agent' ? 'agent' : 'user',
           timestamp: new Date().toISOString(),

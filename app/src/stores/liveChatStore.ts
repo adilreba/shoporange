@@ -387,19 +387,23 @@ export const useLiveChatStore = create<LiveChatStore>()(
         
         if (!text.trim()) return;
 
+        // Benzersiz message ID oluştur
+        const messageId = generateId();
+
         // WebSocket üzerinden gönder
         if (isConnected) {
           sendWebSocketMessage('send_message', {
             sessionId: requestId,
             message: text.trim(),
             userType: 'agent',
-            agentId: userId
+            agentId: userId,
+            messageId  // ID'yi de gönder ki karşı taraf tanıyabilsin
           });
         }
 
         // Local state'e ekle
         const agentMessage: ChatMessage = {
-          id: generateId(),
+          id: messageId,
           text: text.trim(),
           sender: 'agent',
           timestamp: new Date().toISOString(),
