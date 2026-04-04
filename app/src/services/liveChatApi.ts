@@ -161,18 +161,22 @@ export function findBotResponse(message: string): string | null {
 function broadcastToAllTabs(data: any) {
   if (typeof window === 'undefined') return;
   
+  console.log('[LiveChat] Broadcasting to all tabs:', data.type, data);
+  
   try {
     // BroadcastChannel API (modern browsers)
     if ('BroadcastChannel' in window) {
       const channel = new BroadcastChannel(BROADCAST_CHANNEL);
       channel.postMessage(data);
       channel.close();
+      console.log('[LiveChat] BroadcastChannel message sent');
     }
     
-    // localStorage fallback (older browsers)
-    const eventKey = `livechat_broadcast_${Date.now()}`;
+    // localStorage fallback (older browsers + cross-browser)
+    const eventKey = `livechat_broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     localStorage.setItem(eventKey, JSON.stringify(data));
-    setTimeout(() => localStorage.removeItem(eventKey), 100);
+    setTimeout(() => localStorage.removeItem(eventKey), 500); // Daha uzun süre tut
+    console.log('[LiveChat] localStorage broadcast sent:', eventKey);
   } catch (e) {
     console.error('[LiveChat] Broadcast error:', e);
   }
@@ -184,18 +188,23 @@ function broadcastToAllTabs(data: any) {
 function listenToBroadcasts(callback: (data: any) => void) {
   if (typeof window === 'undefined') return () => {};
   
+  console.log('[LiveChat] Starting broadcast listener');
+  
   // BroadcastChannel API
   let channel: BroadcastChannel | null = null;
   if ('BroadcastChannel' in window) {
     channel = new BroadcastChannel(BROADCAST_CHANNEL);
     channel.onmessage = (event) => {
+      console.log('[LiveChat] BroadcastChannel received:', event.data.type);
       callback(event.data);
     };
+    console.log('[LiveChat] BroadcastChannel listener started');
   }
   
   // localStorage fallback
   const handleStorage = (e: StorageEvent) => {
     if (e.key && e.key.startsWith('livechat_broadcast_') && e.newValue) {
+      console.log('[LiveChat] localStorage broadcast received:', e.key);
       try {
         const data = JSON.parse(e.newValue);
         callback(data);
@@ -205,6 +214,7 @@ function listenToBroadcasts(callback: (data: any) => void) {
     }
   };
   window.addEventListener('storage', handleStorage);
+  console.log('[LiveChat] localStorage listener started');
   
   return () => {
     channel?.close();

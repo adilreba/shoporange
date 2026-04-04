@@ -77,16 +77,27 @@ export default function AgentDashboard() {
 
   // WebSocket bağlantısı (Agent olarak)
   useEffect(() => {
+    console.log('[AgentDashboard] Connection check:', { 
+      userId: user?.id, 
+      isConnected, 
+      connectionStatus 
+    });
+    
     if (user?.id && !isConnected && connectionStatus === 'idle') {
       console.log('[AgentDashboard] Connecting as agent:', user.id);
       connect(user.id, 'agent');
     }
-
-    return () => {
-      // Component unmount olunca bağlantıyı kesme (başka sayfalarda da kullanılabilir)
-      // disconnect();
-    };
   }, [user?.id, isConnected, connectionStatus, connect]);
+  
+  // Connection status değişikliklerini izle
+  useEffect(() => {
+    console.log('[AgentDashboard] Connection status changed:', connectionStatus);
+  }, [connectionStatus]);
+  
+  // Agent requests değişikliklerini izle
+  useEffect(() => {
+    console.log('[AgentDashboard] agentRequests changed:', agentRequests);
+  }, [agentRequests]);
 
   // agentRequests değiştiğinde local waiting list'i güncelle
   useEffect(() => {
