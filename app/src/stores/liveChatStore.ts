@@ -479,7 +479,12 @@ export const useLiveChatStore = create<LiveChatStore>()(
               
               // Mesajın sender'ını belirle
               const senderType = data.message.senderType || data.message.sender;
-              const isOwnMessage = senderType === 'user' || senderType === 'customer';
+              console.log('[LiveChatStore] New message received:', { 
+                messageId, 
+                senderType, 
+                myUserType: get().userType,
+                text: data.message.text?.substring(0, 20)
+              });
               
               // Duplicate kontrolü - zaten eklenmişse tekrar ekleme
               const currentState = get();
@@ -488,31 +493,20 @@ export const useLiveChatStore = create<LiveChatStore>()(
                 break;
               }
               
-              // Eğer bu kendi gönderdiğimiz mesajsa ve zaten eklenmişse ignore et
-              // (sendMessage fonksiyonunda zaten eklenmişti)
-              if (isOwnMessage && currentState.userType === 'customer') {
-                console.log('[LiveChatStore] Own message from broadcast, already in UI');
-                // Bu kendi mesajımız ama admin paneli için session'a eklemeliyiz
-                if (userType === 'agent' && data.sessionId) {
-                  const message: ChatMessage = {
-                    id: messageId,
-                    text: data.message.content || data.message.text,
-                    sender: 'user',
-                    timestamp: data.message.timestamp || new Date().toISOString(),
-                    isRead: false
-                  };
-                  set((state) => ({
-                    activeSessions: state.activeSessions.map(session =>
-                      session.id === data.sessionId
-                        ? { ...session, messages: [...session.messages, message] }
-                        : session
-                    )
-                  }));
-                }
+              // Bu benim gönderdiğim mesaj mı?
+              // Customer isem ve sender 'user' ise, bu benim mesajım
+              // Agent isem ve sender 'agent' ise, bu benim mesajım
+              const isMyOwnMessage = 
+                (currentState.userType === 'customer' && (senderType === 'user' || senderType === 'customer')) ||
+                (currentState.userType === 'agent' && senderType === 'agent');
+              
+              if (isMyOwnMessage) {
+                console.log('[LiveChatStore] Own message from broadcast, ignoring');
                 break;
               }
               
-              // Karşı taraftan gelen mesaj
+              // Karşı taraftan gelen mesaj - ekle
+              console.log('[LiveChatStore] Adding message from other side:', senderType);
               const message: ChatMessage = {
                 id: messageId,
                 text: data.message.content || data.message.text,
