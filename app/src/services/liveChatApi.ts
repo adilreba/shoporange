@@ -55,63 +55,9 @@ let wsInstance: WebSocket | null = null;
 let messageCallbacks: ((data: any) => void)[] = [];
 let connectionCallbacks: ((connected: boolean) => void)[] = [];
 
-// Mock data for development
-// localStorage key for cross-tab session sync
-const MOCK_SESSIONS_KEY = 'livechat_mock_sessions';
-
-// Helper to get sessions from localStorage
-function getMockSessions(): Map<string, ChatSession> {
-  if (typeof window === 'undefined') return new Map();
-  try {
-    const stored = localStorage.getItem(MOCK_SESSIONS_KEY);
-    console.log('[LiveChat] getMockSessions - stored:', stored ? 'found' : 'null');
-    if (stored) {
-      const parsed = JSON.parse(stored) as Record<string, ChatSession>;
-      const map = new Map(Object.entries(parsed));
-      console.log('[LiveChat] getMockSessions - parsed size:', map.size);
-      return map;
-    }
-  } catch (e) {
-    console.error('[LiveChat] Error reading mock sessions:', e);
-  }
-  return new Map();
-}
-
-// Helper to save sessions to localStorage
-function saveMockSessions(sessions: Map<string, ChatSession>) {
-  if (typeof window === 'undefined') return;
-  try {
-    const obj = Object.fromEntries(sessions);
-    localStorage.setItem(MOCK_SESSIONS_KEY, JSON.stringify(obj));
-  } catch (e) {
-    console.error('[LiveChat] Error saving mock sessions:', e);
-  }
-}
-
-// Helper to add/update a session
-function addMockSession(session: ChatSession) {
-  console.log('[LiveChat] addMockSession called:', session.sessionId);
-  const sessions = getMockSessions();
-  sessions.set(session.sessionId, session);
-  saveMockSessions(sessions);
-  console.log('[LiveChat] Session saved to localStorage. Total sessions:', sessions.size);
-}
-
-// Helper to get a session
-function getMockSession(sessionId: string): ChatSession | undefined {
-  return getMockSessions().get(sessionId);
-}
-
-// Helper to update a session
-function updateMockSession(sessionId: string, updates: Partial<ChatSession>) {
-  const sessions = getMockSessions();
-  const session = sessions.get(sessionId);
-  if (session) {
-    sessions.set(sessionId, { ...session, ...updates, updatedAt: new Date().toISOString() });
-    saveMockSessions(sessions);
-  }
-}
-
+// Mock data - IN-MEMORY (cross-tab sync için farklı bir yaklaşım)
+// Note: localStorage cross-origin çalışmaz, o yüzden memory + polling kullanıyoruz
+const mockSessions: Map<string, ChatSession> = new Map();
 const mockConnections: Map<string, any> = new Map();
 
 // Mock Broadcast Channel (cross-tab communication)
@@ -183,7 +129,6 @@ const botResponses: Array<{
 export function findBotResponse(message: string): string | null {
   const lowerMessage = message.toLowerCase().trim();
   
-  // En yüksek priority'li eşleşmeyi bul
   let bestMatch: { response: string; priority: number } | null = null;
   
   for (const item of botResponses) {
@@ -200,7 +145,6 @@ export function findBotResponse(message: string): string | null {
     return bestMatch.response;
   }
   
-  // Varsayılan yanıt
   const defaultResponses = [
     'Anladım, bu konuda size daha detaylı yardımcı olmak için canlı destek temsilcimizle görüşebilirsiniz. "Canlı Temsilciyle Görüş" butonuna tıklayabilirsiniz.',
     'Bu konuda size yardımcı olmam için biraz daha detay verebilir misiniz? Ya da canlı destek temsilcimizle görüşmek isterseniz butona tıklayabilirsiniz.',
@@ -208,73 +152,6 @@ export function findBotResponse(message: string): string | null {
   ];
   
   return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
-}
-
-/**
- * Broadcast to all tabs (Mock mode için)
- */
-function broadcastToAllTabs(data: any) {
-  if (typeof window === 'undefined') return;
-  
-  console.log('[LiveChat] Broadcasting to all tabs:', data.type, data);
-  
-  try {
-    // BroadcastChannel API (modern browsers)
-    if ('BroadcastChannel' in window) {
-      const channel = new BroadcastChannel(BROADCAST_CHANNEL);
-      channel.postMessage(data);
-      channel.close();
-      console.log('[LiveChat] BroadcastChannel message sent');
-    }
-    
-    // localStorage fallback (older browsers + cross-browser)
-    const eventKey = `livechat_broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem(eventKey, JSON.stringify(data));
-    setTimeout(() => localStorage.removeItem(eventKey), 500); // Daha uzun süre tut
-    console.log('[LiveChat] localStorage broadcast sent:', eventKey);
-  } catch (e) {
-    console.error('[LiveChat] Broadcast error:', e);
-  }
-}
-
-/**
- * Listen to broadcasts (Mock mode için)
- */
-function listenToBroadcasts(callback: (data: any) => void) {
-  if (typeof window === 'undefined') return () => {};
-  
-  console.log('[LiveChat] Starting broadcast listener');
-  
-  // BroadcastChannel API
-  let channel: BroadcastChannel | null = null;
-  if ('BroadcastChannel' in window) {
-    channel = new BroadcastChannel(BROADCAST_CHANNEL);
-    channel.onmessage = (event) => {
-      console.log('[LiveChat] BroadcastChannel received:', event.data.type);
-      callback(event.data);
-    };
-    console.log('[LiveChat] BroadcastChannel listener started');
-  }
-  
-  // localStorage fallback
-  const handleStorage = (e: StorageEvent) => {
-    if (e.key && e.key.startsWith('livechat_broadcast_') && e.newValue) {
-      console.log('[LiveChat] localStorage broadcast received:', e.key);
-      try {
-        const data = JSON.parse(e.newValue);
-        callback(data);
-      } catch (err) {
-        console.error('[LiveChat] Parse error:', err);
-      }
-    }
-  };
-  window.addEventListener('storage', handleStorage);
-  console.log('[LiveChat] localStorage listener started');
-  
-  return () => {
-    channel?.close();
-    window.removeEventListener('storage', handleStorage);
-  };
 }
 
 /**
@@ -287,25 +164,21 @@ export function connectWebSocket(
   onMessage?: (data: any) => void,
   onConnect?: (connected: boolean) => void
 ): WebSocket | null {
-  // Callback'leri kaydet
   if (onMessage) messageCallbacks.push(onMessage);
   if (onConnect) connectionCallbacks.push(onConnect);
   
-  // Mevcut bağlantıyı kontrol et
   if (wsInstance?.readyState === WebSocket.OPEN) {
     console.log('[LiveChat] Already connected');
     onConnect?.(true);
     return wsInstance;
   }
   
-  // Mock mode'da WebSocket simülasyonu
   if (isMockMode) {
-    console.log('[LiveChat] Mock WebSocket mode');
+    console.log('[LiveChat] Mock WebSocket mode - userType:', userType);
     simulateWebSocket(userId, userType, sessionId);
     return null;
   }
   
-  // Gerçek WebSocket bağlantısı
   try {
     const params = new URLSearchParams();
     params.append('userId', userId);
@@ -352,12 +225,13 @@ export function connectWebSocket(
 }
 
 /**
- * Mock WebSocket simülasyonu (geliştirme modu)
+ * Mock WebSocket simülasyonu
+ * NOT: Cross-origin (farklı tarayıcılar) çalışmaz!
+ * Aynı tarayıcıda (Chrome) iki sekme kullanın.
  */
 function simulateWebSocket(userId: string, userType: 'customer' | 'agent', sessionId?: string) {
   const mockConnectionId = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
-  // Bağlantı bilgisi kaydet
   mockConnections.set(mockConnectionId, {
     userId,
     userType,
@@ -367,7 +241,7 @@ function simulateWebSocket(userId: string, userType: 'customer' | 'agent', sessi
   
   // Broadcast dinlemeye başla
   listenToBroadcasts((data) => {
-    // Gelen broadcast'i messageCallbacks'e ilet
+    console.log('[LiveChat] Broadcast received:', data.type, 'for userType:', userType);
     messageCallbacks.forEach(cb => cb(data));
   });
   
@@ -376,7 +250,6 @@ function simulateWebSocket(userId: string, userType: 'customer' | 'agent', sessi
     connectionCallbacks.forEach(cb => cb(true));
     
     if (userType === 'customer' && !sessionId) {
-      // Yeni session oluştur
       const newSessionId = `session_${Date.now()}`;
       const newSession: ChatSession = {
         sessionId: newSessionId,
@@ -389,9 +262,8 @@ function simulateWebSocket(userId: string, userType: 'customer' | 'agent', sessi
         messages: [],
         unreadCount: 0
       };
-      addMockSession(newSession);
+      mockSessions.set(newSessionId, newSession);
       
-      // Session created bildirimi
       messageCallbacks.forEach(cb => cb({
         type: 'session_created',
         sessionId: newSessionId,
@@ -411,6 +283,69 @@ export function disconnectWebSocket() {
   }
   messageCallbacks = [];
   connectionCallbacks = [];
+  
+
+}
+
+/**
+ * Broadcast to all tabs
+ */
+function broadcastToAllTabs(data: any) {
+  if (typeof window === 'undefined') return;
+  
+  console.log('[LiveChat] Broadcasting:', data.type);
+  
+  try {
+    // BroadcastChannel API
+    if ('BroadcastChannel' in window) {
+      const channel = new BroadcastChannel(BROADCAST_CHANNEL);
+      channel.postMessage(data);
+      channel.close();
+    }
+    
+    // localStorage fallback
+    const eventKey = `livechat_bc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    localStorage.setItem(eventKey, JSON.stringify(data));
+    setTimeout(() => localStorage.removeItem(eventKey), 500);
+  } catch (e) {
+    console.error('[LiveChat] Broadcast error:', e);
+  }
+}
+
+/**
+ * Listen to broadcasts
+ */
+function listenToBroadcasts(callback: (data: any) => void) {
+  if (typeof window === 'undefined') return () => {};
+  
+  // BroadcastChannel
+  let channel: BroadcastChannel | null = null;
+  if ('BroadcastChannel' in window) {
+    channel = new BroadcastChannel(BROADCAST_CHANNEL);
+    channel.onmessage = (event) => {
+      console.log('[LiveChat] BroadcastChannel msg:', event.data.type);
+      callback(event.data);
+    };
+  }
+  
+  // localStorage fallback
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key?.startsWith('livechat_bc_') && e.newValue) {
+      try {
+        const data = JSON.parse(e.newValue);
+        console.log('[LiveChat] localStorage msg:', data.type);
+        callback(data);
+      } catch (err) {
+        console.error('[LiveChat] Parse error:', err);
+      }
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+  
+  return () => {
+    channel?.close();
+    window.removeEventListener('storage', handleStorage);
+  };
 }
 
 /**
@@ -420,11 +355,10 @@ export function sendWebSocketMessage(action: string, data: any = {}) {
   if (wsInstance?.readyState === WebSocket.OPEN) {
     const message = { action, ...data, timestamp: new Date().toISOString() };
     wsInstance.send(JSON.stringify(message));
-    console.log('[LiveChat] Sent:', message);
+    console.log('[LiveChat] Sent:', action);
     return true;
   }
   
-  // Mock mode'da simülasyon
   if (isMockMode) {
     handleMockMessage(action, data);
     return true;
@@ -438,43 +372,34 @@ export function sendWebSocketMessage(action: string, data: any = {}) {
  * Mock mesaj işleyici
  */
 function handleMockMessage(action: string, data: any) {
-  console.log('[LiveChat] Mock message:', action, data);
+  console.log('[LiveChat] Mock action:', action);
   
   switch (action) {
     case 'send_message':
-      // Mesajı session'a ekle ve karşı tarafa gönder
-      const { sessionId: sendSessionId, message: sendMessageText, userType: sendUserType, messageId: sendMessageId } = data;
-      const sendSession = getMockSession(sendSessionId);
-      if (sendSession) {
-        // Eğer messageId geldiyse kullan, yoksa yeni oluştur
-        const finalMessageId = sendMessageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const { sessionId, message, userType } = data;
+      const session = mockSessions.get(sessionId);
+      if (session) {
         const newMessage: ChatMessage = {
-          id: finalMessageId,
-          text: sendMessageText,
-          sender: sendUserType === 'agent' ? 'agent' : 'user',
+          id: `msg_${Date.now()}`,
+          text: message,
+          sender: userType === 'agent' ? 'agent' : 'user',
           timestamp: new Date().toISOString(),
           isRead: false
         };
-        sendSession.messages.push(newMessage);
+        session.messages.push(newMessage);
         
-        // Karşı tarafa bildir (broadcast)
         setTimeout(() => {
-          const broadcastData = {
+          broadcastToAllTabs({
             type: 'new_message',
-            message: {
-              ...newMessage,
-              senderType: newMessage.sender // senderType olarak da ekle
-            },
-            sessionId: sendSessionId
-          };
-          messageCallbacks.forEach(cb => cb(broadcastData));
-          broadcastToAllTabs(broadcastData);
+            message: { ...newMessage, senderType: newMessage.sender },
+            sessionId
+          });
         }, 100);
       }
       break;
       
     case 'request_agent':
-      // Session oluştur ve kaydet
+      console.log('[LiveChat] Creating new session:', data.sessionId);
       const newSession: ChatSession = {
         sessionId: data.sessionId,
         customerId: data.userId,
@@ -486,18 +411,18 @@ function handleMockMessage(action: string, data: any) {
         messages: [],
         unreadCount: 0
       };
-      addMockSession(newSession);
+      mockSessions.set(data.sessionId, newSession);
+      console.log('[LiveChat] Total sessions:', mockSessions.size);
       
       setTimeout(() => {
-        // Müşteriye queue_status gönder
-        const queueData = {
+        // Müşteriye queue_status
+        messageCallbacks.forEach(cb => cb({
           type: 'queue_status',
           position: 1,
           message: 'Sıranız geldi, temsilci atanması bekleniyor...'
-        };
-        messageCallbacks.forEach(cb => cb(queueData));
+        }));
         
-        // Admin'lere new_waiting_customer broadcast et
+        // Tüm sekmelere broadcast
         const broadcastData = {
           type: 'new_waiting_customer',
           sessionId: data.sessionId,
@@ -511,41 +436,38 @@ function handleMockMessage(action: string, data: any) {
       break;
       
     case 'accept_chat':
-      // Session'ı güncelle
-      updateMockSession(data.sessionId, {
-        status: 'active',
-        agentId: data.agentId,
-        agentName: data.agentName
-      });
+      const acceptSession = mockSessions.get(data.sessionId);
+      if (acceptSession) {
+        acceptSession.status = 'active';
+        acceptSession.agentId = data.agentId;
+        acceptSession.agentName = data.agentName;
+        acceptSession.updatedAt = new Date().toISOString();
+      }
       
       setTimeout(() => {
-        const broadcastData = {
+        broadcastToAllTabs({
           type: 'agent_assigned',
           agentId: data.agentId,
           agentName: data.agentName,
           sessionId: data.sessionId,
           message: 'Müşteri temsilciniz bağlandı. Size nasıl yardımcı olabilirim?'
-        };
-        messageCallbacks.forEach(cb => cb(broadcastData));
-        broadcastToAllTabs(broadcastData);
+        });
       }, 300);
       break;
       
     case 'close_session':
-      // Session'ı mock veritabanında kapat
-      updateMockSession(data.sessionId, {
-        status: 'closed'
-      });
+      const closeSession = mockSessions.get(data.sessionId);
+      if (closeSession) {
+        closeSession.status = 'closed';
+        closeSession.updatedAt = new Date().toISOString();
+      }
       
       setTimeout(() => {
-        // Tüm bağlı kullanıcılara broadcast yap
-        const broadcastData = {
+        broadcastToAllTabs({
           type: 'chat_closed',
           sessionId: data.sessionId,
           message: 'Sohbet sonlandırıldı. Başka bir konuda yardımcı olabilir miyim?'
-        };
-        messageCallbacks.forEach(cb => cb(broadcastData));
-        broadcastToAllTabs(broadcastData);
+        });
       }, 200);
       break;
   }
@@ -555,18 +477,16 @@ function handleMockMessage(action: string, data: any) {
  * HTTP API: Bekleyen session'ları getir
  */
 export async function getWaitingSessions(): Promise<{ success: boolean; data?: ChatSession[]; error?: string }> {
-  console.log('[LiveChat] getWaitingSessions called, isMockMode:', isMockMode);
+  console.log('[LiveChat] getWaitingSessions called, mock sessions:', mockSessions.size);
   if (isMockMode) {
-    const sessions = getMockSessions();
-    console.log('[LiveChat] Mock sessions from localStorage:', sessions.size);
-    const waiting = Array.from(sessions.values())
+    const waiting = Array.from(mockSessions.values())
       .filter(s => s.status === 'waiting')
       .map(s => ({
         ...s,
         customerName: s.customerName || 'Misafir Kullanıcı',
         customerEmail: s.customerEmail || ''
       }));
-    console.log('[LiveChat] Waiting sessions:', waiting.length);
+    console.log('[LiveChat] Waiting sessions found:', waiting.length);
     return { success: true, data: waiting };
   }
   
@@ -585,7 +505,7 @@ export async function getWaitingSessions(): Promise<{ success: boolean; data?: C
  */
 export async function assignAgent(sessionId: string, agentId: string): Promise<{ success: boolean; error?: string }> {
   if (isMockMode) {
-    const session = getMockSession(sessionId);
+    const session = mockSessions.get(sessionId);
     if (session) {
       session.status = 'active';
       session.agentId = agentId;
@@ -613,7 +533,7 @@ export async function assignAgent(sessionId: string, agentId: string): Promise<{
  */
 export async function getSessionMessages(sessionId: string): Promise<{ success: boolean; data?: ChatMessage[]; error?: string }> {
   if (isMockMode) {
-    const session = getMockSession(sessionId);
+    const session = mockSessions.get(sessionId);
     return { success: true, data: session?.messages || [] };
   }
   
@@ -632,7 +552,7 @@ export async function getSessionMessages(sessionId: string): Promise<{ success: 
  */
 export async function closeSessionAPI(sessionId: string): Promise<{ success: boolean; error?: string }> {
   if (isMockMode) {
-    const session = getMockSession(sessionId);
+    const session = mockSessions.get(sessionId);
     if (session) {
       session.status = 'closed';
       session.updatedAt = new Date().toISOString();
