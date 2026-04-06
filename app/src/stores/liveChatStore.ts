@@ -475,6 +475,12 @@ export const useLiveChatStore = create<LiveChatStore>()(
 
           case 'agent_assigned':
           case 'agent_joined':
+            // Zaten bağlıysa tekrar mesaj ekleme
+            if (get().agentConnected) {
+              console.log('[LiveChatStore] Agent already connected, ignoring duplicate message');
+              break;
+            }
+            
             set({
               agentConnected: true,
               agentName: data.agentName || data.agentId || 'Temsilci',
@@ -483,7 +489,7 @@ export const useLiveChatStore = create<LiveChatStore>()(
               botMode: false
             });
 
-            // Agent bağlandı mesajı
+            // Agent bağlandı mesajı - sadece ilk seferde
             get().addMessage({
               text: data.message || 'Müşteri temsilciniz bağlandı. Size nasıl yardımcı olabilirim?',
               sender: 'agent',
