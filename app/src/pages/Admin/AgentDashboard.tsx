@@ -60,8 +60,6 @@ export default function AgentDashboard() {
   const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
   // Her session için okunmamış mesaj sayısı - { [sessionId]: count }
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
-  // Her session için son okunan mesaj sayısı - { [sessionId]: lastReadCount }
-  const [lastReadCounts, setLastReadCounts] = useState<Record<string, number>>({});
   const [localWaitingChats, setLocalWaitingChats] = useState<ChatSession[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -164,16 +162,12 @@ export default function AgentDashboard() {
   }, [agentRequests]);
 
   // Yeni mesaj geldiğinde okunmamış sayısını güncelle
-  // NOT: lastReadCounts dependency'de YOK çünkü functional update kullanıyoruz
-  // Bu infinite loop olmasını engeller
   useEffect(() => {
     activeSessions.forEach(session => {
       const sessionId = session.id || session.sessionId;
-      const totalMessages = session.messages.length;
       
-      // Seçili session ise son okunanı güncelle ve okunmamışı sıfırla
+      // Seçili session ise okunmamışı sıfırla
       if (selectedSession?.sessionId === sessionId) {
-        setLastReadCounts(prev => ({ ...prev, [sessionId]: totalMessages }));
         setUnreadCounts(prev => ({ ...prev, [sessionId]: 0 }));
         return;
       }
@@ -181,18 +175,13 @@ export default function AgentDashboard() {
       // Seçili değilse, son mesaj müşteriden mi gelmiş kontrol et
       const lastMessage = session.messages[session.messages.length - 1];
       if (lastMessage && lastMessage.sender !== 'agent') {
-        // Okunmamış sayısını artır (var olan değeri koruyarak)
+        // Okunmamış sayısını artır
         setUnreadCounts(prev => {
           const current = prev[sessionId] || 0;
-          // Eğer mesaj sayısı değiştiyse ve henüz okunmadıysa
-          if (current < totalMessages) {
-            return { ...prev, [sessionId]: current + 1 };
-          }
-          return prev;
+          return { ...prev, [sessionId]: current + 1 };
         });
       }
     });
-    // lastReadCounts dependency'de YOK - functional update kullanıyoruz
   }, [activeSessions, selectedSession]);
 
   // Seçili session'ın mesajlarını güncelle
@@ -234,9 +223,8 @@ export default function AgentDashboard() {
     console.log('[AgentDashboard] Total messages from session:', allMessages.length);
     setMessages(allMessages);
     
-    // Seçili session'ın son okunan mesaj sayısını güncelle ve okunmamışı sıfırla
+    // Seçili session'ın okunmamış sayısını sıfırla
     if (session) {
-      setLastReadCounts(prev => ({ ...prev, [sessionId]: session.messages.length }));
       setUnreadCounts(prev => ({ ...prev, [sessionId]: 0 }));
     }
   }, [selectedSession, activeSessions, user?.id]);  // messages YOK!
