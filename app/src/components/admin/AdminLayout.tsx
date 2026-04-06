@@ -24,8 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useThemeStore } from '@/stores/themeStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useChatStore } from '@/stores/chatStore';
-import { chatApi } from '@/services/api';
+import { useLiveChatStore } from '@/stores/liveChatStore';
 
 const menuItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
@@ -47,42 +46,33 @@ const menuItems = [
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [waitingCount, setWaitingCount] = useState(0);
-  const [activeCount, setActiveCount] = useState(0);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [lastViewedCount, setLastViewedCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useThemeStore();
   const { user, logout } = useAuthStore();
-  const { agentRequests, activeSessions } = useChatStore();
+  const { agentRequests, activeSessions, isConnected } = useLiveChatStore();
+  const isSupportPage = location.pathname === '/admin/support';
 
-  // Canlı destek sayılarını güncelle
+  // Canlı destek bildirim sayısını hesapla
   useEffect(() => {
-    const fetchCounts = async () => {
-      try {
-        // AWS'den bekleme sayısını çek
-        const response = await chatApi.getWaitingSessions();
-        
-        // Local pending sayısı
-        const localPendingCount = agentRequests.filter(req => req.status === 'pending').length;
-        
-        // Toplam bekleme (AWS + Local, tekrarları çıkararak)
-        const localPendingIds = new Set(agentRequests.filter(req => req.status === 'pending').map(req => req.id));
-        const uniqueAwsCount = response.data?.filter((s: any) => !localPendingIds.has(s.sessionId)).length || 0;
-        
-        setWaitingCount(uniqueAwsCount + localPendingCount);
-        setActiveCount(activeSessions.length);
-      } catch (error) {
-        // Hata durumunda sadece local verileri göster
-        const localPendingCount = agentRequests.filter(req => req.status === 'pending').length;
-        setWaitingCount(localPendingCount);
-        setActiveCount(activeSessions.length);
-      }
-    };
-
-    fetchCounts();
-    const interval = setInterval(fetchCounts, 5000); // Her 5 saniyede güncelle
-    return () => clearInterval(interval);
-  }, [agentRequests, activeSessions]);
+    const pendingCount = agentRequests.filter(req => req.status === 'pending').length;
+    const activeCount = activeSessions.length;
+    const totalCount = pendingCount + activeCount;
+    
+    // Destek sayfasındaysa bildirim gösterme (sıfırla)
+    if (isSupportPage) {
+      setNotificationCount(0);
+      setLastViewedCount(totalCount);
+    } else {
+      // Sayfada değilse, son bakılandan beri yeni gelenleri göster
+      const newItems = totalCount - lastViewedCount;
+      setNotificationCount(Math.max(0, newItems));
+    }
+    
+    console.log('[AdminLayout] Chat notification:', { pendingCount, activeCount, isSupportPage, notificationCount });
+  }, [agentRequests, activeSessions, isSupportPage, lastViewedCount]);
 
   const handleLogout = () => {
     logout();
@@ -127,15 +117,15 @@ export default function AdminLayout() {
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
-            // Canlı Destek için badge hesapla
+            // Canlı Destek için bildirim badge'i
             const isSupport = item.path === '/admin/support';
-            const totalCount = isSupport ? waitingCount + activeCount : 0;
+            const showBadge = isSupport && notificationCount > 0 && !isSupportPage;
             
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all relative ${
                   isActive(item.path, item.exact)
                     ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -145,21 +135,21 @@ export default function AdminLayout() {
                 {sidebarOpen && (
                   <div className="flex items-center justify-between flex-1 min-w-0">
                     <span className="font-medium truncate">{item.label}</span>
-                    {isSupport && totalCount > 0 && (
-                      <span className="ml-2 px-1.5 py-0.5 text-xs font-semibold bg-orange-500 text-white rounded-full min-w-[20px] text-center">
-                        {totalCount}
+                    {showBadge && (
+                      <span className="ml-2 px-1.5 py-0.5 text-xs font-semibold bg-red-500 text-white rounded-full min-w-[20px] text-center animate-pulse">
+                        {notificationCount}
                       </span>
                     )}
                   </div>
                 )}
-                {!sidebarOpen && isSupport && totalCount > 0 && (
-                  <span className="absolute right-2 w-4 h-4 text-[10px] font-semibold bg-orange-500 text-white rounded-full flex items-center justify-center">
-                    {totalCount}
+                {!sidebarOpen && showBadge && (
+                  <span className="absolute right-2 w-4 h-4 text-[10px] font-semibold bg-red-500 text-white rounded-full flex items-center justify-center animate-pulse">
+                    {notificationCount}
                   </span>
                 )}
               </Link>
             );
-          })}
+          })},
         </nav>
 
         {/* User Profile */}
@@ -199,7 +189,7 @@ export default function AdminLayout() {
             <nav className="p-4 space-y-1">
               {menuItems.map((item) => {
                 const isSupport = item.path === '/admin/support';
-                const totalCount = isSupport ? waitingCount + activeCount : 0;
+                const showBadge = isSupport && notificationCount > 0 && !isSupportPage;
                 
                 return (
                   <Link
@@ -214,9 +204,9 @@ export default function AdminLayout() {
                   >
                     <item.icon className="w-5 h-5" />
                     <span className="font-medium">{item.label}</span>
-                    {isSupport && totalCount > 0 && (
-                      <span className="ml-auto px-1.5 py-0.5 text-xs font-semibold bg-orange-500 text-white rounded-full min-w-[20px] text-center">
-                        {totalCount}
+                    {showBadge && (
+                      <span className="ml-auto px-1.5 py-0.5 text-xs font-semibold bg-red-500 text-white rounded-full min-w-[20px] text-center animate-pulse">
+                        {notificationCount}
                       </span>
                     )}
                   </Link>
