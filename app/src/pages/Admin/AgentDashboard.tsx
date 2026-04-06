@@ -34,6 +34,7 @@ interface ChatSession {
   createdAt: string;
   messages: any[];
   unreadCount: number;
+  waitingMinutes?: number; // Bekleme süresi (dakika)
 }
 
 export default function AgentDashboard() {
@@ -122,16 +123,23 @@ export default function AgentDashboard() {
   useEffect(() => {
     const pendingRequests = agentRequests.filter(req => req.status === 'pending');
     
-    const waitingChats: ChatSession[] = pendingRequests.map(req => ({
-      sessionId: req.sessionId,
-      customerId: req.customerId,
-      customerName: req.customerName || 'Misafir Kullanıcı',
-      customerEmail: req.customerEmail || '',
-      status: 'waiting',
-      createdAt: req.timestamp,
-      messages: req.messages || [],
-      unreadCount: 1
-    }));
+    const waitingChats: ChatSession[] = pendingRequests.map(req => {
+      const createdAt = new Date(req.timestamp);
+      const now = new Date();
+      const waitingMinutes = Math.floor((now.getTime() - createdAt.getTime()) / 60000);
+      
+      return {
+        sessionId: req.sessionId,
+        customerId: req.customerId,
+        customerName: req.customerName || 'Misafir Kullanıcı',
+        customerEmail: req.customerEmail || '',
+        status: 'waiting',
+        createdAt: req.timestamp,
+        messages: req.messages || [],
+        unreadCount: 1,
+        waitingMinutes // Bekleme süresi (dakika)
+      };
+    });
 
     setLocalWaitingChats(waitingChats);
 
@@ -465,6 +473,18 @@ export default function AgentDashboard() {
                             <p className="text-sm text-gray-400 truncate">
                               {chat.customerEmail || 'E-posta belirtilmemiş'}
                             </p>
+                            {/* Bekleme süresi göstergesi */}
+                            {chat.waitingMinutes !== undefined && (
+                              <p className={cn(
+                                "text-xs mt-1 font-medium",
+                                chat.waitingMinutes >= 8 ? "text-red-600" : // 8+ dakika uyarı
+                                chat.waitingMinutes >= 5 ? "text-orange-500" : // 5+ dakika dikkat
+                                "text-gray-400"
+                              )}>
+                                ⏱️ {chat.waitingMinutes} dk bekliyor
+                                {chat.waitingMinutes >= 8 && " (Timeout yakın!)"}
+                              </p>
+                            )}
                           </div>
                           <Button size="sm" className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-lg shadow-red-500/25 border-0 rounded-xl px-4">
                             Kabul Et

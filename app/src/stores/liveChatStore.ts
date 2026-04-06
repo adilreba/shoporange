@@ -44,6 +44,11 @@ interface LiveChatState {
   // Bot durumu
   isBotTyping: boolean;
   botMode: boolean; // true = bot aktif, false = agent aktif
+  
+  // Timeout handling
+  waitingTimeoutId: NodeJS.Timeout | null;
+  waitingStartTime: number | null;
+  estimatedWaitTime: number; // saniye cinsinden tahmini bekleme süresi
 }
 
 // Actions tipi
@@ -105,6 +110,9 @@ export const useLiveChatStore = create<LiveChatStore>()(
       activeSessions: [],
       isBotTyping: false,
       botMode: true,
+      waitingTimeoutId: null,
+      waitingStartTime: null,
+      estimatedWaitTime: 300, // 5 dakika tahmini
 
       // UI Actions
       setChatOpen: (isOpen) => {
@@ -282,10 +290,16 @@ export const useLiveChatStore = create<LiveChatStore>()(
 
       // Agent Actions (Customer)
       requestAgent: (userInfo) => {
-        const { isConnected } = get();
+        const { isConnected, waitingTimeoutId } = get();
+        
+        // Önceki timeout varsa temizle
+        if (waitingTimeoutId) {
+          clearTimeout(waitingTimeoutId);
+        }
         
         // Session ID oluştur
         const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const startTime = Date.now();
         
         set({
           waitingForAgent: true,
@@ -293,13 +307,47 @@ export const useLiveChatStore = create<LiveChatStore>()(
           botMode: false,
           sessionId: newSessionId,
           userId: userInfo.userId,
-          userType: 'customer'
+          userType: 'customer',
+          waitingStartTime: startTime
         });
 
         // WebSocket'e bağlan (eğer bağlı değilse)
         if (!isConnected) {
           get().connect(userInfo.userId, 'customer', newSessionId);
         }
+
+        // 10 DAKİKA (600 saniye) TIMEOUT - Temsilci atanmazsa otomatik kapat
+        const timeoutId = setTimeout(() => {
+          console.log('[LiveChatStore] Waiting timeout reached (10 minutes)');
+          
+          // Timeout mesajı
+          const timeoutMessage: ChatMessage = {
+            id: generateId(),
+            text: '⏰ Temsilcilerimiz şu an yoğun. Talebiniz kaydedildi, size en kısa sürede e-posta ile dönüş yapılacaktır.',
+            sender: 'system',
+            timestamp: new Date().toISOString(),
+            isRead: true
+          };
+
+          set((state) => ({
+            messages: [...state.messages, timeoutMessage],
+            waitingForAgent: false,
+            botMode: true
+          }));
+
+          // Session'ı kapat
+          sendWebSocketMessage('close_session', { 
+            sessionId: newSessionId,
+            reason: 'timeout'
+          });
+
+          // Ticket oluştur (email bildirimi için)
+          // Gerçek uygulamada burada API çağrısı yapılır
+          console.log('[LiveChatStore] Ticket created for:', userInfo.userEmail);
+          
+        }, 10 * 60 * 1000); // 10 dakika = 600,000ms
+
+        set({ waitingTimeoutId: timeoutId });
 
         // Agent isteği gönder
         setTimeout(() => {
@@ -310,10 +358,11 @@ export const useLiveChatStore = create<LiveChatStore>()(
             userEmail: userInfo.userEmail
           });
 
-          // Bekleme mesajı ekle
+          // Bekleme mesajı ekle - TAHMİNİ BEKLEME SÜRESİ ile
+          const estimatedMinutes = Math.ceil(get().estimatedWaitTime / 60);
           const waitingMessage: ChatMessage = {
             id: generateId(),
-            text: 'Bir temsilcimiz en kısa sürede sizinle ilgilenecektir. Lütfen bekleyin... 🕐',
+            text: `Bir temsilcimiz en kısa sürede sizinle ilgilenecektir. Tahmini bekleme süresi: ${estimatedMinutes} dakika. ⏱️`,
             sender: 'system',
             timestamp: new Date().toISOString(),
             isRead: true
@@ -481,12 +530,20 @@ export const useLiveChatStore = create<LiveChatStore>()(
               break;
             }
             
+            // Timeout'u temizle (temsilci zamanında bağlandı)
+            const { waitingTimeoutId } = get();
+            if (waitingTimeoutId) {
+              clearTimeout(waitingTimeoutId);
+              console.log('[LiveChatStore] Waiting timeout cleared - agent connected');
+            }
+            
             set({
               agentConnected: true,
               agentName: data.agentName || data.agentId || 'Temsilci',
               waitingForAgent: false,
               queuePosition: null,
-              botMode: false
+              botMode: false,
+              waitingTimeoutId: null
             });
 
             // Agent bağlandı mesajı - sadece ilk seferde

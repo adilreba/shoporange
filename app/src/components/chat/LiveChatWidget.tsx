@@ -80,9 +80,30 @@ export function LiveChatWidget() {
 
   const [inputMessage, setInputMessage] = useState('');
   const [showQuickReplies, setShowQuickReplies] = useState(true);
+  const [remainingTime, setRemainingTime] = useState(600); // 10 dakika = 600 saniye
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Bekleme süresi geri sayım
+  useEffect(() => {
+    if (!waitingForAgent || agentConnected) {
+      setRemainingTime(600);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setRemainingTime((prev) => {
+        if (prev <= 0) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [waitingForAgent, agentConnected]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -361,7 +382,7 @@ export function LiveChatWidget() {
 
               {/* Waiting for Agent */}
               {waitingForAgent && !agentConnected && (
-                <div className="flex items-center justify-center py-4">
+                <div className="flex flex-col items-center justify-center py-4 gap-2">
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
                     <span>
@@ -370,6 +391,13 @@ export function LiveChatWidget() {
                         : `Önünüzde ${queuePosition} kişi var...`}
                     </span>
                   </div>
+                  {/* Kalan süre göstergesi */}
+                  <div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+                    <span className="font-semibold">⏱️ Kalan süre: {Math.floor(remainingTime / 60)}:{String(remainingTime % 60).padStart(2, '0')}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 text-center max-w-[200px]">
+                    10 dakika içinde temsilci atanmazsa talebiniz kaydedilecektir.
+                  </p>
                 </div>
               )}
             </div>
