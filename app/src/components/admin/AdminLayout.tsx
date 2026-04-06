@@ -47,7 +47,6 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
-  const [lastViewedCount, setLastViewedCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useThemeStore();
@@ -61,18 +60,25 @@ export default function AdminLayout() {
     const activeCount = activeSessions.length;
     const totalCount = pendingCount + activeCount;
     
-    // Destek sayfasındaysa bildirim gösterme (sıfırla)
+    // localStorage'dan son bakılan sayıyı al
+    const savedLastViewed = localStorage.getItem('admin_last_chat_count');
+    const lastViewed = savedLastViewed ? parseInt(savedLastViewed, 10) : 0;
+    
+    console.log('[AdminLayout] Chat counts:', { pendingCount, activeCount, totalCount, lastViewed, isSupportPage });
+    
+    // Destek sayfasındaysa bildirim gösterme ve sayıyı kaydet
     if (isSupportPage) {
       setNotificationCount(0);
-      setLastViewedCount(totalCount);
+      localStorage.setItem('admin_last_chat_count', totalCount.toString());
     } else {
       // Sayfada değilse, son bakılandan beri yeni gelenleri göster
-      const newItems = totalCount - lastViewedCount;
-      setNotificationCount(Math.max(0, newItems));
+      // VEYA hiç bakılmamışsa (ilk kez) tümünü göster
+      const newItems = totalCount - lastViewed;
+      const countToShow = lastViewed === 0 ? totalCount : Math.max(0, newItems);
+      setNotificationCount(countToShow);
+      console.log('[AdminLayout] Showing notification:', countToShow);
     }
-    
-    console.log('[AdminLayout] Chat notification:', { pendingCount, activeCount, isSupportPage, notificationCount });
-  }, [agentRequests, activeSessions, isSupportPage, lastViewedCount]);
+  }, [agentRequests, activeSessions, isSupportPage]);
 
   const handleLogout = () => {
     logout();
