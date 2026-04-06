@@ -46,7 +46,7 @@ interface LiveChatState {
   botMode: boolean; // true = bot aktif, false = agent aktif
   
   // Timeout handling
-  waitingTimeoutId: NodeJS.Timeout | null;
+  waitingTimeoutId: ReturnType<typeof setTimeout> | null;
   waitingStartTime: number | null;
   estimatedWaitTime: number; // saniye cinsinden tahmini bekleme süresi
 }
