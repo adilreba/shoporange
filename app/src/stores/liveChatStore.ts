@@ -335,19 +335,25 @@ export const useLiveChatStore = create<LiveChatStore>()(
 
       // Admin Actions (Agent)
       acceptRequest: (requestId, agentId, agentName) => {
-        const { userId, isConnected } = get();
+        const { userId, isConnected, agentRequests } = get();
+        
+        // Request bilgilerini al (customer bilgileri için)
+        const request = agentRequests.find(r => r.id === requestId);
         
         // WebSocket'e bağlan (eğer bağlı değilse)
         if (!isConnected && userId) {
           get().connect(userId, 'agent', requestId);
         }
 
-        // Accept message gönder
+        // Accept message gönder (customer bilgileri ile birlikte)
         setTimeout(() => {
           sendWebSocketMessage('accept_chat', {
             sessionId: requestId,
             agentId,
-            agentName
+            agentName,
+            customerId: request?.customerId,
+            customerName: request?.customerName,
+            customerEmail: request?.customerEmail
           });
         }, 300);
 

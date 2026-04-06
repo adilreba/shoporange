@@ -393,37 +393,42 @@ function handleMockMessage(action: string, data: any) {
     case 'send_message':
       const { sessionId, message, senderType, messageId } = data;
       console.log('[LiveChat] send_message data:', { sessionId, senderType, messageId });
+      
+      // senderType'ı normalize et: 'customer' veya 'agent' olmalı
+      const normalizedSenderType = senderType === 'agent' ? 'agent' : 'customer';
+      
+      // Eğer messageId geldiyse kullan, yoksa yeni oluştur
+      const finalMessageId = messageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const newMessage: ChatMessage = {
+        id: finalMessageId,
+        text: message,
+        sender: normalizedSenderType === 'agent' ? 'agent' : 'user',
+        timestamp: new Date().toISOString(),
+        isRead: false
+      };
+      
+      // Session varsa mesajı kaydet
       const session = getMockSessions().get(sessionId);
       if (session) {
-        // Eğer messageId geldiyse kullan, yoksa yeni oluştur
-        const finalMessageId = messageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        // senderType'ı normalize et: 'customer' veya 'agent' olmalı
-        // Frontend ChatMessage.sender 'user'|'agent'|'bot'|'system' kullanır
-        // Ama WebSocket mesajlarında 'customer'|'agent' kullanılmalı
-        const normalizedSenderType = senderType === 'agent' ? 'agent' : 'customer';
-        
-        const newMessage: ChatMessage = {
-          id: finalMessageId,
-          text: message,
-          sender: normalizedSenderType === 'agent' ? 'agent' : 'user',
-          timestamp: new Date().toISOString(),
-          isRead: false
-        };
         session.messages.push(newMessage);
-        
-        setTimeout(() => {
-          // Broadcast'te orijinal senderType'ı kullan (customer/agent)
-          broadcastToAllTabs({
-            type: 'new_message',
-            message: { 
-              ...newMessage, 
-              senderType: normalizedSenderType  // 'customer' veya 'agent'
-            },
-            sessionId
-          });
-        }, 100);
+        console.log('[LiveChat] Message saved to session:', sessionId);
+      } else {
+        console.log('[LiveChat] Session not found, broadcasting without saving:', sessionId);
       }
+      
+      // HER DURUMDA broadcast yap (session bulunsa da bulunmasa da)
+      setTimeout(() => {
+        console.log('[LiveChat] Broadcasting new_message:', { sessionId, senderType: normalizedSenderType });
+        broadcastToAllTabs({
+          type: 'new_message',
+          message: { 
+            ...newMessage, 
+            senderType: normalizedSenderType  // 'customer' veya 'agent'
+          },
+          sessionId
+        });
+      }, 100);
       break;
       
     case 'request_agent':
@@ -464,12 +469,30 @@ function handleMockMessage(action: string, data: any) {
       break;
       
     case 'accept_chat':
-      const acceptSession = getMockSessions().get(data.sessionId);
+      let acceptSession = getMockSessions().get(data.sessionId);
       if (acceptSession) {
+        // Session varsa güncelle
         acceptSession.status = 'active';
         acceptSession.agentId = data.agentId;
         acceptSession.agentName = data.agentName;
         acceptSession.updatedAt = new Date().toISOString();
+      } else {
+        // Session yoksa oluştur (admin tarafında session yoksa)
+        console.log('[LiveChat] Creating session for accepted chat:', data.sessionId);
+        acceptSession = {
+          sessionId: data.sessionId,
+          customerId: data.customerId || 'unknown',
+          customerName: data.customerName || 'Misafir Kullanıcı',
+          customerEmail: data.customerEmail || '',
+          agentId: data.agentId,
+          agentName: data.agentName,
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          messages: [],
+          unreadCount: 0
+        };
+        getMockSessions().set(data.sessionId, acceptSession);
       }
       
       setTimeout(() => {
