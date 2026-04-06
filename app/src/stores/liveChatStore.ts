@@ -682,7 +682,19 @@ export const useLiveChatStore = create<LiveChatStore>()(
             break;
 
           case 'chat_closed':
-            // Müşteri için state güncelle
+            // Session ID kontrolü - sadece ilgili session'a kapatma bildirimi gitmeli
+            const closedSessionId = data.sessionId;
+            const mySessionId = get().sessionId;
+            
+            console.log('[LiveChatStore] chat_closed received:', { closedSessionId, mySessionId, userType });
+            
+            // Eğer session ID var ve benim session'ım değilse, görmezden gel
+            if (closedSessionId && mySessionId && closedSessionId !== mySessionId) {
+              console.log('[LiveChatStore] chat_closed for different session, ignoring');
+              break;
+            }
+            
+            // Müşteri için state güncelle (sadece kendi session'ı kapatıldıysa)
             if (userType === 'customer') {
               set({
                 agentConnected: false,
@@ -699,11 +711,11 @@ export const useLiveChatStore = create<LiveChatStore>()(
             }
             
             // Admin (agent) için session'ı listeden kaldır
-            if (userType === 'agent' && data.sessionId) {
-              console.log('[LiveChatStore] Removing closed session from active sessions:', data.sessionId);
+            if (userType === 'agent' && closedSessionId) {
+              console.log('[LiveChatStore] Removing closed session from active sessions:', closedSessionId);
               set((state) => ({
-                activeSessions: state.activeSessions.filter(s => s.id !== data.sessionId && s.sessionId !== data.sessionId),
-                agentRequests: state.agentRequests.filter(r => r.id !== data.sessionId && r.sessionId !== data.sessionId)
+                activeSessions: state.activeSessions.filter(s => s.id !== closedSessionId && s.sessionId !== closedSessionId),
+                agentRequests: state.agentRequests.filter(r => r.id !== closedSessionId && r.sessionId !== closedSessionId)
               }));
             }
             break;
