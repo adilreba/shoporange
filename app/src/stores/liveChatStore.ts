@@ -481,11 +481,11 @@ export const useLiveChatStore = create<LiveChatStore>()(
             if (data.message) {
               const messageId = data.message.messageId || data.message.id || generateId();
               
-              // Mesajın sender'ını belirle
-              const senderType = data.message.senderType || data.message.sender;
+              // Mesajın sender'ını belirle (backend 'customer' veya 'agent' gönderir)
+              const rawSenderType = data.message.senderType || data.message.sender;
               console.log('[LiveChatStore] New message received:', { 
                 messageId, 
-                senderType, 
+                rawSenderType, 
                 myUserType: get().userType,
                 text: data.message.text?.substring(0, 20)
               });
@@ -497,12 +497,18 @@ export const useLiveChatStore = create<LiveChatStore>()(
                 break;
               }
               
+              // Backend 'customer' veya 'agent' gönderiyor
+              // Frontend'de 'user' (customer), 'agent', veya 'bot' kullanıyoruz
+              const normalizedSenderType = rawSenderType === 'customer' ? 'user' : 
+                                           rawSenderType === 'agent' ? 'agent' : 
+                                           rawSenderType === 'user' ? 'user' : 'bot';
+              
               // Bu benim gönderdiğim mesaj mı?
-              // Customer isem ve sender 'user' ise, bu benim mesajım
+              // Customer isem ve sender 'customer' veya 'user' ise, bu benim mesajım
               // Agent isem ve sender 'agent' ise, bu benim mesajım
               const isMyOwnMessage = 
-                (currentState.userType === 'customer' && (senderType === 'user' || senderType === 'customer')) ||
-                (currentState.userType === 'agent' && senderType === 'agent');
+                (currentState.userType === 'customer' && (rawSenderType === 'customer' || rawSenderType === 'user')) ||
+                (currentState.userType === 'agent' && rawSenderType === 'agent');
               
               if (isMyOwnMessage) {
                 console.log('[LiveChatStore] Own message from broadcast, ignoring');
@@ -510,12 +516,11 @@ export const useLiveChatStore = create<LiveChatStore>()(
               }
               
               // Karşı taraftan gelen mesaj - ekle
-              console.log('[LiveChatStore] Adding message from other side:', senderType);
+              console.log('[LiveChatStore] Adding message from other side:', normalizedSenderType);
               const message: ChatMessage = {
                 id: messageId,
                 text: data.message.content || data.message.text,
-                sender: senderType === 'agent' ? 'agent' : 
-                        senderType === 'customer' ? 'user' : 'bot',
+                sender: normalizedSenderType,
                 timestamp: data.message.timestamp || new Date().toISOString(),
                 isRead: false
               };

@@ -148,17 +148,22 @@ export default function AgentDashboard() {
 
     // Store'dan bu session'a ait mesajları bul
     const session = activeSessions.find(s => s.id === selectedSession.sessionId);
-    if (session) {
+    if (session && session.messages.length > 0) {
       const formattedMessages = session.messages.map(msg => ({
         messageId: msg.id,
         sessionId: selectedSession.sessionId,
         senderId: msg.sender === 'agent' ? user?.id : selectedSession.customerId,
+        // Frontend 'user' kullanır, backend 'customer' kullanır - normalize et
         senderType: msg.sender === 'agent' ? 'agent' : 'customer',
         content: msg.text,
         timestamp: msg.timestamp,
         isRead: true
       }));
       setMessages(formattedMessages);
+    } else {
+      // Session store'da yoksa, local messages'ı koru (handleSendMessage ile eklenenler)
+      // veya boş bırak
+      setMessages(prev => prev.length > 0 ? prev : []);
     }
   }, [selectedSession, activeSessions, user?.id, storeMessages]);
 
