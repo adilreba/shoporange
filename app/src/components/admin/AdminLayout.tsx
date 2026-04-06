@@ -51,16 +51,24 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useThemeStore();
   const { user, logout } = useAuthStore();
-  const { agentRequests } = useLiveChatStore();
+  const { agentRequests, connect, isConnected, connectionStatus } = useLiveChatStore();
   const isSupportPage = location.pathname === '/admin/support';
+
+  // Admin panel açıldığında WebSocket bağlantısı kur
+  useEffect(() => {
+    const userId = user?.id || user?.email;
+    if (userId && !isConnected && connectionStatus === 'idle') {
+      console.log('[AdminLayout] Connecting as agent:', userId);
+      connect(userId, 'agent');
+    }
+  }, [user?.id, user?.email, isConnected, connectionStatus, connect]);
 
   // Canlı destek bildirim sayısını hesapla
   useEffect(() => {
     // SADECE cevaplanmamış (pending) bekleyenleri göster
-    // Aktif sohbetler zaten devam ediyor, bildirim gerektirmez
     const pendingCount = agentRequests.filter(req => req.status === 'pending').length;
     
-    console.log('[AdminLayout] Chat notification:', { pendingCount, isSupportPage });
+    console.log('[AdminLayout] Chat notification:', { pendingCount, isSupportPage, agentCount: agentRequests.length });
     
     // Destek sayfasındaysa bildirim gösterme (0)
     // Başka sayfadaysa bekleyen sayısını göster
