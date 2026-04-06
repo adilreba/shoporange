@@ -749,7 +749,7 @@ export const useLiveChatStore = create<LiveChatStore>()(
     }),
     {
       name: 'live-chat-storage-v2',
-      partialize: (state) => ({
+      partialize: () => ({
         // Hiçbir state persist etmiyoruz
         // unreadCount ve diğer tüm değerler sayfa yenilendiğinde sıfırlanır
         // Bu sayede eski mesajlar kalıntı olarak kalmaz
