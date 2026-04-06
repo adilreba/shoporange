@@ -308,7 +308,9 @@ export const useLiveChatStore = create<LiveChatStore>()(
           sessionId: newSessionId,
           userId: userInfo.userId,
           userType: 'customer',
-          waitingStartTime: startTime
+          waitingStartTime: startTime,
+          unreadCount: 0, // Yeni chat başlatıldığında sıfırla
+          messages: [] // Eski mesajları temizle
         });
 
         // WebSocket'e bağlan (eğer bağlı değilse)
@@ -743,9 +745,9 @@ export const useLiveChatStore = create<LiveChatStore>()(
     {
       name: 'live-chat-storage',
       partialize: (state) => ({
-        // Sadece okunmamış mesaj sayısını sakla, mesajların tamamını saklama
-        // Bu sayede sayfa yenilendiğinde yeni sohbet başlar
-        unreadCount: state.unreadCount
+        // Hiçbir state persist etmiyoruz
+        // unreadCount ve diğer tüm değerler sayfa yenilendiğinde sıfırlanır
+        // Bu sayede eski mesajlar kalıntı olarak kalmaz
       })
     }
   )
