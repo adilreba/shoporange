@@ -89,6 +89,11 @@ type LiveChatStore = LiveChatState & LiveChatActions;
 // Unique ID generator
 const generateId = () => `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+// Eski localStorage verilerini temizle (migration)
+if (typeof window !== 'undefined') {
+  localStorage.removeItem('live-chat-storage');
+}
+
 // Store oluştur
 export const useLiveChatStore = create<LiveChatStore>()(
   persist(
@@ -743,7 +748,7 @@ export const useLiveChatStore = create<LiveChatStore>()(
       }
     }),
     {
-      name: 'live-chat-storage',
+      name: 'live-chat-storage-v2',
       partialize: (state) => ({
         // Hiçbir state persist etmiyoruz
         // unreadCount ve diğer tüm değerler sayfa yenilendiğinde sıfırlanır
