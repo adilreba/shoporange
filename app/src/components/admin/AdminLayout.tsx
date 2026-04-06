@@ -51,7 +51,7 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useThemeStore();
   const { user, logout } = useAuthStore();
-  const { agentRequests, activeSessions } = useLiveChatStore();
+  const { agentRequests } = useLiveChatStore();
   const isSupportPage = location.pathname === '/admin/support';
 
   // Canlı destek bildirim sayısını hesapla
