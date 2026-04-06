@@ -71,13 +71,11 @@ export function LiveChatWidget() {
     agentName,
     waitingForAgent,
     queuePosition,
-    isConnected,
     connectionStatus,
     setChatOpen,
     sendMessage,
     resetChat,
-    requestAgent,
-    connect
+    requestAgent
   } = useLiveChatStore();
 
   const [inputMessage, setInputMessage] = useState('');
