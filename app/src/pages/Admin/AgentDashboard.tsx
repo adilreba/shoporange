@@ -76,24 +76,29 @@ export default function AgentDashboard() {
 
   // WebSocket bağlantısı (Agent olarak)
   useEffect(() => {
+    // user objesi henüz yüklenmemişse bekle
+    if (!isAuthenticated || !user) {
+      console.log('[AgentDashboard] Waiting for user...');
+      return;
+    }
+    
     console.log('[AgentDashboard] User/auth state:', { 
       isAuthenticated, 
       userExists: !!user,
       userId: user?.id,
       userEmail: user?.email,
-      userKeys: user ? Object.keys(user) : [],
       isConnected, 
       connectionStatus 
     });
     
-    // user?.id yoksa user?.email kullan (bazı auth sistemlerinde id yerine email tutulur)
+    // user?.id yoksa user?.email kullan
     const userId = user?.id || user?.email;
     
     if (userId && !isConnected && connectionStatus === 'idle') {
       console.log('[AgentDashboard] Connecting as agent:', userId);
       connect(userId, 'agent');
     }
-  }, [user, isAuthenticated, isConnected, connectionStatus, connect]);
+  }, [user?.id, user?.email, isAuthenticated, isConnected, connectionStatus, connect]);
   
   // Connection status değişikliklerini izle
   useEffect(() => {
@@ -216,39 +221,56 @@ export default function AgentDashboard() {
       return;
     }
 
-    // Session'ı kabul et
-    acceptRequest(session.sessionId, user.id, user.name || 'Temsilci');
-    
-    toast.success(`${session.customerName} ile sohbet başlatıldı`);
-    
-    // Seçili session olarak ayarla
-    setSelectedSession({
-      ...session,
-      status: 'active'
-    });
-    
-    setActiveTab('active');
+    try {
+      // Session'ı kabul et
+      acceptRequest(session.sessionId, user.id, user?.name || 'Temsilci');
+      
+      toast.success(`${session.customerName} ile sohbet başlatıldı`);
+      
+      // Seçili session olarak ayarla
+      setSelectedSession({
+        ...session,
+        status: 'active'
+      });
+      
+      setActiveTab('active');
+    } catch (error) {
+      console.error('[AgentDashboard] Error accepting chat:', error);
+      toast.error('Sohbet kabul edilirken hata oluştu');
+    }
   }, [user, acceptRequest]);
 
   const handleSendMessage = useCallback(() => {
-    if (!inputMessage.trim() || !selectedSession || !user) return;
+    if (!inputMessage.trim() || !selectedSession || !user?.id) {
+      console.log('[AgentDashboard] Cannot send message:', { 
+        hasInput: !!inputMessage.trim(), 
+        hasSession: !!selectedSession, 
+        hasUser: !!user?.id 
+      });
+      return;
+    }
 
-    // Store üzerinden mesaj gönder
-    sendAgentMessage(selectedSession.sessionId, inputMessage.trim());
+    try {
+      // Store üzerinden mesaj gönder
+      sendAgentMessage(selectedSession.sessionId, inputMessage.trim());
 
-    // Local mesaj listesine ekle
-    const newMessage = {
-      messageId: `msg_${Date.now()}`,
-      sessionId: selectedSession.sessionId,
-      senderId: user.id,
-      senderType: 'agent',
-      content: inputMessage.trim(),
-      timestamp: new Date().toISOString(),
-      isRead: true
-    };
+      // Local mesaj listesine ekle
+      const newMessage = {
+        messageId: `msg_${Date.now()}`,
+        sessionId: selectedSession.sessionId,
+        senderId: user.id,
+        senderType: 'agent',
+        content: inputMessage.trim(),
+        timestamp: new Date().toISOString(),
+        isRead: true
+      };
 
-    setMessages(prev => [...prev, newMessage]);
-    setInputMessage('');
+      setMessages(prev => [...prev, newMessage]);
+      setInputMessage('');
+    } catch (error) {
+      console.error('[AgentDashboard] Error sending message:', error);
+      toast.error('Mesaj gönderilirken hata oluştu');
+    }
   }, [inputMessage, selectedSession, user, sendAgentMessage]);
 
   const handleCloseChat = useCallback(() => {
