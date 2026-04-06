@@ -277,7 +277,7 @@ export default function AgentDashboard() {
       console.error('[AgentDashboard] Error accepting chat:', error);
       toast.error('Sohbet kabul edilirken hata oluştu');
     }
-  }, [user, acceptRequest]);
+  }, [user, acceptRequest, setSelectedSession, setActiveTab]);
 
   // Mevcut session'ın input değerini al
   const currentInput = selectedSession ? sessionInputs[selectedSession.sessionId] || '' : '';
