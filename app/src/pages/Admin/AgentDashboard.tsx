@@ -56,7 +56,8 @@ export default function AgentDashboard() {
   const [activeTab, setActiveTab] = useState<'waiting' | 'active'>('waiting');
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
+  // Her session için ayrı input state'i - { [sessionId]: message }
+  const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
   const [localWaitingChats, setLocalWaitingChats] = useState<ChatSession[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -240,10 +241,13 @@ export default function AgentDashboard() {
     }
   }, [user, acceptRequest]);
 
+  // Mevcut session'ın input değerini al
+  const currentInput = selectedSession ? sessionInputs[selectedSession.sessionId] || '' : '';
+
   const handleSendMessage = useCallback(() => {
-    if (!inputMessage.trim() || !selectedSession || !user?.id) {
+    if (!currentInput.trim() || !selectedSession || !user?.id) {
       console.log('[AgentDashboard] Cannot send message:', { 
-        hasInput: !!inputMessage.trim(), 
+        hasInput: !!currentInput.trim(), 
         hasSession: !!selectedSession, 
         hasUser: !!user?.id 
       });
@@ -252,7 +256,7 @@ export default function AgentDashboard() {
 
     try {
       // Store üzerinden mesaj gönder
-      sendAgentMessage(selectedSession.sessionId, inputMessage.trim());
+      sendAgentMessage(selectedSession.sessionId, currentInput.trim());
 
       // Local mesaj listesine ekle
       const newMessage = {
@@ -260,18 +264,19 @@ export default function AgentDashboard() {
         sessionId: selectedSession.sessionId,
         senderId: user.id,
         senderType: 'agent',
-        content: inputMessage.trim(),
+        content: currentInput.trim(),
         timestamp: new Date().toISOString(),
         isRead: true
       };
 
       setMessages(prev => [...prev, newMessage]);
-      setInputMessage('');
+      // Bu session'ın input'unu temizle
+      setSessionInputs(prev => ({ ...prev, [selectedSession.sessionId]: '' }));
     } catch (error) {
       console.error('[AgentDashboard] Error sending message:', error);
       toast.error('Mesaj gönderilirken hata oluştu');
     }
-  }, [inputMessage, selectedSession, user, sendAgentMessage]);
+  }, [currentInput, selectedSession, user, sendAgentMessage]);
 
   const handleCloseChat = useCallback(() => {
     if (!selectedSession) return;
@@ -713,8 +718,15 @@ export default function AgentDashboard() {
                 <div className="flex gap-3 max-w-4xl mx-auto">
                   <div className="flex-1 relative">
                     <Input
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
+                      value={currentInput}
+                      onChange={(e) => {
+                        if (selectedSession) {
+                          setSessionInputs(prev => ({ 
+                            ...prev, 
+                            [selectedSession.sessionId]: e.target.value 
+                          }));
+                        }
+                      }}
                       onKeyPress={(e) => {
                         if (e.key === 'Enter') handleSendMessage();
                       }}
