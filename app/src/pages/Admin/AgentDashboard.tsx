@@ -151,6 +151,8 @@ export default function AgentDashboard() {
   }, [agentRequests]);
 
   // Seçili session'ın mesajlarını güncelle
+  // NOT: messages dependency array'de YOK çünkü setMessages ile güncelleniyor
+  // Bu infinite loop yapar!
   useEffect(() => {
     if (!selectedSession) {
       setMessages([]);
@@ -159,15 +161,13 @@ export default function AgentDashboard() {
 
     const sessionId = selectedSession.sessionId;
     console.log('[AgentDashboard] Updating messages for session:', sessionId);
-    console.log('[AgentDashboard] activeSessions ids:', activeSessions.map(s => s.id));
 
     // activeSessions'da id field'i var, selectedSession'da sessionId var
-    // İkisini de kontrol et
     const session = activeSessions.find(s => s.id === sessionId || s.sessionId === sessionId);
     
     console.log('[AgentDashboard] Found session:', session ? { id: session.id, msgCount: session.messages.length } : null);
     
-    // Mesajları birleştir
+    // Session'dan gelen mesajları formatla
     let allMessages: any[] = [];
     
     if (session && session.messages.length > 0) {
@@ -183,20 +183,12 @@ export default function AgentDashboard() {
       allMessages = [...formattedSessionMessages];
     }
 
-    // Local state'teki mesajları da ekle
-    const existingIds = new Set(allMessages.map(m => m.messageId));
-    const localMessagesToAdd = messages.filter(m => !existingIds.has(m.messageId) && m.sessionId === sessionId);
-    
-    if (localMessagesToAdd.length > 0) {
-      allMessages = [...allMessages, ...localMessagesToAdd];
-    }
-
     // Tarihe göre sırala
     allMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-    console.log('[AgentDashboard] Total messages:', allMessages.length);
+    console.log('[AgentDashboard] Total messages from session:', allMessages.length);
     setMessages(allMessages);
-  }, [selectedSession, activeSessions, user?.id, messages]);
+  }, [selectedSession, activeSessions, user?.id]);  // messages YOK!
 
   // Auto-scroll
   useEffect(() => {
