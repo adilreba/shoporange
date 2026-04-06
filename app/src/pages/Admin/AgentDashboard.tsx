@@ -153,26 +153,46 @@ export default function AgentDashboard() {
       return;
     }
 
-    // Store'dan bu session'a ait mesajları bul
-    const session = activeSessions.find(s => s.id === selectedSession.sessionId);
+    const sessionId = selectedSession.sessionId;
+    console.log('[AgentDashboard] Updating messages for session:', sessionId);
+    console.log('[AgentDashboard] activeSessions ids:', activeSessions.map(s => s.id));
+
+    // activeSessions'da id field'i var, selectedSession'da sessionId var
+    // İkisini de kontrol et
+    const session = activeSessions.find(s => s.id === sessionId || s.sessionId === sessionId);
+    
+    console.log('[AgentDashboard] Found session:', session ? { id: session.id, msgCount: session.messages.length } : null);
+    
+    // Mesajları birleştir
+    let allMessages: any[] = [];
+    
     if (session && session.messages.length > 0) {
-      const formattedMessages = session.messages.map(msg => ({
+      const formattedSessionMessages = session.messages.map(msg => ({
         messageId: msg.id,
-        sessionId: selectedSession.sessionId,
+        sessionId: sessionId,
         senderId: msg.sender === 'agent' ? user?.id : selectedSession.customerId,
-        // Frontend 'user' kullanır, backend 'customer' kullanır - normalize et
         senderType: msg.sender === 'agent' ? 'agent' : 'customer',
         content: msg.text,
         timestamp: msg.timestamp,
         isRead: true
       }));
-      setMessages(formattedMessages);
-    } else {
-      // Session store'da yoksa, local messages'ı koru (handleSendMessage ile eklenenler)
-      // veya boş bırak
-      setMessages(prev => prev.length > 0 ? prev : []);
+      allMessages = [...formattedSessionMessages];
     }
-  }, [selectedSession, activeSessions, user?.id, storeMessages]);
+
+    // Local state'teki mesajları da ekle
+    const existingIds = new Set(allMessages.map(m => m.messageId));
+    const localMessagesToAdd = messages.filter(m => !existingIds.has(m.messageId) && m.sessionId === sessionId);
+    
+    if (localMessagesToAdd.length > 0) {
+      allMessages = [...allMessages, ...localMessagesToAdd];
+    }
+
+    // Tarihe göre sırala
+    allMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    console.log('[AgentDashboard] Total messages:', allMessages.length);
+    setMessages(allMessages);
+  }, [selectedSession, activeSessions, user?.id, messages]);
 
   // Auto-scroll
   useEffect(() => {
