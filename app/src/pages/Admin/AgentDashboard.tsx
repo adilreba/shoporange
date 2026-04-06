@@ -231,7 +231,6 @@ export default function AgentDashboard() {
     setMessages(allMessages);
     
     // Seçili session'ın son okunan mesaj sayısını güncelle ve okunmamışı sıfırla
-    const session = activeSessions.find(s => s.id === sessionId || s.sessionId === sessionId);
     if (session) {
       setLastReadCounts(prev => ({ ...prev, [sessionId]: session.messages.length }));
       setUnreadCounts(prev => ({ ...prev, [sessionId]: 0 }));
