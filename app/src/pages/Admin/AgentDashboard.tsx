@@ -49,8 +49,7 @@ export default function AgentDashboard() {
     acceptRequest,
     completeRequest,
     sendAgentMessage,
-    fetchWaitingSessions,
-    messages: storeMessages
+    fetchWaitingSessions
   } = useLiveChatStore();
 
   const [activeTab, setActiveTab] = useState<'waiting' | 'active'>('waiting');
