@@ -58,6 +58,8 @@ export default function AgentDashboard() {
   const [messages, setMessages] = useState<any[]>([]);
   // Her session için ayrı input state'i - { [sessionId]: message }
   const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
+  // Her session için okunmamış mesaj sayısı - { [sessionId]: count }
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [localWaitingChats, setLocalWaitingChats] = useState<ChatSession[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -159,6 +161,32 @@ export default function AgentDashboard() {
     });
   }, [agentRequests]);
 
+  // Yeni mesaj geldiğinde okunmamış sayısını güncelle
+  useEffect(() => {
+    activeSessions.forEach(session => {
+      const sessionId = session.id || session.sessionId;
+      
+      // Seçili session ise okunmamış sayısını sıfırla
+      if (selectedSession?.sessionId === sessionId) {
+        setUnreadCounts(prev => ({ ...prev, [sessionId]: 0 }));
+        return;
+      }
+      
+      // Seçili değilse ve yeni mesaj varsa sayıyı güncelle
+      const currentCount = unreadCounts[sessionId] || 0;
+      const messageCount = session.messages.length;
+      
+      // Eğer mesaj sayısı değiştiyse ve bu session seçili değilse
+      if (messageCount > currentCount) {
+        // Son mesaj müşteriden mi gelmiş kontrol et
+        const lastMessage = session.messages[session.messages.length - 1];
+        if (lastMessage && lastMessage.sender !== 'agent') {
+          setUnreadCounts(prev => ({ ...prev, [sessionId]: messageCount }));
+        }
+      }
+    });
+  }, [activeSessions, selectedSession]);
+
   // Seçili session'ın mesajlarını güncelle
   // NOT: messages dependency array'de YOK çünkü setMessages ile güncelleniyor
   // Bu infinite loop yapar!
@@ -197,6 +225,9 @@ export default function AgentDashboard() {
 
     console.log('[AgentDashboard] Total messages from session:', allMessages.length);
     setMessages(allMessages);
+    
+    // Seçili session'ın okunmamış sayısını sıfırla
+    setUnreadCounts(prev => ({ ...prev, [sessionId]: 0 }));
   }, [selectedSession, activeSessions, user?.id]);  // messages YOK!
 
   // Auto-scroll
@@ -579,10 +610,19 @@ export default function AgentDashboard() {
                               <p className="font-semibold text-gray-900 dark:text-white truncate">
                                 {session.customerName}
                               </p>
-                              <span className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-full">
-                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                                Aktif
-                              </span>
+                              <div className="flex items-center gap-2">
+                                {/* Okunmamış mesaj bildirimi */}
+                                {unreadCounts[session.id] > 0 && selectedSession?.sessionId !== session.id && (
+                                  <span className="flex items-center gap-1 text-xs font-semibold bg-red-500 text-white px-2 py-1 rounded-full animate-pulse">
+                                    <MessageCircle className="w-3 h-3" />
+                                    {unreadCounts[session.id]} yeni
+                                  </span>
+                                )}
+                                <span className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-full">
+                                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                                  Aktif
+                                </span>
+                              </div>
                             </div>
                             <p className="text-sm text-gray-400 truncate">
                               {formatDuration(session.timestamp)} süredir bağlı
