@@ -56,29 +56,16 @@ export default function AdminLayout() {
 
   // Canlı destek bildirim sayısını hesapla
   useEffect(() => {
+    // SADECE cevaplanmamış (pending) bekleyenleri göster
+    // Aktif sohbetler zaten devam ediyor, bildirim gerektirmez
     const pendingCount = agentRequests.filter(req => req.status === 'pending').length;
-    const activeCount = activeSessions.length;
-    const totalCount = pendingCount + activeCount;
     
-    // localStorage'dan son bakılan sayıyı al
-    const savedLastViewed = localStorage.getItem('admin_last_chat_count');
-    const lastViewed = savedLastViewed ? parseInt(savedLastViewed, 10) : 0;
+    console.log('[AdminLayout] Chat notification:', { pendingCount, isSupportPage });
     
-    console.log('[AdminLayout] Chat counts:', { pendingCount, activeCount, totalCount, lastViewed, isSupportPage });
-    
-    // Destek sayfasındaysa bildirim gösterme ve sayıyı kaydet
-    if (isSupportPage) {
-      setNotificationCount(0);
-      localStorage.setItem('admin_last_chat_count', totalCount.toString());
-    } else {
-      // Sayfada değilse, son bakılandan beri yeni gelenleri göster
-      // VEYA hiç bakılmamışsa (ilk kez) tümünü göster
-      const newItems = totalCount - lastViewed;
-      const countToShow = lastViewed === 0 ? totalCount : Math.max(0, newItems);
-      setNotificationCount(countToShow);
-      console.log('[AdminLayout] Showing notification:', countToShow);
-    }
-  }, [agentRequests, activeSessions, isSupportPage]);
+    // Destek sayfasındaysa bildirim gösterme (0)
+    // Başka sayfadaysa bekleyen sayısını göster
+    setNotificationCount(isSupportPage ? 0 : pendingCount);
+  }, [agentRequests, isSupportPage]);
 
   const handleLogout = () => {
     logout();
