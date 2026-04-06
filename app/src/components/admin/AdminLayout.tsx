@@ -51,17 +51,20 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useThemeStore();
   const { user, logout } = useAuthStore();
-  const { agentRequests, connect, isConnected, connectionStatus } = useLiveChatStore();
+  const { agentRequests, connect, isConnected, connectionStatus, fetchWaitingSessions } = useLiveChatStore();
   const isSupportPage = location.pathname === '/admin/support';
 
-  // Admin panel açıldığında WebSocket bağlantısı kur
+  // Admin panel açıldığında WebSocket bağlantısı kur ve bekleyen session'ları çek
   useEffect(() => {
     const userId = user?.id || user?.email;
     if (userId && !isConnected && connectionStatus === 'idle') {
       console.log('[AdminLayout] Connecting as agent:', userId);
       connect(userId, 'agent');
     }
-  }, [user?.id, user?.email, isConnected, connectionStatus, connect]);
+    
+    // Bekleyen session'ları çek
+    fetchWaitingSessions();
+  }, [user?.id, user?.email, isConnected, connectionStatus, connect, fetchWaitingSessions]);
 
   // Canlı destek bildirim sayısını hesapla
   useEffect(() => {
