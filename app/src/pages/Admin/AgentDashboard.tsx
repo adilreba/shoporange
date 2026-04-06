@@ -77,17 +77,21 @@ export default function AgentDashboard() {
 
   // WebSocket bağlantısı (Agent olarak)
   useEffect(() => {
+    // user?.id yoksa user?.email kullan (bazı auth sistemlerinde id yerine email tutulur)
+    const userId = user?.id || user?.email;
+    
     console.log('[AgentDashboard] Connection check:', { 
-      userId: user?.id, 
+      userId, 
+      userObj: user,
       isConnected, 
       connectionStatus 
     });
     
-    if (user?.id && !isConnected && connectionStatus === 'idle') {
-      console.log('[AgentDashboard] Connecting as agent:', user.id);
-      connect(user.id, 'agent');
+    if (userId && !isConnected && connectionStatus === 'idle') {
+      console.log('[AgentDashboard] Connecting as agent:', userId);
+      connect(userId, 'agent');
     }
-  }, [user?.id, isConnected, connectionStatus, connect]);
+  }, [user?.id, user?.email, isConnected, connectionStatus, connect]);
   
   // Connection status değişikliklerini izle
   useEffect(() => {
