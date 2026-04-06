@@ -254,7 +254,7 @@ export default function AgentDashboard() {
     }
   }, [fetchWaitingSessions]);
 
-  const handleAcceptChat = useCallback((session: ChatSession) => {
+  const handleAcceptChat = (session: ChatSession) => {
     if (!user?.id) {
       toast.error('Kullanıcı bilgisi bulunamadı');
       return;
@@ -277,12 +277,12 @@ export default function AgentDashboard() {
       console.error('[AgentDashboard] Error accepting chat:', error);
       toast.error('Sohbet kabul edilirken hata oluştu');
     }
-  }, [user, acceptRequest, setSelectedSession, setActiveTab]);
+  };
 
   // Mevcut session'ın input değerini al
   const currentInput = selectedSession ? sessionInputs[selectedSession.sessionId] || '' : '';
 
-  const handleSendMessage = useCallback(() => {
+  const handleSendMessage = () => {
     if (!currentInput.trim() || !selectedSession || !user?.id) {
       console.log('[AgentDashboard] Cannot send message:', { 
         hasInput: !!currentInput.trim(), 
@@ -314,15 +314,15 @@ export default function AgentDashboard() {
       console.error('[AgentDashboard] Error sending message:', error);
       toast.error('Mesaj gönderilirken hata oluştu');
     }
-  }, [currentInput, selectedSession, user, sendAgentMessage]);
+  };
 
-  const handleCloseChat = useCallback(() => {
+  const handleCloseChat = () => {
     if (!selectedSession) return;
 
     completeRequest(selectedSession.sessionId);
     toast.success('Sohbet sonlandırıldı');
     setSelectedSession(null);
-  }, [selectedSession, completeRequest]);
+  };
 
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString('tr-TR', {
