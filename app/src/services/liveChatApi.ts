@@ -55,22 +55,35 @@ let wsInstance: WebSocket | null = null;
 let messageCallbacks: ((data: any) => void)[] = [];
 let connectionCallbacks: ((connected: boolean) => void)[] = [];
 
-// Mock data - IN-MEMORY (cross-tab sync için farklı bir yaklaşım)
-// Note: localStorage cross-origin çalışmaz, o yüzden memory + polling kullanıyoruz
-// GLOBAL MOCK DATA - Tüm sekmeler tarafından paylaşılan
-// window objesi üzerinde saklanıyor ki tüm sekmeler erişebilsin
+// Mock data - PERSISTED to localStorage
+// Admin paneli kapalıyken bile mesajlar kaybolmaz
+const STORAGE_KEY = 'livechat_mock_sessions_v1';
+
 function getMockSessions(): Map<string, ChatSession> {
   if (typeof window === 'undefined') return new Map();
   
   // @ts-ignore
   if (!window.__LIVECHAT_MOCK_SESSIONS__) {
+    // localStorage'dan yükle
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const initialData = saved ? JSON.parse(saved) : [];
+    
     // @ts-ignore
-    window.__LIVECHAT_MOCK_SESSIONS__ = new Map();
-    console.log('[LiveChat] Created global mock sessions');
+    window.__LIVECHAT_MOCK_SESSIONS__ = new Map(initialData);
+    console.log('[LiveChat] Loaded sessions from storage:', initialData.length);
   }
   
   // @ts-ignore
   return window.__LIVECHAT_MOCK_SESSIONS__;
+}
+
+// localStorage'a kaydet
+function saveMockSessions() {
+  if (typeof window === 'undefined') return;
+  const sessions = getMockSessions();
+  const data = Array.from(sessions.entries());
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  console.log('[LiveChat] Saved sessions to storage:', data.length);
 }
 
 const mockConnections: Map<string, any> = new Map();
@@ -412,6 +425,7 @@ function handleMockMessage(action: string, data: any) {
       const session = getMockSessions().get(sessionId);
       if (session) {
         session.messages.push(newMessage);
+        saveMockSessions(); // localStorage'a kaydet
         console.log('[LiveChat] Message saved to session:', sessionId);
       } else {
         console.log('[LiveChat] Session not found, broadcasting without saving:', sessionId);
@@ -445,6 +459,7 @@ function handleMockMessage(action: string, data: any) {
         unreadCount: 0
       };
       getMockSessions().set(data.sessionId, newSession);
+      saveMockSessions(); // localStorage'a kaydet
       console.log('[LiveChat] Total sessions:', getMockSessions().size);
       
       setTimeout(() => {
@@ -493,6 +508,7 @@ function handleMockMessage(action: string, data: any) {
           unreadCount: 0
         };
         getMockSessions().set(data.sessionId, acceptSession);
+        saveMockSessions(); // localStorage'a kaydet
       }
       
       setTimeout(() => {
@@ -511,6 +527,7 @@ function handleMockMessage(action: string, data: any) {
       if (closeSession) {
         closeSession.status = 'closed';
         closeSession.updatedAt = new Date().toISOString();
+        saveMockSessions(); // localStorage'a kaydet
       }
       
       setTimeout(() => {
