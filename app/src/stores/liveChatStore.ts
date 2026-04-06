@@ -115,6 +115,14 @@ export const useLiveChatStore = create<LiveChatStore>()(
       },
 
       resetChat: () => {
+        const { sessionId, isConnected } = get();
+        
+        // Eğer aktif session varsa, önce session'ı kapat
+        if (sessionId && isConnected) {
+          console.log('[LiveChatStore] Closing session before disconnect:', sessionId);
+          sendWebSocketMessage('close_session', { sessionId });
+        }
+        
         get().disconnect();
         set({
           messages: [],
@@ -597,18 +605,30 @@ export const useLiveChatStore = create<LiveChatStore>()(
             break;
 
           case 'chat_closed':
-            set({
-              agentConnected: false,
-              agentName: null,
-              waitingForAgent: false,
-              botMode: true
-            });
+            // Müşteri için state güncelle
+            if (userType === 'customer') {
+              set({
+                agentConnected: false,
+                agentName: null,
+                waitingForAgent: false,
+                botMode: true
+              });
 
-            get().addMessage({
-              text: data.message || 'Sohbet sonlandırıldı. Başka bir konuda yardımcı olabilir miyim?',
-              sender: 'bot',
-              isRead: false
-            });
+              get().addMessage({
+                text: data.message || 'Sohbet sonlandırıldı. Başka bir konuda yardımcı olabilir miyim?',
+                sender: 'bot',
+                isRead: false
+              });
+            }
+            
+            // Admin (agent) için session'ı listeden kaldır
+            if (userType === 'agent' && data.sessionId) {
+              console.log('[LiveChatStore] Removing closed session from active sessions:', data.sessionId);
+              set((state) => ({
+                activeSessions: state.activeSessions.filter(s => s.id !== data.sessionId && s.sessionId !== data.sessionId),
+                agentRequests: state.agentRequests.filter(r => r.id !== data.sessionId && r.sessionId !== data.sessionId)
+              }));
+            }
             break;
 
           case 'agent_left':
