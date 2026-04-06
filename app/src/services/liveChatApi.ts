@@ -66,7 +66,24 @@ function getMockSessions(): Map<string, ChatSession> {
   if (!window.__LIVECHAT_MOCK_SESSIONS__) {
     // localStorage'dan yükle
     const saved = localStorage.getItem(STORAGE_KEY);
-    const initialData = saved ? JSON.parse(saved) : [];
+    let initialData = saved ? JSON.parse(saved) : [];
+    
+    // ESKİ TALEPLERİ TEMİZLE (10 dakikadan eski pending'ler)
+    const now = new Date().getTime();
+    const TEN_MINUTES = 10 * 60 * 1000;
+    
+    initialData = initialData.filter(([sessionId, session]: [string, ChatSession]) => {
+      const createdAt = new Date(session.createdAt).getTime();
+      const isOld = now - createdAt > TEN_MINUTES;
+      const isPending = session.status === 'waiting';
+      
+      // 10 dakikadan eski pendingleri at
+      if (isPending && isOld) {
+        console.log('[LiveChat] Removing old pending session:', sessionId);
+        return false;
+      }
+      return true;
+    });
     
     // @ts-ignore
     window.__LIVECHAT_MOCK_SESSIONS__ = new Map(initialData);

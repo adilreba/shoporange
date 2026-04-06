@@ -307,6 +307,19 @@ export default function AgentDashboard() {
     toast.success('Test talebi oluşturuldu!');
   };
 
+  // Eski talepleri temizle
+  const clearOldRequests = () => {
+    // localStorage'daki mock sessions'ı temizle
+    localStorage.removeItem('livechat_mock_sessions_v1');
+    localStorage.removeItem('live-chat-storage');
+    localStorage.removeItem('live-chat-storage-v2');
+    
+    toast.success('Eski talepler temizlendi! Sayfa yenileniyor...');
+    
+    // Sayfayı yenile
+    setTimeout(() => window.location.reload(), 1000);
+  };
+
   return (
     <div className="h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900 flex flex-col">
       {/* Header */}
@@ -372,15 +385,26 @@ export default function AgentDashboard() {
             </div>
           </div>
           
-          {/* Sağ: Test Butonu */}
-          <Button 
-            size="sm" 
-            onClick={createTestRequest}
-            className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0 shadow-lg shadow-orange-500/25"
-          >
-            <Plus className="w-4 h-4" />
-            Test Talebi
-          </Button>
+          {/* Sağ: Test Butonu ve Temizle */}
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={clearOldRequests}
+              className="hidden sm:flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
+            >
+              <XCircle className="w-4 h-4" />
+              Eski Talepleri Temizle
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={createTestRequest}
+              className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0 shadow-lg shadow-orange-500/25"
+            >
+              <Plus className="w-4 h-4" />
+              Test Talebi
+            </Button>
+          </div>
         </div>
       </header>
 
