@@ -397,19 +397,29 @@ function handleMockMessage(action: string, data: any) {
       if (session) {
         // Eğer messageId geldiyse kullan, yoksa yeni oluştur
         const finalMessageId = messageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // senderType'ı normalize et: 'customer' veya 'agent' olmalı
+        // Frontend ChatMessage.sender 'user'|'agent'|'bot'|'system' kullanır
+        // Ama WebSocket mesajlarında 'customer'|'agent' kullanılmalı
+        const normalizedSenderType = senderType === 'agent' ? 'agent' : 'customer';
+        
         const newMessage: ChatMessage = {
           id: finalMessageId,
           text: message,
-          sender: senderType === 'agent' ? 'agent' : 'user',
+          sender: normalizedSenderType === 'agent' ? 'agent' : 'user',
           timestamp: new Date().toISOString(),
           isRead: false
         };
         session.messages.push(newMessage);
         
         setTimeout(() => {
+          // Broadcast'te orijinal senderType'ı kullan (customer/agent)
           broadcastToAllTabs({
             type: 'new_message',
-            message: { ...newMessage, senderType: newMessage.sender },
+            message: { 
+              ...newMessage, 
+              senderType: normalizedSenderType  // 'customer' veya 'agent'
+            },
             sessionId
           });
         }, 100);
