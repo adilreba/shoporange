@@ -557,18 +557,34 @@ export const useLiveChatStore = create<LiveChatStore>()(
           case 'new_message':
             if (data.message) {
               const messageId = data.message.messageId || data.message.id || generateId();
+              const currentState = get();
+              
+              // ÖNEMLİ: Session ID kontrolü - başka session'dan gelen mesajı görmezden gel
+              // Admin (agent) sadece kendi aktif session'larının mesajlarını görmeli
+              // Müşteri (customer) sadece kendi session'ının mesajlarını görmeli
+              const messageSessionId = data.sessionId;
+              const mySessionId = currentState.sessionId;
+              
+              // Eğer sessionId var ve benim session'ım değilse, bu mesaj bana değil
+              if (messageSessionId && mySessionId && messageSessionId !== mySessionId) {
+                console.log('[LiveChatStore] Message for different session, ignoring:', {
+                  messageSessionId,
+                  mySessionId
+                });
+                break;
+              }
               
               // Mesajın sender'ını belirle (backend 'customer' veya 'agent' gönderir)
               const rawSenderType = data.message.senderType || data.message.sender;
               console.log('[LiveChatStore] New message received:', { 
                 messageId, 
                 rawSenderType, 
-                myUserType: get().userType,
-                text: data.message.text?.substring(0, 20)
+                myUserType: currentState.userType,
+                text: data.message.text?.substring(0, 20),
+                sessionId: messageSessionId
               });
               
               // Duplicate kontrolü - zaten eklenmişse tekrar ekleme
-              const currentState = get();
               if (currentState.messages.some(m => m.id === messageId)) {
                 console.log('[LiveChatStore] Duplicate message ignored:', messageId);
                 break;
@@ -581,8 +597,6 @@ export const useLiveChatStore = create<LiveChatStore>()(
                                            rawSenderType === 'user' ? 'user' : 'bot';
               
               // Bu benim gönderdiğim mesaj mı?
-              // Customer isem ve sender 'customer' veya 'user' ise, bu benim mesajım
-              // Agent isem ve sender 'agent' ise, bu benim mesajım
               const isMyOwnMessage = 
                 (currentState.userType === 'customer' && (rawSenderType === 'customer' || rawSenderType === 'user')) ||
                 (currentState.userType === 'agent' && rawSenderType === 'agent');
