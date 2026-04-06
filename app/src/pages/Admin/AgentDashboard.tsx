@@ -765,17 +765,22 @@ export default function AgentDashboard() {
                 <div className="flex gap-3 max-w-4xl mx-auto">
                   <div className="flex-1 relative">
                     <Input
-                      value={currentInput}
+                      value={currentInput || ''}
                       onChange={(e) => {
-                        if (selectedSession) {
+                        const value = e.target.value;
+                        const sessionId = selectedSession?.sessionId;
+                        if (sessionId) {
                           setSessionInputs(prev => ({ 
                             ...prev, 
-                            [selectedSession.sessionId]: e.target.value 
+                            [sessionId]: value 
                           }));
                         }
                       }}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') handleSendMessage();
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
                       }}
                       placeholder="Mesajınızı yazın..."
                       className="w-full bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 focus:bg-white dark:focus:bg-gray-700 focus:border-orange-400 dark:focus:border-orange-500 rounded-xl pr-12 h-12 transition-all"
