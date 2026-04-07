@@ -503,7 +503,19 @@ export { stockApi } from './stockApi';
 // Generic API (for admin pages)
 // ====================
 export const api = {
-  get: (endpoint: string) => fetchApi(endpoint),
+  get: async (endpoint: string) => {
+    // Mock mode'da /admin/users isteği
+    if (isMockMode() && endpoint === '/admin/users') {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      // MOCK_USERS'tan şifreleri çıkararak döndür
+      const usersWithoutPasswords = MOCK_USERS.map(user => {
+        const { password, ...userWithoutPassword } = user as any;
+        return userWithoutPassword;
+      });
+      return { data: usersWithoutPasswords };
+    }
+    return fetchApi(endpoint);
+  },
   post: (endpoint: string, data: any) => fetchApi(endpoint, {
     method: 'POST',
     body: JSON.stringify(data),
