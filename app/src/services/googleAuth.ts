@@ -1,4 +1,5 @@
 import type { UserData, AuthTokens } from './cognito';
+import type { User } from '@/types';
 
 // Google OAuth configuration
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -92,6 +93,28 @@ export async function signInWithGoogle(credential: string): Promise<GoogleSignIn
   }
 
   const data = await response.json();
+
+  // Kullanıcıyı localStorage'a kaydet (admin panelinde görünmesi için)
+  try {
+    const saved = localStorage.getItem('google-users');
+    const googleUsers: User[] = saved ? JSON.parse(saved) : [];
+    if (!googleUsers.find((u: User) => u.email === data.user.email)) {
+      googleUsers.push({
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role,
+        phone: (data.user as any).phone || '',
+        avatar: (data.user as any).avatar,
+        address: (data.user as any).address || [],
+        createdAt: data.user.createdAt,
+        isActive: true,
+      });
+      localStorage.setItem('google-users', JSON.stringify(googleUsers));
+    }
+  } catch (e) {
+    console.log('localStorage kayıt hatası');
+  }
 
   return {
     user: data.user,
