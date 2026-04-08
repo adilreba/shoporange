@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, Search, Shield, AlertTriangle, 
   Info, XCircle, User, Server, CreditCard, 
-  ShoppingCart, FileText, Download, RefreshCw
+  ShoppingCart, FileText, Download, RefreshCw,
+  Lock
 } from 'lucide-react';
 import { auditLogApi } from '@/services/auditLogApi';
 import type { AuditLogEntry, AuditEventType, SeverityLevel } from '@/services/auditLogApi';
