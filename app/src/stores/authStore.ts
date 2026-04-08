@@ -496,22 +496,61 @@ export const useAuthStore = create<AuthState>()(
         try {
           if (isMockMode()) {
             await new Promise(resolve => setTimeout(resolve, 500));
-            const mockGoogleUser = {
+            
+            // Gerçek Google kullanıcı bilgilerini decode et (credential JWT)
+            let userEmail = 'google@demo.com';
+            let userName = 'Google Kullanıcı';
+            let userAvatar = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200';
+            
+            try {
+              // JWT token'dan bilgileri çıkar
+              const base64 = credential.split('.')[1];
+              const decoded = JSON.parse(atob(base64));
+              userEmail = decoded.email || userEmail;
+              userName = decoded.name || userName;
+              userAvatar = decoded.picture || userAvatar;
+            } catch (e) {
+              console.log('Google credential decode hatası, demo bilgiler kullanılacak');
+            }
+            
+            // Aynı email var mı kontrol et
+            const existingUser = MOCK_USERS.find(u => u.email === userEmail);
+            if (existingUser) {
+              set({ 
+                user: existingUser as User, 
+                tokens: {
+                  accessToken: `mock_token_${existingUser.id}`,
+                  idToken: `mock_token_${existingUser.id}`,
+                  refreshToken: `mock_refresh_${existingUser.id}`,
+                  expiresAt: Date.now() + 3600000,
+                },
+                isAuthenticated: true, 
+                isLoading: false 
+              });
+              return true;
+            }
+            
+            // Yeni kullanıcı oluştur ve MOCK_USERS'a ekle
+            const newUser = {
               id: `google-${Date.now()}`,
-              email: 'google@demo.com',
-              name: 'Google Kullanıcı',
+              email: userEmail,
+              name: userName,
               role: 'user',
               phone: '',
-              avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+              avatar: userAvatar,
               address: [],
               createdAt: new Date().toISOString()
             };
+            
+            // Mock diziye ekle (admin panelinde görünmesi için)
+            MOCK_USERS.push({ ...newUser, password: 'google_oauth' } as any);
+            
             set({ 
-              user: mockGoogleUser as User, 
+              user: newUser as User, 
               tokens: {
-                accessToken: `mock_token_${mockGoogleUser.id}`,
-                idToken: `mock_token_${mockGoogleUser.id}`,
-                refreshToken: `mock_refresh_${mockGoogleUser.id}`,
+                accessToken: `mock_token_${newUser.id}`,
+                idToken: `mock_token_${newUser.id}`,
+                refreshToken: `mock_refresh_${newUser.id}`,
                 expiresAt: Date.now() + 3600000,
               },
               isAuthenticated: true, 

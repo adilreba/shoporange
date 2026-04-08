@@ -129,10 +129,28 @@ export default function AdminUsers() {
     try {
       setLoading(true);
       
-      // Mock mode'da mockUsers kullan
+      // Mock mode'da mockUsers kullan ve localStorage'dan ek kullanıcıları al
       if (isMockMode()) {
         await new Promise(resolve => setTimeout(resolve, 500));
-        setUsers(mockUsers.filter((u: any) => u.role !== 'super_admin' || u.id === 'superadmin1'));
+        
+        // Mock veriler
+        const baseUsers = mockUsers.filter((u: any) => u.role !== 'super_admin' || u.id === 'superadmin1');
+        
+        // localStorage'dan auth-storage'ı oku ve kullanıcıları al
+        let storageUsers: User[] = [];
+        try {
+          const authStorage = localStorage.getItem('auth-storage');
+          if (authStorage) {
+            const parsed = JSON.parse(authStorage);
+            if (parsed.state?.user && !baseUsers.find((u: User) => u.email === parsed.state.user.email)) {
+              storageUsers.push(parsed.state.user);
+            }
+          }
+        } catch (e) {
+          console.log('localStorage okuma hatası');
+        }
+        
+        setUsers([...baseUsers, ...storageUsers]);
         setDeletedUsers([]);
         return;
       }
