@@ -6,6 +6,17 @@ import { isGoogleAuthConfigured, getGoogleClientId, isMockMode } from '@/service
 import { Button } from '@/components/ui/button';
 import { Chrome } from 'lucide-react';
 
+// UTF-8 string'i base64'e çevir (btoa Latin1 sınırlı)
+function utf8ToBase64(str: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(str);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 // TypeScript declarations for Google Identity Services
 declare global {
   interface Window {
@@ -106,10 +117,10 @@ export function GoogleLoginButton({ onSuccess, className = '' }: GoogleLoginButt
             try {
               // Demo Google kullanıcısı için mock JWT credential oluştur
               // JWT format: header.payload.signature
-              const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-              const payload = btoa(JSON.stringify({
+              const header = utf8ToBase64(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+              const payload = utf8ToBase64(JSON.stringify({
                 email: 'demo.google@example.com',
-                name: 'Demo Google Kullanıcı',
+                name: 'Demo Google Kullanici', // Türkçe karakter olmadan
                 picture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
                 sub: 'google-demo-' + Date.now(),
                 iat: Math.floor(Date.now() / 1000),
