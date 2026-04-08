@@ -124,6 +124,16 @@ export default function AdminUsers() {
 
   useEffect(() => {
     fetchUsers();
+    
+    // Sayfa odaklandığında kullanıcı listesini yenile (yeni kullanıcılar için)
+    const handleFocus = () => {
+      if (isMockMode()) {
+        fetchUsers();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const fetchUsers = async () => {
