@@ -77,11 +77,50 @@ export default function AdminUsers() {
   const [userToChangeRole, setUserToChangeRole] = useState<User | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>('user');
   const [activeTab, setActiveTab] = useState('active');
+  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   
   // Yetki kontrolü
   const { can, isSuperAdmin, userRole: currentUserRole } = usePermissions();
   const canDelete = can('users:delete');
   const canEdit = can('users:edit');
+  
+  // Kullanıcının görebileceği rolleri belirle
+  const getVisibleRoles = (): UserRole[] => {
+    if (isSuperAdmin) return ['super_admin', 'admin', 'editor', 'support', 'user'];
+    if (currentUserRole === 'admin') return ['admin', 'editor', 'support', 'user'];
+    if (currentUserRole === 'editor') return ['editor', 'support', 'user'];
+    if (currentUserRole === 'support') return ['support', 'user'];
+    return ['user'];
+  };
+  
+  // Kullanıcıları filtrele (arama + rol)
+  const filteredUsers = users.filter(user => {
+    // Önce yetki kontrolü - kullanıcı kendi seviyesinden yüksek rolü göremez
+    if (!getVisibleRoles().includes(user.role)) return false;
+    
+    // Kendini görmemesi için (isteğe bağlı)
+    // if (user.id === currentUser?.id) return false;
+    
+    // Rol filtresi
+    if (roleFilter !== 'all' && user.role !== roleFilter) return false;
+    
+    // Arama filtresi
+    const search = searchTerm.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(search) ||
+      user.email.toLowerCase().includes(search) ||
+      (user.phone && user.phone.includes(search))
+    );
+  });
+  
+  // Rol sayıları (görünen kullanıcılar için)
+  const roleCounts = {
+    super_admin: users.filter(u => u.role === 'super_admin' && getVisibleRoles().includes('super_admin')).length,
+    admin: users.filter(u => u.role === 'admin' && getVisibleRoles().includes('admin')).length,
+    editor: users.filter(u => u.role === 'editor' && getVisibleRoles().includes('editor')).length,
+    support: users.filter(u => u.role === 'support' && getVisibleRoles().includes('support')).length,
+    user: users.filter(u => u.role === 'user' && getVisibleRoles().includes('user')).length,
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -185,16 +224,16 @@ export default function AdminUsers() {
     return ROLE_COLORS[role] || 'bg-gray-400';
   };
 
-  const filteredUsers = users.filter(user =>
-    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.phone?.includes(searchTerm)
-  );
-
-  const filteredDeletedUsers = deletedUsers.filter(user =>
-    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredDeletedUsers = deletedUsers.filter(user => {
+    // Yetki kontrolü
+    if (!getVisibleRoles().includes(user.role)) return false;
+    
+    const search = searchTerm.toLowerCase();
+    return (
+      user.name?.toLowerCase().includes(search) ||
+      user.email?.toLowerCase().includes(search)
+    );
+  });
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('tr-TR', {
@@ -265,18 +304,85 @@ export default function AdminUsers() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList>
-            <TabsTrigger value="active" className="flex items-center gap-2">
-              <UserCheck className="w-4 h-4" />
-              Aktif Kullanıcılar ({users.length})
-            </TabsTrigger>
-            <TabsTrigger value="deleted" className="flex items-center gap-2">
-              <UserX className="w-4 h-4" />
-              Pasif Kullanıcılar ({deletedUsers.length})
-            </TabsTrigger>
-          </TabsList>
+        {/* Tabs ve Rol Filtreleri */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="active" className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4" />
+                Aktif Kullanıcılar ({users.length})
+              </TabsTrigger>
+              <TabsTrigger value="deleted" className="flex items-center gap-2">
+                <UserX className="w-4 h-4" />
+                Pasif Kullanıcılar ({deletedUsers.length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
+          {/* Rol Filtre Butonları - Yetkili kullanıcılar için */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={roleFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setRoleFilter('all')}
+              className={roleFilter === 'all' ? 'bg-orange-500 hover:bg-orange-600' : ''}
+            >
+              Tümü
+            </Button>
+            
+            {isSuperAdmin && (
+              <Button
+                variant={roleFilter === 'super_admin' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setRoleFilter('super_admin')}
+                className={roleFilter === 'super_admin' ? 'bg-purple-500 hover:bg-purple-600' : ''}
+              >
+                <Shield className="w-3 h-3 mr-1" />
+                Süper Admin ({roleCounts.super_admin})
+              </Button>
+            )}
+            
+            {(isSuperAdmin || currentUserRole === 'admin') && (
+              <Button
+                variant={roleFilter === 'admin' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setRoleFilter('admin')}
+                className={roleFilter === 'admin' ? 'bg-red-500 hover:bg-red-600' : ''}
+              >
+                Admin ({roleCounts.admin})
+              </Button>
+            )}
+            
+            <Button
+              variant={roleFilter === 'editor' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setRoleFilter('editor')}
+              className={roleFilter === 'editor' ? 'bg-blue-500 hover:bg-blue-600' : ''}
+            >
+              Editör ({roleCounts.editor})
+            </Button>
+            
+            <Button
+              variant={roleFilter === 'support' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setRoleFilter('support')}
+              className={roleFilter === 'support' ? 'bg-green-500 hover:bg-green-600' : ''}
+            >
+              Destek ({roleCounts.support})
+            </Button>
+            
+            <Button
+              variant={roleFilter === 'user' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setRoleFilter('user')}
+              className={roleFilter === 'user' ? 'bg-gray-500 hover:bg-gray-600' : ''}
+            >
+              Müşteri ({roleCounts.user})
+            </Button>
+          </div>
+        </div>
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="hidden">
 
           {/* Search */}
           <div className="mt-4 mb-6 relative">
