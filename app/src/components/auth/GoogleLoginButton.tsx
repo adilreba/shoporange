@@ -104,21 +104,31 @@ export function GoogleLoginButton({ onSuccess, className = '' }: GoogleLoginButt
           className={`w-full ${className}`}
           onClick={async () => {
             try {
-              // Demo Google kullanıcısı için mock credential oluştur
-              const mockCredential = btoa(JSON.stringify({
+              // Demo Google kullanıcısı için mock JWT credential oluştur
+              // JWT format: header.payload.signature
+              const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+              const payload = btoa(JSON.stringify({
                 email: 'demo.google@example.com',
                 name: 'Demo Google Kullanıcı',
                 picture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-                sub: 'google-demo-' + Date.now()
+                sub: 'google-demo-' + Date.now(),
+                iat: Math.floor(Date.now() / 1000),
+                exp: Math.floor(Date.now() / 1000) + 3600
               }));
+              const signature = btoa('mock-signature');
+              const mockCredential = `${header}.${payload}.${signature}`;
+              
               const success = await googleSignIn(mockCredential);
               if (success) {
                 toast.success('Google ile giriş başarılı! (Demo)');
                 onSuccess?.();
                 navigate('/');
+              } else {
+                toast.error('Google girişi başarısız');
               }
             } catch (error) {
-              toast.error('Google girişi başarısız');
+              console.error('Google demo login error:', error);
+              toast.error('Google girişi sırasında hata oluştu');
             }
           }}
           disabled={isLoading}

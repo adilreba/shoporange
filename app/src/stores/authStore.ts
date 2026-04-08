@@ -503,14 +503,19 @@ export const useAuthStore = create<AuthState>()(
             let userAvatar = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200';
             
             try {
-              // JWT token'dan bilgileri çıkar
-              const base64 = credential.split('.')[1];
-              const decoded = JSON.parse(atob(base64));
+              // JWT token'dan bilgileri çıkar (base64Url decode)
+              const base64Url = credential.split('.')[1];
+              // Base64Url -> Base64 dönüşümü
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              // Padding ekle
+              const pad = base64.length % 4;
+              const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
+              const decoded = JSON.parse(atob(paddedBase64));
               userEmail = decoded.email || userEmail;
               userName = decoded.name || userName;
               userAvatar = decoded.picture || userAvatar;
             } catch (e) {
-              console.log('Google credential decode hatası, demo bilgiler kullanılacak');
+              console.log('Google credential decode hatası, demo bilgiler kullanılacak:', e);
             }
             
             // Aynı email var mı kontrol et
