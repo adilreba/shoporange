@@ -551,6 +551,18 @@ export const useAuthStore = create<AuthState>()(
             // Mock diziye ekle (admin panelinde görünmesi için)
             MOCK_USERS.push({ ...newUser, password: 'google_oauth' } as any);
             
+            // localStorage'a da kaydet (kalıcı olması için)
+            try {
+              const saved = localStorage.getItem('google-users');
+              const googleUsers = saved ? JSON.parse(saved) : [];
+              if (!googleUsers.find((u: any) => u.email === newUser.email)) {
+                googleUsers.push({ ...newUser, password: 'google_oauth' });
+                localStorage.setItem('google-users', JSON.stringify(googleUsers));
+              }
+            } catch (e) {
+              console.log('localStorage kayıt hatası');
+            }
+            
             set({ 
               user: newUser as User, 
               tokens: {
@@ -567,10 +579,10 @@ export const useAuthStore = create<AuthState>()(
           
           const result = await googleAuth.signInWithGoogle(credential);
           
-          // Kullanıcıyı MOCK_USERS'a da ekle (admin panelinde görünmesi için)
+          // Kullanıcıyı MOCK_USERS'a ve localStorage'a ekle (admin panelinde görünmesi için)
           const existingMockUser = MOCK_USERS.find(u => u.email === result.user.email);
           if (!existingMockUser) {
-            MOCK_USERS.push({ 
+            const newMockUser = { 
               id: result.user.id,
               email: result.user.email,
               name: result.user.name,
@@ -580,7 +592,20 @@ export const useAuthStore = create<AuthState>()(
               address: (result.user as any).address || [],
               createdAt: result.user.createdAt,
               password: 'google_oauth'
-            } as any);
+            };
+            MOCK_USERS.push(newMockUser as any);
+            
+            // localStorage'a da kaydet (kalıcı olması için)
+            try {
+              const saved = localStorage.getItem('google-users');
+              const googleUsers = saved ? JSON.parse(saved) : [];
+              if (!googleUsers.find((u: any) => u.email === result.user.email)) {
+                googleUsers.push(newMockUser);
+                localStorage.setItem('google-users', JSON.stringify(googleUsers));
+              }
+            } catch (e) {
+              console.log('localStorage kayıt hatası');
+            }
           }
           
           set({ 

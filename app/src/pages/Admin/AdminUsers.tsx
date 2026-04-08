@@ -140,17 +140,28 @@ export default function AdminUsers() {
     try {
       setLoading(true);
       
-      // Mock mode'da mockUsers kullan ve authStore'daki kullanıcıları birleştir
+      // Mock mode'da mockUsers kullan ve localStorage'dan ek kullanıcıları al
       if (isMockMode()) {
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // Mock veriler (mockData.ts)
         const baseUsers = mockUsers.filter((u: any) => u.role !== 'super_admin' || u.id === 'superadmin1');
         
-        // AuthStore'daki kullanıcılar (Google login ile eklenenler dahil)
-        const allMockUsers = authStoreUsers.filter((u: any) => {
-          // BaseUsers'da olmayanları ekle
-          return !baseUsers.find((bu: User) => bu.email === u.email);
+        // localStorage'dan google kullanıcılarını al
+        let googleUsers: User[] = [];
+        try {
+          const saved = localStorage.getItem('google-users');
+          if (saved) {
+            googleUsers = JSON.parse(saved);
+          }
+        } catch (e) {
+          console.log('localStorage okuma hatası');
+        }
+        
+        // AuthStore'daki kullanıcıları da ekle (yenileri)
+        const storeUsers = authStoreUsers.filter((u: any) => {
+          return !baseUsers.find((bu: User) => bu.email === u.email) &&
+                 !googleUsers.find((gu: User) => gu.email === u.email);
         }).map((u: any) => ({
           id: u.id,
           name: u.name,
@@ -161,7 +172,14 @@ export default function AdminUsers() {
           isActive: true,
         }));
         
-        setUsers([...baseUsers, ...allMockUsers]);
+        // Google kullanıcılarını localStorage'a kaydet (yenileri)
+        const allGoogleUsers = [...googleUsers, ...storeUsers];
+        const uniqueUsers = allGoogleUsers.filter((user, index, self) =>
+          index === self.findIndex((u) => u.email === user.email)
+        );
+        localStorage.setItem('google-users', JSON.stringify(uniqueUsers));
+        
+        setUsers([...baseUsers, ...uniqueUsers]);
         setDeletedUsers([]);
         return;
       }
