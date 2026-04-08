@@ -571,10 +571,15 @@ export const useAuthStore = create<AuthState>()(
           const existingMockUser = MOCK_USERS.find(u => u.email === result.user.email);
           if (!existingMockUser) {
             MOCK_USERS.push({ 
-              ...result.user, 
-              password: 'google_oauth',
-              address: result.user.address || [],
-              phone: result.user.phone || ''
+              id: result.user.id,
+              email: result.user.email,
+              name: result.user.name,
+              role: result.user.role,
+              phone: (result.user as any).phone || '',
+              avatar: (result.user as any).avatar,
+              address: (result.user as any).address || [],
+              createdAt: result.user.createdAt,
+              password: 'google_oauth'
             } as any);
           }
           

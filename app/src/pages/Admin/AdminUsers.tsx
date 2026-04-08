@@ -356,6 +356,7 @@ export default function AdminUsers() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
+          </div>
           
           {/* Alt Satır: Rol Filtre Butonları */}
           <div className="flex flex-wrap gap-1.5 sm:gap-2">
