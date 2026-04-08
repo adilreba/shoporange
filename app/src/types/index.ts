@@ -81,6 +81,8 @@ export interface User {
   isActive?: boolean;
   deletedAt?: string | null;
   deletedBy?: string | null;
+  // Notification preferences
+  notificationPreference?: 'email' | 'sms' | 'both';
 }
 
 // Yetki kontrolü yardımcı fonksiyonu

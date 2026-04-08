@@ -12,13 +12,14 @@ import {
   Trash2,
   Check,
   Truck,
-
   Camera,
   Mail,
   Phone,
   Calendar,
   Star,
-  ShoppingBag
+  ShoppingBag,
+  MessageCircle,
+  Bell
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,7 +50,8 @@ export function Profile() {
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    avatar: user?.avatar || ''
+    avatar: user?.avatar || '',
+    notificationPreference: user?.notificationPreference || 'email'
   });
 
   const [newAddress, setNewAddress] = useState({
@@ -92,7 +94,8 @@ export function Profile() {
   const handleSaveProfile = () => {
     updateUser({
       name: profileData.name,
-      phone: profileData.phone
+      phone: profileData.phone,
+      notificationPreference: profileData.notificationPreference
     });
     setIsEditing(false);
     toast.success('Profil bilgileriniz güncellendi!');
@@ -321,6 +324,79 @@ export function Profile() {
                           />
                         </div>
                       </div>
+                      
+                      {/* Bildirim Tercihleri */}
+                      <div className="space-y-3 p-4 bg-muted rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-5 h-5 text-orange-500" />
+                          <Label className="font-medium">Sipariş Bildirim Tercihi</Label>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Sipariş durumlarında size nasıl ulaşalım?
+                        </p>
+                        <div className="grid grid-cols-3 gap-3">
+                          <label 
+                            className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                              profileData.notificationPreference === 'email' 
+                                ? 'border-orange-500 bg-orange-50' 
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="notification"
+                              value="email"
+                              checked={profileData.notificationPreference === 'email'}
+                              onChange={(e) => setProfileData({...profileData, notificationPreference: e.target.value as 'email' | 'sms' | 'both'})}
+                              className="sr-only"
+                            />
+                            <Mail className="w-6 h-6 text-blue-500" />
+                            <span className="text-sm font-medium">Sadece Email</span>
+                            <span className="text-xs text-muted-foreground">Ücretsiz</span>
+                          </label>
+                          
+                          <label 
+                            className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                              profileData.notificationPreference === 'sms' 
+                                ? 'border-orange-500 bg-orange-50' 
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="notification"
+                              value="sms"
+                              checked={profileData.notificationPreference === 'sms'}
+                              onChange={(e) => setProfileData({...profileData, notificationPreference: e.target.value as 'email' | 'sms' | 'both'})}
+                              className="sr-only"
+                            />
+                            <MessageCircle className="w-6 h-6 text-green-500" />
+                            <span className="text-sm font-medium">Sadece SMS</span>
+                            <span className="text-xs text-muted-foreground">Ücretli</span>
+                          </label>
+                          
+                          <label 
+                            className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                              profileData.notificationPreference === 'both' 
+                                ? 'border-orange-500 bg-orange-50' 
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="notification"
+                              value="both"
+                              checked={profileData.notificationPreference === 'both'}
+                              onChange={(e) => setProfileData({...profileData, notificationPreference: e.target.value as 'email' | 'sms' | 'both'})}
+                              className="sr-only"
+                            />
+                            <Bell className="w-6 h-6 text-purple-500" />
+                            <span className="text-sm font-medium">Her İkisi</span>
+                            <span className="text-xs text-muted-foreground">En Güvenli</span>
+                          </label>
+                        </div>
+                      </div>
+                      
                       <div className="flex justify-end gap-3">
                         <Button variant="outline" onClick={() => setIsEditing(false)}>
                           İptal
@@ -361,6 +437,19 @@ export function Profile() {
                           <div>
                             <p className="text-sm text-muted-foreground">Telefon</p>
                             <p className="font-medium">{user.phone || 'Belirtilmemiş'}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
+                          <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <Bell className="w-6 h-6 text-orange-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Bildirim Tercihi</p>
+                            <p className="font-medium">
+                              {user.notificationPreference === 'sms' ? 'Sadece SMS' : 
+                               user.notificationPreference === 'both' ? 'Email + SMS' : 'Sadece Email'}
+                            </p>
                           </div>
                         </div>
                         
