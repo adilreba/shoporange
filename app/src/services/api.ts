@@ -80,7 +80,7 @@ async function initializeMockUsers() {
 const FORCE_MOCK_MODE = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
 
 // Check if using mock API (no real backend configured)
-const isMockMode = () => {
+export const isMockMode = () => {
   // Force mock mode aktifse her zaman true döndür
   if (FORCE_MOCK_MODE) return true;
   

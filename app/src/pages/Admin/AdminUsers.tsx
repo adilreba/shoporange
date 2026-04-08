@@ -4,12 +4,13 @@ import {
   ArrowLeft, Search, Mail, Phone, Calendar, Trash2, RefreshCw, 
   AlertTriangle, UserX, UserCheck, Shield, Edit2
 } from 'lucide-react';
-import { api, userApi } from '@/services/api';
+import { api, userApi, isMockMode } from '@/services/api';
+import { mockUsers } from '@/data/mockData';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { usePermissions } from '@/hooks/usePermissions';
-import type { UserRole } from '@/types';
+import type { UserRole, User } from '@/types';
 import { ROLE_NAMES, ROLE_COLORS } from '@/types';
 import {
   Table,
@@ -46,22 +47,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  createdAt: string;
-  role: UserRole;
-  isActive?: boolean;
-  deletedAt?: string | null;
-  deletedBy?: string | null;
-  address?: {
-    street: string;
-    city: string;
-    postalCode: string;
-  };
-}
+// User tipi @/types'den geliyor
 
 // Hassas veriyi maskele
 const maskEmail = (email: string): string => {
@@ -104,6 +90,15 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      
+      // Mock mode'da mockUsers kullan
+      if (isMockMode()) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setUsers(mockUsers.filter((u: any) => u.role !== 'super_admin' || u.id === 'superadmin1'));
+        setDeletedUsers([]);
+        return;
+      }
+      
       const [activeRes, deletedRes] = await Promise.all([
         api.get('/admin/users'),
         userApi.getDeletedUsers(),
@@ -118,6 +113,9 @@ export default function AdminUsers() {
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Kullanıcılar yüklenirken bir sorun oluştu');
+      // Hata durumunda mock veri kullan
+      setUsers(mockUsers);
+      setDeletedUsers([]);
     } finally {
       setLoading(false);
     }
@@ -416,12 +414,12 @@ export default function AdminUsers() {
                                     </div>
                                   </div>
 
-                                  {user.address && (
+                                  {user.address && user.address.length > 0 && (
                                     <div>
                                       <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Adres</p>
                                       <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 text-gray-900 dark:text-white">
-                                        <p>{user.address.street}</p>
-                                        <p>{user.address.city}, {user.address.postalCode}</p>
+                                        <p>{user.address[0].addressLine}</p>
+                                        <p>{user.address[0].city}, {user.address[0].zipCode}</p>
                                       </div>
                                     </div>
                                   )}

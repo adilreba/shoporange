@@ -943,7 +943,7 @@ export const adminMockOrders = [
 ];
 
 // Mock Users for Admin Panel
-export const mockUsers = [
+export const mockUsers: User[] = [
   {
     id: 'u1',
     name: 'Ahmet Yılmaz',
@@ -951,7 +951,7 @@ export const mockUsers = [
     phone: '0532 123 4567',
     role: 'user',
     createdAt: '2024-01-15',
-    orders: 5
+    isActive: true
   },
   {
     id: 'u2',
@@ -960,7 +960,7 @@ export const mockUsers = [
     phone: '0533 234 5678',
     role: 'user',
     createdAt: '2024-02-01',
-    orders: 3
+    isActive: true
   },
   {
     id: 'u3',
@@ -969,7 +969,7 @@ export const mockUsers = [
     phone: '0534 345 6789',
     role: 'user',
     createdAt: '2024-02-10',
-    orders: 8
+    isActive: true
   },
   {
     id: 'u4',
@@ -978,7 +978,7 @@ export const mockUsers = [
     phone: '0535 456 7890',
     role: 'user',
     createdAt: '2024-02-20',
-    orders: 2
+    isActive: true
   },
   {
     id: 'u5',
@@ -987,7 +987,7 @@ export const mockUsers = [
     phone: '0536 567 8901',
     role: 'user',
     createdAt: '2024-03-01',
-    orders: 1
+    isActive: true
   },
   {
     id: 'admin1',
@@ -996,7 +996,7 @@ export const mockUsers = [
     phone: '0850 123 4567',
     role: 'admin',
     createdAt: '2023-12-01',
-    orders: 0
+    isActive: true
   },
   {
     id: 'superadmin1',
@@ -1005,6 +1005,6 @@ export const mockUsers = [
     phone: '0850 999 0000',
     role: 'super_admin',
     createdAt: '2023-11-01',
-    orders: 0
+    isActive: true
   }
 ];
