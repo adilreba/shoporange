@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, Search, Mail, Phone, Calendar, Trash2, RefreshCw, 
@@ -93,25 +93,24 @@ export default function AdminUsers() {
     return ['user'];
   };
   
-  // Kullanıcıları filtrele (arama + rol)
-  const filteredUsers = users.filter(user => {
-    // Önce yetki kontrolü - kullanıcı kendi seviyesinden yüksek rolü göremez
-    if (!getVisibleRoles().includes(user.role)) return false;
-    
-    // Kendini görmemesi için (isteğe bağlı)
-    // if (user.id === currentUser?.id) return false;
-    
-    // Rol filtresi
-    if (roleFilter !== 'all' && user.role !== roleFilter) return false;
-    
-    // Arama filtresi
-    const search = searchTerm.toLowerCase();
-    return (
-      user.name.toLowerCase().includes(search) ||
-      user.email.toLowerCase().includes(search) ||
-      (user.phone && user.phone.includes(search))
-    );
-  });
+  // Kullanıcıları filtrele (arama + rol) - useMemo ile optimize edildi
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      // Önce yetki kontrolü - kullanıcı kendi seviyesinden yüksek rolü göremez
+      if (!getVisibleRoles().includes(user.role)) return false;
+      
+      // Rol filtresi
+      if (roleFilter !== 'all' && user.role !== roleFilter) return false;
+      
+      // Arama filtresi
+      const search = searchTerm.toLowerCase();
+      return (
+        user.name.toLowerCase().includes(search) ||
+        user.email.toLowerCase().includes(search) ||
+        (user.phone && user.phone.includes(search))
+      );
+    });
+  }, [users, searchTerm, roleFilter, isSuperAdmin, currentUserRole]);
   
   // Rol sayıları (görünen kullanıcılar için)
   const roleCounts = {
@@ -305,27 +304,36 @@ export default function AdminUsers() {
         </div>
 
         {/* Tabs ve Rol Filtreleri */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        <div className="space-y-4 mb-6">
+          {/* Üst Satır: Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="active" className="flex items-center gap-2">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="active" className="flex items-center gap-2 flex-1 sm:flex-none">
                 <UserCheck className="w-4 h-4" />
-                Aktif Kullanıcılar ({users.length})
+                <span className="hidden sm:inline">Aktif Kullanıcılar</span>
+                <span className="sm:hidden">Aktif</span>
+                <span className="ml-1 text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
+                  {users.filter(u => getVisibleRoles().includes(u.role)).length}
+                </span>
               </TabsTrigger>
-              <TabsTrigger value="deleted" className="flex items-center gap-2">
+              <TabsTrigger value="deleted" className="flex items-center gap-2 flex-1 sm:flex-none">
                 <UserX className="w-4 h-4" />
-                Pasif Kullanıcılar ({deletedUsers.length})
+                <span className="hidden sm:inline">Pasif Kullanıcılar</span>
+                <span className="sm:hidden">Pasif</span>
+                <span className="ml-1 text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
+                  {filteredDeletedUsers.length}
+                </span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
           
-          {/* Rol Filtre Butonları - Yetkili kullanıcılar için */}
-          <div className="flex flex-wrap gap-2">
+          {/* Alt Satır: Rol Filtre Butonları */}
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
             <Button
               variant={roleFilter === 'all' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setRoleFilter('all')}
-              className={roleFilter === 'all' ? 'bg-orange-500 hover:bg-orange-600' : ''}
+              className={`text-xs sm:text-sm ${roleFilter === 'all' ? 'bg-orange-500 hover:bg-orange-600' : ''}`}
             >
               Tümü
             </Button>
@@ -335,10 +343,10 @@ export default function AdminUsers() {
                 variant={roleFilter === 'super_admin' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setRoleFilter('super_admin')}
-                className={roleFilter === 'super_admin' ? 'bg-purple-500 hover:bg-purple-600' : ''}
+                className={`text-xs sm:text-sm ${roleFilter === 'super_admin' ? 'bg-purple-500 hover:bg-purple-600' : ''}`}
               >
-                <Shield className="w-3 h-3 mr-1" />
-                Süper Admin ({roleCounts.super_admin})
+                <Shield className="w-3 h-3 mr-1 hidden sm:inline" />
+                Süper ({roleCounts.super_admin})
               </Button>
             )}
             
@@ -347,7 +355,7 @@ export default function AdminUsers() {
                 variant={roleFilter === 'admin' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setRoleFilter('admin')}
-                className={roleFilter === 'admin' ? 'bg-red-500 hover:bg-red-600' : ''}
+                className={`text-xs sm:text-sm ${roleFilter === 'admin' ? 'bg-red-500 hover:bg-red-600' : ''}`}
               >
                 Admin ({roleCounts.admin})
               </Button>
@@ -357,7 +365,7 @@ export default function AdminUsers() {
               variant={roleFilter === 'editor' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setRoleFilter('editor')}
-              className={roleFilter === 'editor' ? 'bg-blue-500 hover:bg-blue-600' : ''}
+              className={`text-xs sm:text-sm ${roleFilter === 'editor' ? 'bg-blue-500 hover:bg-blue-600' : ''}`}
             >
               Editör ({roleCounts.editor})
             </Button>
@@ -366,7 +374,7 @@ export default function AdminUsers() {
               variant={roleFilter === 'support' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setRoleFilter('support')}
-              className={roleFilter === 'support' ? 'bg-green-500 hover:bg-green-600' : ''}
+              className={`text-xs sm:text-sm ${roleFilter === 'support' ? 'bg-green-500 hover:bg-green-600' : ''}`}
             >
               Destek ({roleCounts.support})
             </Button>
@@ -375,26 +383,25 @@ export default function AdminUsers() {
               variant={roleFilter === 'user' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setRoleFilter('user')}
-              className={roleFilter === 'user' ? 'bg-gray-500 hover:bg-gray-600' : ''}
+              className={`text-xs sm:text-sm ${roleFilter === 'user' ? 'bg-gray-500 hover:bg-gray-600' : ''}`}
             >
               Müşteri ({roleCounts.user})
             </Button>
           </div>
         </div>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="hidden">
+        {/* Search */}
+        <div className="mt-4 mb-6 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+          <Input
+            placeholder="Kullanıcı ara (isim, email, telefon)..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+          />
+        </div>
 
-          {/* Search */}
-          <div className="mt-4 mb-6 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
-            <Input
-              placeholder="Kullanıcı ara (isim, email, telefon)..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
-            />
-          </div>
-
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           {/* Active Users Tab */}
           <TabsContent value="active">
             <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden border border-border">
