@@ -238,8 +238,25 @@ export function Register() {
                   className="mt-1"
                 />
                 <span className="text-sm text-muted-foreground">
-                  <Link to="/terms" className="text-orange-600 hover:underline">Kullanım Koşulları</Link>'nı ve{' '}
-                  <Link to="/privacy" className="text-orange-600 hover:underline">Gizlilik Politikası</Link>'nı okudum ve kabul ediyorum.
+                  <Link 
+                    to="/legal/on-bilgilendirme-formu" 
+                    className="text-orange-600 hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >Ön Bilgilendirme Formu</Link>,{' '}
+                  <Link 
+                    to="/legal/mesafeli-satis-sozlesmesi" 
+                    className="text-orange-600 hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >Mesafeli Satış Sözleşmesi</Link>'ni ve{' '}
+                  <Link 
+                    to="/legal/gizlilik-politikasi" 
+                    className="text-orange-600 hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >Gizlilik Politikası</Link>'nı okudum ve kabul ediyorum.
+                  <span className="text-xs text-gray-400 block mt-1">(Yeni sekmede açılır)</span>
                 </span>
               </label>
 
