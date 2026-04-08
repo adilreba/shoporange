@@ -41,6 +41,7 @@ import { useCartStore } from '@/stores/cartStore';
 import { useWishlistStore } from '@/stores/wishlistStore';
 import { useCompareStore } from '@/stores/compareStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { usePermissions } from '@/hooks/usePermissions';
 import { categories } from '@/data/mockData';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { LiveSearch } from '@/components/search/LiveSearch';
@@ -55,6 +56,7 @@ export function Header() {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { isDark, toggleTheme } = useThemeStore();
+  const { isAdmin } = usePermissions();
   const { totalItems } = useCartStore();
   const { getWishlistCount } = useWishlistStore();
   const { getCompareCount } = useCompareStore();
@@ -372,7 +374,7 @@ export function Header() {
                       <User className="h-4 w-4 mr-2" />
                       Profilim
                     </DropdownMenuItem>
-                    {isAuthenticated && user?.role === 'admin' && (
+                    {isAuthenticated && isAdmin && (
                       <DropdownMenuItem onClick={() => navigate('/admin')}>
                         <BarChart3 className="h-4 w-4 mr-2" />
                         Admin Paneli
@@ -437,7 +439,7 @@ export function Header() {
                       <Ticket className="mr-2 h-4 w-4" />
                       Kuponlarım
                     </DropdownMenuItem>
-                    {user?.role === 'admin' && (
+                    {isAdmin && (
                     <DropdownMenuItem asChild>
                       <Link to="/admin" className="flex items-center cursor-pointer">
                         <BarChart3 className="mr-2 h-4 w-4" />
