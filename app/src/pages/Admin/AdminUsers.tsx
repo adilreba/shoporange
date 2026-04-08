@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { api, userApi, isMockMode } from '@/services/api';
 import { mockUsers } from '@/data/mockData';
+import { MOCK_USERS as authStoreUsers } from '@/stores/authStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -129,28 +130,28 @@ export default function AdminUsers() {
     try {
       setLoading(true);
       
-      // Mock mode'da mockUsers kullan ve localStorage'dan ek kullanıcıları al
+      // Mock mode'da mockUsers kullan ve authStore'daki kullanıcıları birleştir
       if (isMockMode()) {
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Mock veriler
+        // Mock veriler (mockData.ts)
         const baseUsers = mockUsers.filter((u: any) => u.role !== 'super_admin' || u.id === 'superadmin1');
         
-        // localStorage'dan auth-storage'ı oku ve kullanıcıları al
-        let storageUsers: User[] = [];
-        try {
-          const authStorage = localStorage.getItem('auth-storage');
-          if (authStorage) {
-            const parsed = JSON.parse(authStorage);
-            if (parsed.state?.user && !baseUsers.find((u: User) => u.email === parsed.state.user.email)) {
-              storageUsers.push(parsed.state.user);
-            }
-          }
-        } catch (e) {
-          console.log('localStorage okuma hatası');
-        }
+        // AuthStore'daki kullanıcılar (Google login ile eklenenler dahil)
+        const allMockUsers = authStoreUsers.filter((u: any) => {
+          // BaseUsers'da olmayanları ekle
+          return !baseUsers.find((bu: User) => bu.email === u.email);
+        }).map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone || '',
+          role: u.role,
+          createdAt: u.createdAt,
+          isActive: true,
+        }));
         
-        setUsers([...baseUsers, ...storageUsers]);
+        setUsers([...baseUsers, ...allMockUsers]);
         setDeletedUsers([]);
         return;
       }

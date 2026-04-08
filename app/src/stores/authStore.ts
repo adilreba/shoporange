@@ -10,7 +10,8 @@ const loginRateLimiter = new ClientRateLimiter();
 const registerRateLimiter = new ClientRateLimiter();
 
 // Mock kullanıcılar (demo için)
-const MOCK_USERS = [
+// Export for admin panel to access all mock users
+export const MOCK_USERS = [
   {
     id: 'superadmin-1',
     email: 'superadmin@atushome.com',
