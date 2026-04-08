@@ -11,8 +11,10 @@ import {
   Settings2,
   Layers,
   AlertCircle,
-  Check
+  Check,
+  Wand2
 } from 'lucide-react';
+import { products } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,6 +70,10 @@ export default function ProductForm() {
     basePrice: '',
     category: '',
     brand: '',
+    sku: '',
+    barcode: '',
+    stockCode: '',
+    supplierCode: '',
     tags: [] as string[],
     featured: false,
     active: true
@@ -145,6 +151,91 @@ export default function ProductForm() {
 
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
+  };
+
+  // SKU için kategori kodu al
+  const getCategoryCode = (categoryId: string): string => {
+    const categoryMap: Record<string, string> = {
+      'elektronik': 'ELK',
+      'moda': 'MOD',
+      'ev-yasam': 'EVY',
+      'kozmetik': 'KOZ',
+      'spor': 'SPO',
+      'kitap': 'KIT',
+      'oyuncak': 'OYN',
+      'supermarket': 'SUP',
+      'gida': 'GID',
+      'temizlik': 'TMZ',
+      'kisisel-bakim': 'KSB',
+    };
+    return categoryMap[categoryId] || 'GEN';
+  };
+
+  // Marka kodu al
+  const getBrandCode = (brand: string): string => {
+    if (!brand) return 'GEN';
+    const normalized = brand.toUpperCase()
+      .replace(/[Ç]/g, 'C')
+      .replace(/[Ğ]/g, 'G')
+      .replace(/[İ]/g, 'I')
+      .replace(/[Ö]/g, 'O')
+      .replace(/[Ş]/g, 'S')
+      .replace(/[Ü]/g, 'U');
+    return normalized.substring(0, 3);
+  };
+
+  // Benzersiz SKU üret
+  const generateSKU = () => {
+    const categoryCode = getCategoryCode(formData.category);
+    const brandCode = getBrandCode(formData.brand);
+    
+    // Mevcut ürünleri kontrol et ve son numarayı bul
+    const existingSKUs = products
+      .filter(p => p.sku?.startsWith(`${categoryCode}-${brandCode}`))
+      .map(p => {
+        const match = p.sku?.match(/-(\d+)$/);
+        return match ? parseInt(match[1]) : 0;
+      });
+    
+    const maxNum = existingSKUs.length > 0 ? Math.max(...existingSKUs) : 0;
+    const nextNum = String(maxNum + 1).padStart(3, '0');
+    
+    const sku = `${categoryCode}-${brandCode}-${nextNum}`;
+    setFormData(prev => ({ ...prev, sku }));
+    toast.success('SKU otomatik oluşturuldu');
+  };
+
+  // EAN-13 Barkod kontrol digit hesapla
+  const calculateEANCheckDigit = (digits: string): string => {
+    let sum = 0;
+    for (let i = 0; i < digits.length; i++) {
+      const digit = parseInt(digits[i]);
+      sum += i % 2 === 0 ? digit : digit * 3;
+    }
+    const checkDigit = (10 - (sum % 10)) % 10;
+    return String(checkDigit);
+  };
+
+  // Benzersiz EAN-13 barkod üret (868 ile başlayan Türkiye kodu)
+  const generateBarcode = () => {
+    // 868: Türkiye ülke kodu
+    const countryCode = '868';
+    
+    // Mevcut barkodları kontrol et
+    const existingBarcodes = products
+      .filter(p => p.barcode?.startsWith(countryCode))
+      .map(p => parseInt(p.barcode?.slice(3, 12) || '0'));
+    
+    const maxNum = existingBarcodes.length > 0 ? Math.max(...existingBarcodes) : 10000000;
+    const nextNum = String(maxNum + 1).padStart(9, '0');
+    
+    // 12 haneli kod + kontrol rakamı
+    const barcodeWithoutCheck = countryCode + nextNum;
+    const checkDigit = calculateEANCheckDigit(barcodeWithoutCheck);
+    const barcode = barcodeWithoutCheck + checkDigit;
+    
+    setFormData(prev => ({ ...prev, barcode }));
+    toast.success('EAN-13 barkod otomatik oluşturuldu');
   };
 
   // Toggle attribute option selection
@@ -387,6 +478,74 @@ export default function ProductForm() {
                       value={formData.brand}
                       onChange={(e) => setFormData({...formData, brand: e.target.value})}
                       placeholder="Marka adı"
+                    />
+                  </div>
+                </div>
+
+                {/* SKU ve Barkod Bilgileri */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">SKU (Stok Kodu) *</label>
+                    <div className="flex gap-2">
+                      <Input 
+                        value={formData.sku}
+                        onChange={(e) => setFormData({...formData, sku: e.target.value})}
+                        placeholder="ELK-APP-001"
+                        required
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={generateSKU}
+                        title="Otomatik SKU Oluştur"
+                      >
+                        <Wand2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Format: KATEGORI-MARKA-001 (otomatik veya manuel)
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Barkod (EAN-13)</label>
+                    <div className="flex gap-2">
+                      <Input 
+                        value={formData.barcode}
+                        onChange={(e) => setFormData({...formData, barcode: e.target.value})}
+                        placeholder="8680000000000"
+                        maxLength={13}
+                        className="flex-1 font-mono"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={generateBarcode}
+                        title="Otomatik Barkod Oluştur"
+                      >
+                        <Wand2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      868 ile başlayan EAN-13 (Türkiye kodu)
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Depo Kodu</label>
+                    <Input 
+                      value={formData.stockCode}
+                      onChange={(e) => setFormData({...formData, stockCode: e.target.value})}
+                      placeholder="DEPO-A-123"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Tedarikçi Kodu</label>
+                    <Input 
+                      value={formData.supplierCode}
+                      onChange={(e) => setFormData({...formData, supplierCode: e.target.value})}
+                      placeholder="TED-456"
                     />
                   </div>
                 </div>

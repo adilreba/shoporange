@@ -2301,6 +2301,353 @@ Resources:
             Method: post
             RestApiId: !Ref ApiGateway
 
+  # Shipping/Kargo Functions
+  CreateShipmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.createShipment
+      Description: Create new shipment with cargo provider
+      Environment:
+        Variables:
+          SHIPPING_TABLE: !Ref ShippingTable
+          ORDERS_TABLE: !Ref OrdersTable
+          YURTICI_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/yurtici-kargo'
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ShippingTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/yurtici-kargo-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  TrackShipmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.trackShipment
+      Description: Track shipment status
+      Environment:
+        Variables:
+          YURTICI_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/yurtici-kargo'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/yurtici-kargo-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping/track/{trackingNumber}
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  CancelShipmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.cancelShipment
+      Description: Cancel shipment
+      Environment:
+        Variables:
+          SHIPPING_TABLE: !Ref ShippingTable
+          ORDERS_TABLE: !Ref OrdersTable
+          YURTICI_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/yurtici-kargo'
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ShippingTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/yurtici-kargo-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping/{id}/cancel
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  GetShipmentsByOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.getShipmentsByOrder
+      Description: Get shipments by order ID
+      Environment:
+        Variables:
+          SHIPPING_TABLE: !Ref ShippingTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ShippingTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping/order/{orderId}
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  CreateBarcodeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.createBarcode
+      Description: Create shipping barcode/PDF
+      Environment:
+        Variables:
+          YURTICI_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/yurtici-kargo'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/yurtici-kargo-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping/barcode
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  TestShippingConnectionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/shipping
+      Handler: index.testConnection
+      Description: Test cargo provider connection
+      Environment:
+        Variables:
+          YURTICI_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/yurtici-kargo'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/yurtici-kargo-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /shipping/test/{provider}
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  # Paraşüt e-Fatura Integration
+  ParasutConfigFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.parasutConfig
+      Description: Paraşüt API configuration management
+      Environment:
+        Variables:
+          PARASUT_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/parasut'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/parasut-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/parasut/config
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  ParasutConfigUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.parasutConfigUpdate
+      Description: Update Paraşüt API configuration
+      Environment:
+        Variables:
+          PARASUT_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/parasut'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/parasut-*'
+        - Statement:
+          - Effect: Allow
+            Action:
+              - secretsmanager:PutSecretValue
+              - secretsmanager:CreateSecret
+            Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/parasut-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/parasut/config
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  ParasutTestConnectionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.parasutTest
+      Description: Test Paraşüt API connection
+      Environment:
+        Variables:
+          PARASUT_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/parasut'
+          PARASUT_MOCK_MODE: 'false'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/parasut-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/parasut/test
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  ParasutStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.parasutStatus
+      Description: Get Paraşüt connection status
+      Environment:
+        Variables:
+          PARASUT_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/parasut'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/parasut-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/parasut/status
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  ParasutInvoiceSyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.parasutSync
+      Description: Sync invoice status with Paraşüt
+      Environment:
+        Variables:
+          PARASUT_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/parasut'
+          INVOICES_TABLE: !Ref InvoicesTable
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/parasut-*'
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InvoicesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/parasut/invoices/{id}/sync
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  # İyzico Payment Functions
+  IyzicoCreatePaymentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/payments
+      Handler: index.iyzicoCreatePayment
+      Description: Create İyzico 3D Secure payment
+      Environment:
+        Variables:
+          IYZICO_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/iyzico'
+          IYZICO_MOCK_MODE: 'true'
+          FRONTEND_URL: !Sub 'https://${CloudFrontDistribution.DomainName}'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/iyzico-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payments/iyzico/create
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  IyzicoVerifyPaymentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/payments
+      Handler: index.iyzicoVerifyPayment
+      Description: Verify İyzico 3D Secure payment
+      Environment:
+        Variables:
+          IYZICO_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/iyzico'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/iyzico-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payments/iyzico/verify
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  IyzicoInstallmentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/payments
+      Handler: index.iyzicoGetInstallments
+      Description: Get İyzico installment options
+      Environment:
+        Variables:
+          IYZICO_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/iyzico'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/iyzico-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payments/iyzico/installments
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  IyzicoRefundFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/payments
+      Handler: index.iyzicoRefund
+      Description: Refund İyzico payment
+      Environment:
+        Variables:
+          IYZICO_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/iyzico'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/iyzico-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payments/iyzico/refund
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  IyzicoCancelFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/payments
+      Handler: index.iyzicoCancel
+      Description: Cancel İyzico payment
+      Environment:
+        Variables:
+          IYZICO_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/iyzico'
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/iyzico-*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /payments/iyzico/cancel
+            Method: post
+            RestApiId: !Ref ApiGateway
+
   # Cognito User Pool Domain for OAuth
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain

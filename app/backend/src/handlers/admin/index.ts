@@ -1,13 +1,17 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { SecretsManagerClient, GetSecretValueCommand, PutSecretValueCommand, CreateSecretCommand } from '@aws-sdk/client-secrets-manager';
+import * as parasut from '../../services/parasut';
 
 // DynamoDB client - SDK v3
 const client = new DynamoDBClient({});
 const dynamodb = DynamoDBDocumentClient.from(client);
+const secretsManager = new SecretsManagerClient({});
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE || '';
 const ORDERS_TABLE = process.env.ORDERS_TABLE || '';
 const USERS_TABLE = process.env.USERS_TABLE || '';
+const PARASUT_SECRET_NAME = process.env.PARASUT_SECRET_NAME || 'atushome/parasut';
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -365,5 +369,207 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (method === 'POST') return seedData();
   }
 
+  // Paraşüt Routes
+  if (path === '/admin/parasut/config' || path.endsWith('/admin/parasut/config')) {
+    if (method === 'GET') return parasutConfigGet();
+    if (method === 'PUT') return parasutConfigUpdate(event);
+  }
+
+  if (path === '/admin/parasut/test' || path.endsWith('/admin/parasut/test')) {
+    if (method === 'POST') return parasutTest();
+  }
+
+  if (path === '/admin/parasut/status' || path.endsWith('/admin/parasut/status')) {
+    if (method === 'GET') return parasutStatus();
+  }
+
+  if (path.includes('/admin/parasut/invoices/') && path.includes('/sync')) {
+    if (method === 'POST') return parasutInvoiceSync(event);
+  }
+
   return createErrorResponse(404, 'Not found');
+};
+
+// ========== PARASUT INTEGRATION ==========
+
+async function getParasutSecret(): Promise<any> {
+  try {
+    const secret = await secretsManager.send(new GetSecretValueCommand({
+      SecretId: PARASUT_SECRET_NAME,
+    }));
+    return secret.SecretString ? JSON.parse(secret.SecretString) : null;
+  } catch (error) {
+    console.log('Paraşüt secret bulunamadı, mock mode kullanılacak');
+    return {
+      clientId: 'mock',
+      clientSecret: 'mock',
+      username: 'mock',
+      password: 'mock',
+      companyId: 'mock',
+      isTestMode: true,
+    };
+  }
+}
+
+// Paraşüt yapılandırmasını getir
+export const parasutConfigGet = async (): Promise<APIGatewayProxyResult> => {
+  try {
+    const config = await getParasutSecret();
+    
+    // Hassas bilgileri maskele
+    return createSuccessResponse({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret === 'mock' ? '' : '********',
+      username: config.username,
+      password: config.password === 'mock' ? '' : '********',
+      companyId: config.companyId,
+      isTestMode: config.isTestMode ?? true,
+    });
+  } catch (error) {
+    console.error('Paraşüt config hatası:', error);
+    return createErrorResponse(500, 'Yapılandırma alınamadı');
+  }
+};
+
+// Paraşüt yapılandırmasını güncelle
+export const parasutConfigUpdate = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    if (!event.body) {
+      return createErrorResponse(400, 'Request body required');
+    }
+
+    const config = JSON.parse(event.body);
+    
+    // Mevcut config'i al (maskeleme kontrolü için)
+    const currentConfig = await getParasutSecret();
+    
+    // Yeni config oluştur
+    const newConfig = {
+      clientId: config.clientId || currentConfig.clientId,
+      clientSecret: config.clientSecret === '********' ? currentConfig.clientSecret : config.clientSecret,
+      username: config.username || currentConfig.username,
+      password: config.password === '********' ? currentConfig.password : config.password,
+      companyId: config.companyId || currentConfig.companyId,
+      isTestMode: config.isTestMode ?? currentConfig.isTestMode ?? true,
+    };
+
+    // Secrets Manager'da güncelle veya oluştur
+    try {
+      await secretsManager.send(new PutSecretValueCommand({
+        SecretId: PARASUT_SECRET_NAME,
+        SecretString: JSON.stringify(newConfig),
+      }));
+    } catch (error: any) {
+      if (error.name === 'ResourceNotFoundException') {
+        // Secret yoksa oluştur
+        await secretsManager.send(new CreateSecretCommand({
+          Name: PARASUT_SECRET_NAME,
+          SecretString: JSON.stringify(newConfig),
+        }));
+      } else {
+        throw error;
+      }
+    }
+
+    return createSuccessResponse({
+      success: true,
+      message: 'Yapılandırma kaydedildi',
+    });
+  } catch (error) {
+    console.error('Paraşüt config update hatası:', error);
+    return createErrorResponse(500, 'Yapılandırma kaydedilemedi');
+  }
+};
+
+// Paraşüt bağlantı testi
+export const parasutTest = async (): Promise<APIGatewayProxyResult> => {
+  try {
+    const result = await parasut.testConnection();
+    return createSuccessResponse(result);
+  } catch (error: any) {
+    console.error('Paraşüt test hatası:', error);
+    return createErrorResponse(500, error.message || 'Bağlantı testi başarısız');
+  }
+};
+
+// Paraşüt durum bilgisi
+export const parasutStatus = async (): Promise<APIGatewayProxyResult> => {
+  try {
+    const config = await getParasutSecret();
+    
+    if (config.clientId === 'mock') {
+      return createSuccessResponse({
+        connected: true,
+        companyName: 'Mock Mode',
+        lastSync: new Date().toISOString(),
+      });
+    }
+
+    // Gerçek bağlantı testi
+    const testResult = await parasut.testConnection();
+    
+    return createSuccessResponse({
+      connected: testResult.success,
+      companyName: testResult.companyName,
+      lastSync: new Date().toISOString(),
+      error: testResult.success ? undefined : testResult.message,
+    });
+  } catch (error: any) {
+    return createSuccessResponse({
+      connected: false,
+      error: error.message,
+    });
+  }
+};
+
+// Paraşüt fatura senkronizasyonu
+export const parasutInvoiceSync = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const invoiceId = event.pathParameters?.id;
+    if (!invoiceId) {
+      return createErrorResponse(400, 'Invoice ID required');
+    }
+
+    // Faturayı getir
+    const invoiceResult = await dynamodb.send(new GetCommand({
+      TableName: process.env.INVOICES_TABLE || '',
+      Key: { invoiceId },
+    }));
+
+    if (!invoiceResult.Item) {
+      return createErrorResponse(404, 'Invoice not found');
+    }
+
+    const invoice = invoiceResult.Item;
+    
+    if (!invoice.parasutInvoiceId) {
+      return createErrorResponse(400, 'Fatura henüz Paraşüt\'e gönderilmemiş');
+    }
+
+    // Paraşüt'ten durum al
+    const status = await parasut.getInvoiceStatus(invoice.parasutInvoiceId);
+
+    // Durumu güncelle
+    await dynamodb.send(new UpdateCommand({
+      TableName: process.env.INVOICES_TABLE || '',
+      Key: { invoiceId },
+      UpdateExpression: 'set gibStatus = :gibStatus, status = :status, pdfUrl = :pdfUrl, updatedAt = :updatedAt',
+      ExpressionAttributeValues: {
+        ':gibStatus': status.gibStatus,
+        ':status': status.status,
+        ':pdfUrl': status.pdfUrl,
+        ':updatedAt': new Date().toISOString(),
+      },
+    }));
+
+    return createSuccessResponse({
+      success: true,
+      status: status.status,
+      gibStatus: status.gibStatus,
+      pdfUrl: status.pdfUrl,
+    });
+  } catch (error: any) {
+    console.error('Paraşüt sync hatası:', error);
+    return createErrorResponse(500, error.message || 'Senkronizasyon başarısız');
+  }
 };

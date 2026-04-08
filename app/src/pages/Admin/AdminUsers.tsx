@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Search, Mail, Phone, Calendar } from 'lucide-react';
-import { api } from '@/services/api';
+import { 
+  ArrowLeft, Search, Mail, Phone, Calendar, Trash2, RefreshCw, 
+  AlertTriangle, UserX, UserCheck, Shield, Edit2
+} from 'lucide-react';
+import { api, userApi } from '@/services/api';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { usePermissions } from '@/hooks/usePermissions';
+import type { UserRole } from '@/types';
+import { ROLE_NAMES, ROLE_COLORS } from '@/types';
 import {
   Table,
   TableBody,
@@ -18,6 +26,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface User {
   id: string;
@@ -25,6 +52,10 @@ interface User {
   email: string;
   phone?: string;
   createdAt: string;
+  role: UserRole;
+  isActive?: boolean;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
   address?: {
     street: string;
     city: string;
@@ -32,11 +63,39 @@ interface User {
   };
 }
 
+// Hassas veriyi maskele
+const maskEmail = (email: string): string => {
+  if (!email || !email.includes('@')) return email;
+  const [local, domain] = email.split('@');
+  const maskedLocal = local[0] + '***';
+  return `${maskedLocal}@${domain}`;
+};
+
+const maskPhone = (phone: string): string => {
+  if (!phone) return phone;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 4) return phone;
+  const last4 = digits.slice(-4);
+  const countryCode = phone.startsWith('+') ? phone.split(' ')[0] : '';
+  return `${countryCode} *** ** ** ${last4}`;
+};
+
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
+  const [deletedUsers, setDeletedUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [, setSelectedUser] = useState<User | null>(null);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [userToRestore, setUserToRestore] = useState<User | null>(null);
+  const [userToChangeRole, setUserToChangeRole] = useState<User | null>(null);
+  const [selectedRole, setSelectedRole] = useState<UserRole>('user');
+  const [activeTab, setActiveTab] = useState('active');
+  
+  // Yetki kontrolü
+  const { can, isSuperAdmin, userRole: currentUserRole } = usePermissions();
+  const canDelete = can('users:delete');
+  const canEdit = can('users:edit');
 
   useEffect(() => {
     fetchUsers();
@@ -45,19 +104,98 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/admin/users');
-      setUsers(response.data || []);
+      const [activeRes, deletedRes] = await Promise.all([
+        api.get('/admin/users'),
+        userApi.getDeletedUsers(),
+      ]);
+      
+      const allUsers = activeRes.data || [];
+      const activeUsers = allUsers.filter((u: User) => u.isActive !== false);
+      const deleted = deletedRes.data || [];
+      
+      setUsers(activeUsers);
+      setDeletedUsers(deleted);
     } catch (error) {
       console.error('Error fetching users:', error);
+      toast.error('Kullanıcılar yüklenirken bir sorun oluştu');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSoftDelete = async () => {
+    if (!userToDelete) return;
+    
+    try {
+      await userApi.softDelete(userToDelete.id, 'admin');
+      toast.success(`${userToDelete.name} pasif yapıldı`);
+      fetchUsers();
+    } catch (error) {
+      toast.error('İşlem başarısız oldu');
+    } finally {
+      setUserToDelete(null);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!userToRestore) return;
+    
+    try {
+      await userApi.restore(userToRestore.id);
+      toast.success(`${userToRestore.name} aktif edildi`);
+      fetchUsers();
+    } catch (error) {
+      toast.error('İşlem başarısız oldu');
+    } finally {
+      setUserToRestore(null);
+    }
+  };
+
+  const handleRoleChange = async () => {
+    if (!userToChangeRole) return;
+    
+    // Süper admin sadece süper admin tarafından atanabilir
+    if (selectedRole === 'super_admin' && !isSuperAdmin) {
+      toast.error('Sadece Süper Admin bu rolü atayabilir');
+      return;
+    }
+    
+    // Kendi rolünü değiştiremez
+    if (userToChangeRole.id === 'admin-1' || userToChangeRole.id === 'current-user') {
+      toast.error('Kendi rolünüzü değiştiremezsiniz');
+      return;
+    }
+
+    try {
+      await userApi.updateRole(userToChangeRole.id, selectedRole);
+      toast.success(`${userToChangeRole.name} kullanıcısının rolü ${ROLE_NAMES[selectedRole]} olarak güncellendi`);
+      fetchUsers();
+    } catch (error) {
+      toast.error('Rol güncellenirken bir hata oluştu');
+    } finally {
+      setUserToChangeRole(null);
+    }
+  };
+
+  const openRoleDialog = (user: User) => {
+    setUserToChangeRole(user);
+    setSelectedRole(user.role || 'user');
+  };
+
+  // Rol badge rengi
+  const getRoleBadgeColor = (role: UserRole) => {
+    return ROLE_COLORS[role] || 'bg-gray-400';
   };
 
   const filteredUsers = users.filter(user =>
     user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.phone?.includes(searchTerm)
+  );
+
+  const filteredDeletedUsers = deletedUsers.filter(user =>
+    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const formatDate = (dateString: string) => {
@@ -86,7 +224,12 @@ export default function AdminUsers() {
               <Link to="/admin" className="mr-4">
                 <ArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
               </Link>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Kullanıcı Yönetimi</h1>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Kullanıcı Yönetimi</h1>
+                <p className="text-sm text-gray-500 mt-1">
+                  Rolünüz: <Badge className={ROLE_COLORS[currentUserRole]}>{ROLE_NAMES[currentUserRole]}</Badge>
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -95,174 +238,431 @@ export default function AdminUsers() {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-border">
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Toplam Kullanıcı</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{users.length}</p>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+          <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm p-5 border border-border">
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Aktif Kullanıcı</p>
+            <p className="text-2xl font-bold text-green-600 mt-1">{users.length}</p>
           </div>
-          <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-border">
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Bu Ay Yeni</p>
-            <p className="text-3xl font-bold text-green-600 mt-2">
-              {users.filter(u => {
-                const userDate = new Date(u.createdAt);
-                const now = new Date();
-                return userDate.getMonth() === now.getMonth() && 
-                       userDate.getFullYear() === now.getFullYear();
-              }).length}
+          <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm p-5 border border-border">
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Süper Admin</p>
+            <p className="text-2xl font-bold text-purple-600 mt-1">
+              {users.filter(u => u.role === 'super_admin').length}
             </p>
           </div>
-          <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-border">
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Telefonlu Kullanıcı</p>
-            <p className="text-3xl font-bold text-blue-600 mt-2">
-              {users.filter(u => u.phone).length}
+          <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm p-5 border border-border">
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Admin</p>
+            <p className="text-2xl font-bold text-red-500 mt-1">
+              {users.filter(u => u.role === 'admin').length}
             </p>
+          </div>
+          <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm p-5 border border-border">
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Editör/Destek</p>
+            <p className="text-2xl font-bold text-blue-600 mt-1">
+              {users.filter(u => ['editor', 'support'].includes(u.role)).length}
+            </p>
+          </div>
+          <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm p-5 border border-border">
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Pasif</p>
+            <p className="text-2xl font-bold text-gray-500 mt-1">{deletedUsers.length}</p>
           </div>
         </div>
 
-        {/* Search */}
-        <div className="mb-6 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
-          <Input
-            placeholder="Kullanıcı ara (isim, email, telefon)..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
-          />
-        </div>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsList>
+            <TabsTrigger value="active" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              Aktif Kullanıcılar ({users.length})
+            </TabsTrigger>
+            <TabsTrigger value="deleted" className="flex items-center gap-2">
+              <UserX className="w-4 h-4" />
+              Pasif Kullanıcılar ({deletedUsers.length})
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Users Table */}
-        <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Kullanıcı</TableHead>
-                <TableHead>İletişim</TableHead>
-                <TableHead>Kayıt Tarihi</TableHead>
-                <TableHead className="text-right">İşlemler</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    Kullanıcı bulunamadı
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mr-3">
-                          <span className="text-orange-600 dark:text-orange-400 font-medium">
-                            {user.name?.charAt(0).toUpperCase() || '?'}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{user.name || 'İsimsiz'}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{user.id.substring(0, 8)}...</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {user.email && (
-                          <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                            <Mail className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                            {user.email}
-                          </div>
-                        )}
-                        {user.phone && (
-                          <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                            <Phone className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                            {user.phone}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                        {formatDate(user.createdAt)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <button
-                            className="text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300 font-medium text-sm"
-                            onClick={() => setSelectedUser(user)}
-                          >
-                            Detaylar
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-lg bg-card dark:bg-gray-800">
-                          <DialogHeader>
-                            <DialogTitle className="text-gray-900 dark:text-white">Kullanıcı Detayı</DialogTitle>
-                          </DialogHeader>
-                          <div className="mt-4 space-y-4">
-                            <div className="flex items-center">
-                              <div className="w-16 h-16 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mr-4">
-                                <span className="text-orange-600 dark:text-orange-400 font-bold text-2xl">
-                                  {user.name?.charAt(0).toUpperCase() || '?'}
-                                </span>
-                              </div>
-                              <div>
-                                <p className="font-medium text-lg text-gray-900 dark:text-white">{user.name || 'İsimsiz'}</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{user.id}</p>
-                              </div>
+          {/* Search */}
+          <div className="mt-4 mb-6 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+            <Input
+              placeholder="Kullanıcı ara (isim, email, telefon)..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            />
+          </div>
+
+          {/* Active Users Tab */}
+          <TabsContent value="active">
+            <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Kullanıcı</TableHead>
+                    <TableHead>Rol</TableHead>
+                    <TableHead>İletişim (Maskeli)</TableHead>
+                    <TableHead>Kayıt Tarihi</TableHead>
+                    <TableHead className="text-right">İşlemler</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                        Kullanıcı bulunamadı
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mr-3">
+                              <span className="text-orange-600 dark:text-orange-400 font-medium">
+                                {user.name?.charAt(0).toUpperCase() || '?'}
+                              </span>
                             </div>
-
-                            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-3">
-                              {user.email && (
-                                <div className="flex items-center">
-                                  <Mail className="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
-                                  <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
-                                    <p className="font-medium text-gray-900 dark:text-white">{user.email}</p>
-                                  </div>
-                                </div>
-                              )}
-
-                              {user.phone && (
-                                <div className="flex items-center">
-                                  <Phone className="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
-                                  <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Telefon</p>
-                                    <p className="font-medium text-gray-900 dark:text-white">{user.phone}</p>
-                                  </div>
-                                </div>
-                              )}
-
-                              <div className="flex items-center">
-                                <Calendar className="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
-                                <div>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">Kayıt Tarihi</p>
-                                  <p className="font-medium text-gray-900 dark:text-white">{formatDate(user.createdAt)}</p>
-                                </div>
-                              </div>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white">{user.name || 'İsimsiz'}</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{user.id.substring(0, 8)}...</p>
                             </div>
-
-                            {user.address && (
-                              <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Adres</p>
-                                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 text-gray-900 dark:text-white">
-                                  <p>{user.address.street}</p>
-                                  <p>{user.address.city}, {user.address.postalCode}</p>
-                                </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`${getRoleBadgeColor(user.role)} text-white`}>
+                            {ROLE_NAMES[user.role] || 'Müşteri'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {user.email && (
+                              <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                                <Mail className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
+                                {maskEmail(user.email)}
+                              </div>
+                            )}
+                            {user.phone && (
+                              <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                                <Phone className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
+                                {maskPhone(user.phone)}
                               </div>
                             )}
                           </div>
-                        </DialogContent>
-                      </Dialog>
-                    </TableCell>
-                  </TableRow>
-                ))
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                            <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
+                            {formatDate(user.createdAt)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => setSelectedUser(user)}
+                                >
+                                  Detaylar
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-lg bg-card dark:bg-gray-800">
+                                <DialogHeader>
+                                  <DialogTitle className="text-gray-900 dark:text-white">Kullanıcı Detayı</DialogTitle>
+                                </DialogHeader>
+                                <div className="mt-4 space-y-4">
+                                  <div className="flex items-center">
+                                    <div className="w-16 h-16 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mr-4">
+                                      <span className="text-orange-600 dark:text-orange-400 font-bold text-2xl">
+                                        {user.name?.charAt(0).toUpperCase() || '?'}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-lg text-gray-900 dark:text-white">{user.name || 'İsimsiz'}</p>
+                                      <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{user.id}</p>
+                                      <Badge className={`${getRoleBadgeColor(user.role)} text-white mt-1`}>
+                                        {ROLE_NAMES[user.role] || 'Müşteri'}
+                                      </Badge>
+                                    </div>
+                                  </div>
+
+                                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-3">
+                                    {user.email && (
+                                      <div className="flex items-center">
+                                        <Mail className="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
+                                        <div>
+                                          <p className="text-sm text-gray-500 dark:text-gray-400">Email (Maskeli)</p>
+                                          <p className="font-medium text-gray-900 dark:text-white">{maskEmail(user.email)}</p>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {user.phone && (
+                                      <div className="flex items-center">
+                                        <Phone className="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
+                                        <div>
+                                          <p className="text-sm text-gray-500 dark:text-gray-400">Telefon (Maskeli)</p>
+                                          <p className="font-medium text-gray-900 dark:text-white">{maskPhone(user.phone)}</p>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    <div className="flex items-center">
+                                      <Calendar className="w-5 h-5 mr-3 text-gray-400 dark:text-gray-500" />
+                                      <div>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Kayıt Tarihi</p>
+                                        <p className="font-medium text-gray-900 dark:text-white">{formatDate(user.createdAt)}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {user.address && (
+                                    <div>
+                                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Adres</p>
+                                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 text-gray-900 dark:text-white">
+                                        <p>{user.address.street}</p>
+                                        <p>{user.address.city}, {user.address.postalCode}</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+
+                            {/* Rol Değiştir Butonu - Sadece yetkisi olanlar */}
+                            {canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openRoleDialog(user)}
+                                title="Rol Değiştir"
+                              >
+                                <Shield className="w-4 h-4" />
+                              </Button>
+                            )}
+
+                            {/* Sil Butonu - Sadece yetkisi olanlar */}
+                            {canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-600"
+                                onClick={() => setUserToDelete(user)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          {/* Deleted Users Tab */}
+          <TabsContent value="deleted">
+            <div className="bg-card dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden border border-border">
+              {deletedUsers.length === 0 ? (
+                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                  <UserX className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Pasif kullanıcı bulunmuyor</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Kullanıcı</TableHead>
+                      <TableHead>Rol</TableHead>
+                      <TableHead>İletişim</TableHead>
+                      <TableHead>Silinme Tarihi</TableHead>
+                      <TableHead className="text-right">İşlemler</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredDeletedUsers.map((user) => (
+                      <TableRow key={user.id} className="bg-red-50/50 dark:bg-red-900/10">
+                        <TableCell>
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mr-3">
+                              <UserX className="w-5 h-5 text-gray-500" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                                {user.name || 'İsimsiz'}
+                                <Badge variant="destructive" className="text-xs">Pasif</Badge>
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{user.id.substring(0, 8)}...</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="opacity-50">
+                            {ROLE_NAMES[user.role] || 'Müşteri'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {user.email && (
+                              <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                                <Mail className="w-4 h-4 mr-2 text-gray-400" />
+                                {maskEmail(user.email)}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center text-sm text-red-600 dark:text-red-400">
+                            <Calendar className="w-4 h-4 mr-2" />
+                            {user.deletedAt ? formatDate(user.deletedAt) : 'Bilinmiyor'}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700"
+                              onClick={() => setUserToRestore(user)}
+                            >
+                              <RefreshCw className="w-4 h-4 mr-1" />
+                              Aktif Et
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
-            </TableBody>
-          </Table>
-        </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
+
+      {/* Soft Delete Confirmation Dialog */}
+      <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+              Kullanıcıyı Pasif Yap
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{userToDelete?.name}</strong> kullanıcısını pasif yapmak istediğinize emin misiniz?
+              <br /><br />
+              <span className="text-yellow-600 dark:text-yellow-400">
+                ⚠️ Bu işlem kullanıcıyı sistemden silmez, sadece pasif duruma getirir. 
+                Verileri korunur ve daha sonra geri aktif edilebilir.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleSoftDelete}
+              className="bg-yellow-500 hover:bg-yellow-600 text-white"
+            >
+              Pasif Yap
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restore Confirmation Dialog */}
+      <AlertDialog open={!!userToRestore} onOpenChange={() => setUserToRestore(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-green-500" />
+              Kullanıcıyı Aktif Et
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{userToRestore?.name}</strong> kullanıcısını tekrar aktif etmek istediğinize emin misiniz?
+              <br /><br />
+              Kullanıcı giriş yapabilir ve tüm işlemlerine devam edebilir.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleRestore}
+              className="bg-green-500 hover:bg-green-600 text-white"
+            >
+              Aktif Et
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Role Change Dialog */}
+      <AlertDialog open={!!userToChangeRole} onOpenChange={() => setUserToChangeRole(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-500" />
+              Rol Değiştir
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{userToChangeRole?.name}</strong> kullanıcısının rolünü değiştir:
+              <div className="mt-4">
+                <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Rol seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* Süper admin sadece süper admin tarafından atanabilir */}
+                    {(isSuperAdmin) && (
+                      <SelectItem value="super_admin">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                          Süper Admin - Tüm yetkiler
+                        </div>
+                      </SelectItem>
+                    )}
+                    <SelectItem value="admin">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                        Admin - Kullanıcı ve ürün yönetimi
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="editor">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                        Editör - İçerik yönetimi
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="support">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        Destek - Canlı destek ve sipariş
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="user">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                        Müşteri - Standart kullanıcı
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleRoleChange}
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              <Edit2 className="w-4 h-4 mr-1" />
+              Rolü Güncelle
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -27,8 +27,10 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { legalPagesPublicApi, type LegalPage } from '@/services/legalPagesApi';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 export function Footer() {
+  const settings = useSettingsStore(state => state.settings);
   const [email, setEmail] = useState('');
   const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
   const [legalPages, setLegalPages] = useState<Pick<LegalPage, 'slug' | 'title'>[]>([]);
@@ -45,7 +47,6 @@ export function Footer() {
       const pages = await legalPagesPublicApi.getPublished();
       setLegalPages(pages.map(p => ({ slug: p.slug, title: p.title })));
     } catch (error) {
-      // Hata durumunda sessizce başarısız ol, footer çalışmaya devam etsin
       console.log('Yasal sayfalar yüklenemedi');
     } finally {
       setLoadingPages(false);
@@ -63,15 +64,28 @@ export function Footer() {
   };
 
   const handleSocialClick = (platform: string) => {
-    toast.info(`${platform} sayfamız yakında aktif olacak!`);
+    const urls: Record<string, string> = {
+      Facebook: settings.facebookUrl || '',
+      Twitter: settings.twitterUrl || '',
+      Instagram: settings.instagramUrl || '',
+      Youtube: settings.youtubeUrl || ''
+    };
+    
+    const url = urls[platform];
+    if (url && url.startsWith('http')) {
+      window.open(url, '_blank');
+    } else {
+      toast.info(`${platform} sayfamız yakında aktif olacak!`);
+    }
   };
 
   const handlePhoneClick = () => {
-    window.location.href = 'tel:08501234567';
+    const phone = settings.phone?.replace(/\s/g, '') || '08501234567';
+    window.location.href = `tel:${phone}`;
   };
 
   const handleEmailClick = () => {
-    window.location.href = 'mailto:info@atushome.com';
+    window.location.href = `mailto:${settings.storeEmail}`;
   };
 
   const handleFeatureClick = (feature: string) => {
@@ -81,8 +95,13 @@ export function Footer() {
   const featureContent: Record<string, { title: string; description: string; details: string[] }> = {
     shipping: {
       title: 'Ücretsiz Kargo',
-      description: '500₺ ve üzeri siparişlerinizde kargo ücreti ödemeyin!',
-      details: ['500₺ üzeri tüm siparişlerde kargo bedava', '1-3 iş günü içinde kargoya teslim', 'Türkiye\'nin her yerine teslimat', 'Kargo takibi için sipariş numaranızı kullanın']
+      description: `${settings.freeShippingThreshold}₺ ve üzeri siparişlerinizde kargo ücreti ödemeyin!`,
+      details: [
+        `${settings.freeShippingThreshold}₺ üzeri tüm siparişlerde kargo bedava`,
+        '1-3 iş günü içinde kargoya teslim',
+        'Türkiye\nin her yerine teslimat',
+        'Kargo takibi için sipariş numaranızı kullanın'
+      ]
     },
     payment: {
       title: 'Güvenli Ödeme',
@@ -117,6 +136,9 @@ export function Footer() {
     { label: 'İletişim', path: '/contact' },
   ];
 
+  // ETBİS bilgileri tam mı kontrol et
+  const hasCompanyInfo = settings.companyTitle && settings.taxNo && settings.address;
+
   return (
     <footer className="bg-gray-900 text-white">
       {/* Features Bar */}
@@ -124,7 +146,7 @@ export function Footer() {
         <div className="container-custom py-4 sm:py-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {[
-              { id: 'shipping', icon: Truck, title: 'Ücretsiz Kargo', desc: '500₺+' },
+              { id: 'shipping', icon: Truck, title: 'Ücretsiz Kargo', desc: `${settings.freeShippingThreshold}₺+` },
               { id: 'payment', icon: ShieldCheck, title: 'Güvenli Ödeme', desc: '256-bit' },
               { id: 'returns', icon: RotateCcw, title: 'Kolay İade', desc: '14 Gün' },
               { id: 'installment', icon: CreditCard, title: 'Taksit', desc: '9 Ay' },
@@ -156,8 +178,8 @@ export function Footer() {
             <div>
               <Link to="/" className="inline-block mb-2">
                 <h2 className="text-2xl font-bold">
-                  <span className="text-orange-500">Atus</span>
-                  <span className="text-white">Home</span>
+                  <span className="text-orange-500">{settings.storeName?.split(' ')[0] || 'Atus'}</span>
+                  <span className="text-white">{settings.storeName?.split(' ')[1] || 'Home'}</span>
                 </h2>
               </Link>
               <p className="text-gray-400 text-sm">
@@ -265,7 +287,7 @@ export function Footer() {
             )}
           </div>
 
-          {/* Contact */}
+          {/* Contact - Dinamik */}
           <div>
             <h4 className="font-semibold text-sm mb-3 text-white">İletişim</h4>
             <ul className="space-y-2">
@@ -275,7 +297,7 @@ export function Footer() {
                   className="flex items-center gap-2 text-gray-400 hover:text-orange-500 transition-colors text-sm"
                 >
                   <Phone className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                  0850 123 45 67
+                  {settings.phone || '0850 123 45 67'}
                 </button>
               </li>
               <li>
@@ -284,27 +306,85 @@ export function Footer() {
                   className="flex items-center gap-2 text-gray-400 hover:text-orange-500 transition-colors text-sm"
                 >
                   <Mail className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                  info@atushome.com
+                  {settings.storeEmail || 'info@atushome.com'}
                 </button>
               </li>
               <li className="flex items-start gap-2 text-gray-400 text-sm">
                 <MapPin className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
-                <span>İstanbul, Türkiye</span>
+                <span>{settings.city || 'İstanbul'}, {settings.country || 'Türkiye'}</span>
               </li>
             </ul>
           </div>
         </div>
       </div>
 
+      {/* Company Info - ETBİS Gereklilikleri - DİNAMİK */}
+      {hasCompanyInfo ? (
+        <div className="border-t border-gray-800 bg-gray-900/50">
+          <div className="container-custom py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-gray-400">
+              {/* Şirket Bilgileri */}
+              <div>
+                <h5 className="font-medium text-gray-300 mb-2">Şirket Bilgileri</h5>
+                <p><span className="text-gray-500">Unvan:</span> {settings.companyTitle}</p>
+                {settings.tradeRegistryNo && (
+                  <p><span className="text-gray-500">Ticaret Sicil:</span> {settings.tradeRegistryNo}</p>
+                )}
+                {settings.mersisNo && (
+                  <p><span className="text-gray-500">MERSİS:</span> {settings.mersisNo}</p>
+                )}
+              </div>
+              
+              {/* Vergi Bilgileri */}
+              <div>
+                <h5 className="font-medium text-gray-300 mb-2">Vergi Bilgileri</h5>
+                {settings.taxNo && (
+                  <p><span className="text-gray-500">Vergi No:</span> {settings.taxNo}</p>
+                )}
+                {settings.taxOffice && (
+                  <p><span className="text-gray-500">Vergi Dairesi:</span> {settings.taxOffice}</p>
+                )}
+              </div>
+              
+              {/* Adres */}
+              <div>
+                <h5 className="font-medium text-gray-300 mb-2">Merkez Adres</h5>
+                <p>{settings.address}</p>
+                <p>{settings.district}, {settings.city} {settings.postalCode}</p>
+              </div>
+              
+              {/* ETBİS ve İletişim */}
+              <div>
+                <h5 className="font-medium text-gray-300 mb-2">Kayıt ve İletişim</h5>
+                {settings.etbisNo ? (
+                  <p><span className="text-gray-500">ETBİS:</span> {settings.etbisNo}</p>
+                ) : (
+                  <p className="text-amber-500">ETBİS kaydı bekleniyor</p>
+                )}
+                <p><span className="text-gray-500">E-posta:</span> {settings.storeEmail}</p>
+                <p><span className="text-gray-500">Tel:</span> {settings.phone}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="border-t border-gray-800 bg-gray-900/50">
+          <div className="container-custom py-4 text-center">
+            <p className="text-xs text-amber-500">
+              Şirket bilgileri henüz girilmemiş. Admin panelinden ayarları tamamlayın.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Bottom Bar */}
       <div className="border-t border-gray-800">
         <div className="container-custom py-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-gray-500 text-xs">
-              © 2024 AtusHome. Tüm hakları saklıdır.
+              © 2024 {settings.storeName || 'AtusHome'}. Tüm hakları saklıdır.
             </p>
             <div className="flex items-center gap-4">
-              {/* Yasal sayfalar linkleri - bottom bar */}
               {!loadingPages && legalPages.slice(0, 4).map((page) => (
                 <Link 
                   key={page.slug}

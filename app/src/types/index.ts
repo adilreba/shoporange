@@ -1,4 +1,73 @@
 // ==================== USER TYPES ====================
+// RBAC - Role Based Access Control
+export type UserRole = 'super_admin' | 'admin' | 'editor' | 'support' | 'user';
+
+// Permission/Yetki tipleri
+export type Permission = 
+  | 'users:view' | 'users:create' | 'users:edit' | 'users:delete'
+  | 'products:view' | 'products:create' | 'products:edit' | 'products:delete'
+  | 'orders:view' | 'orders:edit' | 'orders:cancel'
+  | 'payments:view' | 'payments:refund'
+  | 'content:view' | 'content:edit'
+  | 'settings:view' | 'settings:edit'
+  | 'chat:view' | 'chat:respond'
+  | 'reports:view'
+  | 'audit:view';
+
+// Rol bazlı yetki haritası
+export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  super_admin: [
+    'users:view', 'users:create', 'users:edit', 'users:delete',
+    'products:view', 'products:create', 'products:edit', 'products:delete',
+    'orders:view', 'orders:edit', 'orders:cancel',
+    'payments:view', 'payments:refund',
+    'content:view', 'content:edit',
+    'settings:view', 'settings:edit',
+    'chat:view', 'chat:respond',
+    'reports:view',
+    'audit:view',
+  ],
+  admin: [
+    'users:view', 'users:create', 'users:edit',
+    'products:view', 'products:create', 'products:edit', 'products:delete',
+    'orders:view', 'orders:edit', 'orders:cancel',
+    'payments:view',
+    'content:view', 'content:edit',
+    'settings:view',
+    'chat:view', 'chat:respond',
+    'reports:view',
+  ],
+  editor: [
+    'products:view', 'products:edit',
+    'content:view', 'content:edit',
+    'orders:view',
+  ],
+  support: [
+    'users:view',
+    'orders:view', 'orders:edit',
+    'chat:view', 'chat:respond',
+  ],
+  user: [],
+};
+
+// Rol isimleri (Türkçe)
+export const ROLE_NAMES: Record<UserRole, string> = {
+  super_admin: 'Süper Admin',
+  admin: 'Admin',
+  editor: 'Editör',
+  support: 'Destek Temsilcisi',
+  user: 'Müşteri',
+};
+
+// Rol renkleri (UI için)
+export const ROLE_COLORS: Record<UserRole, string> = {
+  super_admin: 'bg-purple-500',
+  admin: 'bg-red-500',
+  editor: 'bg-blue-500',
+  support: 'bg-green-500',
+  user: 'bg-gray-400',
+};
+
 export interface User {
   id: string;
   email: string;
@@ -7,7 +76,26 @@ export interface User {
   phone?: string;
   address?: Address[];
   createdAt: string;
-  role: 'user' | 'admin';
+  role: UserRole;
+  // Soft Delete fields
+  isActive?: boolean;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+}
+
+// Yetki kontrolü yardımcı fonksiyonu
+export function hasPermission(userRole: UserRole, permission: Permission): boolean {
+  return ROLE_PERMISSIONS[userRole]?.includes(permission) || false;
+}
+
+// Birden fazla yetki kontrolü (AND)
+export function hasAllPermissions(userRole: UserRole, permissions: Permission[]): boolean {
+  return permissions.every(p => hasPermission(userRole, p));
+}
+
+// Birden fazla yetki kontrolü (OR)
+export function hasAnyPermission(userRole: UserRole, permissions: Permission[]): boolean {
+  return permissions.some(p => hasPermission(userRole, p));
 }
 
 export interface Address {
@@ -35,8 +123,11 @@ export interface Product {
   category: Category;
   subcategory?: string;
   brand: string;
-  sku: string;
+  sku: string; // Stok Kodu (Stock Keeping Unit)
+  barcode?: string; // EAN/UPC Barkod
   stock: number;
+  stockCode?: string; // Depo/Stok yönetimi kodu
+  supplierCode?: string; // Tedarikçi ürün kodu
   rating: number;
   reviewCount: number;
   reviews?: Review[];

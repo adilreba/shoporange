@@ -19,7 +19,8 @@ import {
   Headphones,
   Truck,
   FileText,
-  CreditCard
+  CreditCard,
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useThemeStore } from '@/stores/themeStore';
@@ -41,6 +42,8 @@ const menuItems = [
   { path: '/admin/payment-methods', icon: CreditCard, label: 'Ödeme Yöntemleri' },
   { path: '/admin/categories', icon: Tag, label: 'Kategoriler' },
   { path: '/admin/settings', icon: Settings, label: 'Ayarlar' },
+  { path: '/admin/audit-logs', icon: Shield, label: 'Denetim Kayıtları' },
+  { path: '/admin/parasut', icon: FileText, label: 'e-Fatura (Paraşüt)' },
 ];
 
 export default function AdminLayout() {

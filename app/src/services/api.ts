@@ -1,26 +1,55 @@
 import { getIdToken } from '@/stores/authStore';
+import { hashPassword, verifyPassword } from '@/utils/security';
 
 // API Configuration
 const DEFAULT_API_URL = 'https://your-api-gateway-url.execute-api.eu-west-1.amazonaws.com/prod';
 const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 
 // Mock kullanıcılar (development/demo için)
-const MOCK_USERS = [
-  {
+interface MockUser {
+  id: string;
+  email: string;
+  password: string;
+  name: string;
+  role: string;
+  phone: string;
+  avatar: string;
+  address: any[];
+  createdAt: string;
+  isActive?: boolean;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+}
+
+// Mock kullanıcılar - şifreler bcrypt hash ile saklanır
+// Not: Gerçek hash'ler başında $2a$12$ olur
+const MOCK_USERS: MockUser[] = [];
+
+// Mock kullanıcıları initialize et (bcrypt hash ile)
+async function initializeMockUsers() {
+  if (MOCK_USERS.length > 0) return; // Zaten initialize edilmiş
+  
+  // Admin kullanıcısı
+  MOCK_USERS.push({
     id: 'admin-1',
     email: 'admin@atushome.com',
-    password: 'admin123',
+    password: await hashPassword('admin123'), // bcrypt hash
     name: 'Admin Kullanıcı',
     role: 'admin',
     phone: '+90 555 999 8888',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
     address: [],
-    createdAt: '2024-01-01'
-  },
-  {
+    createdAt: '2024-01-01',
+    isActive: true,
+    deletedAt: null,
+    deletedBy: null,
+  });
+  
+  // Test kullanıcısı
+  MOCK_USERS.push({
     id: 'user-1',
     email: 'test@example.com',
-    password: 'password123',
+    password: await hashPassword('password123'), // bcrypt hash
     name: 'Test Kullanıcı',
     role: 'user',
     phone: '+90 555 123 4567',
@@ -39,9 +68,12 @@ const MOCK_USERS = [
         isDefault: true
       }
     ],
-    createdAt: '2024-01-01'
-  }
-];
+    createdAt: '2024-01-01',
+    isActive: true,
+    deletedAt: null,
+    deletedBy: null,
+  });
+}
 
 // Geliştirme/test için Mock mode - VITE_FORCE_MOCK_MODE=true ile aktif edilir
 // NOT: Production'da bu env var undefined veya false olmalı
@@ -106,37 +138,45 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
 // Mock auth helpers
 const mockLogin = async (email: string, password: string) => {
   await new Promise(resolve => setTimeout(resolve, 500));
-  let user = MOCK_USERS.find(u => u.email === email && u.password === password);
-  if (!user && email.includes('@') && password.length >= 6) {
-    user = {
-      id: `user-${Date.now()}`,
-      email: email,
-      password: password,
-      name: email.split('@')[0],
-      role: 'user',
-      phone: '',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-      address: [],
-      createdAt: new Date().toISOString()
-    };
-    MOCK_USERS.push(user);
-  }
+  
+  // Initialize mock users with bcrypt hashes
+  await initializeMockUsers();
+  
+  // Kullanıcıyı email ile bul
+  const user = MOCK_USERS.find(u => u.email === email);
+  
   if (!user) {
     throw new Error('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
   }
+  
+  // Şifreyi doğrula (bcrypt)
+  const isPasswordValid = await verifyPassword(password, user.password);
+  
+  if (!isPasswordValid) {
+    throw new Error('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
+  }
+  
   const { password: _, ...userWithoutPassword } = user;
   return { token: `mock_token_${user.id}_${Date.now()}`, user: userWithoutPassword };
 };
 
 const mockRegister = async (data: { email: string; password: string; name: string; phone?: string }) => {
   await new Promise(resolve => setTimeout(resolve, 500));
+  
+  // Initialize mock users
+  await initializeMockUsers();
+  
   if (MOCK_USERS.some(u => u.email === data.email)) {
     throw new Error('Bu e-posta adresi zaten kayıtlı.');
   }
+  
+  // Şifreyi hashle (bcrypt)
+  const hashedPassword = await hashPassword(data.password);
+  
   const newUser = {
     id: `user-${Date.now()}`,
     email: data.email,
-    password: data.password,
+    password: hashedPassword,
     name: data.name,
     role: 'user',
     phone: data.phone || '',
@@ -433,6 +473,94 @@ export const userApi = {
     } catch (error) {
       console.warn('Real users/me PUT failed, falling back to mock:', error);
       return { ...data, updatedAt: new Date().toISOString() };
+    }
+  },
+
+  // Soft delete - kullanıcıyı pasif yapar (veriyi silmez)
+  softDelete: async (userId: string, adminId?: string) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const userIndex = MOCK_USERS.findIndex(u => u.id === userId);
+      if (userIndex === -1) throw new Error('Kullanıcı bulunamadı');
+      
+      MOCK_USERS[userIndex] = {
+        ...MOCK_USERS[userIndex],
+        isActive: false,
+        deletedAt: new Date().toISOString(),
+        deletedBy: adminId || null,
+      };
+      return { success: true, message: 'Kullanıcı başarıyla pasif yapıldı' };
+    }
+    try {
+      return await fetchApi(`/users/${userId}/soft-delete`, {
+        method: 'PUT',
+        body: JSON.stringify({ adminId }),
+      });
+    } catch (error) {
+      console.error('Soft delete failed:', error);
+      throw error;
+    }
+  },
+
+  // Kullanıcıyı geri aktif et
+  restore: async (userId: string) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const userIndex = MOCK_USERS.findIndex(u => u.id === userId);
+      if (userIndex === -1) throw new Error('Kullanıcı bulunamadı');
+      
+      MOCK_USERS[userIndex] = {
+        ...MOCK_USERS[userIndex],
+        isActive: true,
+        deletedAt: null,
+        deletedBy: null,
+      };
+      return { success: true, message: 'Kullanıcı başarıyla aktif edildi' };
+    }
+    try {
+      return await fetchApi(`/users/${userId}/restore`, {
+        method: 'PUT',
+      });
+    } catch (error) {
+      console.error('Restore failed:', error);
+      throw error;
+    }
+  },
+
+  // Silinmiş kullanıcıları listele (sadece admin)
+  getDeletedUsers: async () => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const deletedUsers = MOCK_USERS.filter(u => u.isActive === false);
+      return { data: deletedUsers.map(u => {
+        const { password, ...rest } = u as any;
+        return rest;
+      })};
+    }
+    return fetchApi('/admin/users/deleted');
+  },
+
+  // Kullanıcı rolünü güncelle (sadece admin/super_admin)
+  updateRole: async (userId: string, newRole: string) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const userIndex = MOCK_USERS.findIndex(u => u.id === userId);
+      if (userIndex === -1) throw new Error('Kullanıcı bulunamadı');
+      
+      MOCK_USERS[userIndex] = {
+        ...MOCK_USERS[userIndex],
+        role: newRole,
+      };
+      return { success: true, message: 'Rol güncellendi' };
+    }
+    try {
+      return await fetchApi(`/users/${userId}/role`, {
+        method: 'PUT',
+        body: JSON.stringify({ role: newRole }),
+      });
+    } catch (error) {
+      console.error('Role update failed:', error);
+      throw error;
     }
   },
 };

@@ -1,9 +1,98 @@
 /**
  * Security Utilities
  * IP extraction, security headers, and request validation
+ * Updated: bcrypt for password hashing
  */
 
+import bcrypt from 'bcrypt';
 import { APIGatewayProxyEvent } from 'aws-lambda';
+
+export interface PasswordStrengthResult {
+  isValid: boolean;
+  valid: boolean; // Legacy alias
+  errors: string[];
+}
+
+/**
+ * Validate password strength
+ */
+export function validatePasswordStrength(password: string): PasswordStrengthResult {
+  const errors: string[] = [];
+  
+  if (password.length < 8) {
+    errors.push('Şifre en az 8 karakter olmalıdır');
+  }
+  
+  if (!/[A-Z]/.test(password)) {
+    errors.push('En az bir büyük harf içermelidir');
+  }
+  
+  if (!/[a-z]/.test(password)) {
+    errors.push('En az bir küçük harf içermelidir');
+  }
+  
+  if (!/[0-9]/.test(password)) {
+    errors.push('En az bir rakam içermelidir');
+  }
+  
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    errors.push('En az bir özel karakter içermelidir');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    valid: errors.length === 0, // Legacy compatibility
+    errors,
+  };
+}
+
+/**
+ * SQL Injection detection
+ */
+export function detectSQLInjection(input: string): boolean {
+  const sqlPatterns = [
+    /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE)\b)/i,
+    /(\b(OR|AND)\b.*=.*)/i,
+    /(--|#|\/\*)/,
+    /(\bUNION\b.*\bSELECT\b)/i,
+  ];
+  
+  return sqlPatterns.some(pattern => pattern.test(input));
+}
+
+/**
+ * Log security event (legacy compatibility)
+ * Supports multiple signatures for backward compatibility
+ */
+export async function logSecurityEvent(
+  eventOrType: string | {
+    type: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    message: string;
+    details?: Record<string, any>;
+  },
+  details?: Record<string, any>,
+  severity?: 'low' | 'medium' | 'high' | 'critical'
+): Promise<void> {
+  // Handle string signature: logSecurityEvent('TYPE', { details }, 'medium')
+  if (typeof eventOrType === 'string') {
+    console.log(JSON.stringify({
+      _logType: 'SECURITY_EVENT',
+      timestamp: new Date().toISOString(),
+      type: eventOrType,
+      details: details || {},
+      severity: severity || 'medium',
+    }));
+    return;
+  }
+  
+  // Handle object signature
+  console.log(JSON.stringify({
+    _logType: 'SECURITY_EVENT',
+    timestamp: new Date().toISOString(),
+    ...eventOrType,
+  }));
+}
 
 /**
  * Extract client IP from various sources
@@ -108,21 +197,60 @@ export function generateSecureToken(length: number = 32): string {
   return token;
 }
 
+// Bcrypt configuration
+const SALT_ROUNDS = 12; // Industry standard (10-12 rounds)
+
 /**
- * Hash password (bcrypt-style with salt)
- * Note: In production, use bcrypt or Argon2
+ * Hash password using bcrypt
+ * Industry-standard password hashing with automatic salt
+ * @param password Plain text password
+ * @returns Bcrypt hashed password
  */
 export async function hashPassword(password: string): Promise<string> {
-  const crypto = await import('crypto');
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
-  return `${salt}:${hash}`;
+  try {
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+    return hashedPassword;
+  } catch (error) {
+    console.error('Password hashing error:', error);
+    throw new Error('Failed to hash password');
+  }
 }
 
 /**
- * Verify password
+ * Verify password using bcrypt
+ * @param password Plain text password
+ * @param hashedPassword Bcrypt hashed password
+ * @returns boolean indicating if password matches
  */
 export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  try {
+    const isMatch = await bcrypt.compare(password, hashedPassword);
+    return isMatch;
+  } catch (error) {
+    console.error('Password verification error:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if a password hash is using bcrypt format
+ * bcrypt hashes start with $2a$, $2b$, or $2y$
+ */
+export function isBcryptHash(hash: string): boolean {
+  return /^\$2[aby]\$/.test(hash);
+}
+
+/**
+ * Legacy password verification (for migration)
+ * Supports both old pbkdf2 format and new bcrypt format
+ */
+export async function verifyPasswordLegacy(password: string, hashedPassword: string): Promise<boolean> {
+  // Check if it's a bcrypt hash
+  if (isBcryptHash(hashedPassword)) {
+    return verifyPassword(password, hashedPassword);
+  }
+  
+  // Legacy pbkdf2 format (salt:hash)
   const crypto = await import('crypto');
   const [salt, hash] = hashedPassword.split(':');
   if (!salt || !hash) return false;

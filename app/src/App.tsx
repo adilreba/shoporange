@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { useAuthStore, initializeAuth } from '@/stores/authStore';
 import { LiveChatWidget } from '@/components/chat/LiveChatWidget';
 import { ScrollToTop } from '@/components/common/ScrollToTop';
+import { CookieBanner } from '@/components/common/CookieBanner';
 import { useEffect } from 'react';
 
 // Chat Widget Wrapper - Admin panelinde gizler
@@ -13,6 +14,15 @@ function ChatWidgetWrapper() {
   
   if (isAdminPage) return null;
   return <LiveChatWidget />;
+}
+
+// Cookie Banner Wrapper - Admin panelinde gizler
+function CookieBannerWrapper() {
+  const location = useLocation();
+  const isAdminPage = location.pathname.startsWith('/admin');
+  
+  if (isAdminPage) return null;
+  return <CookieBanner />;
 }
 
 // Pages
@@ -65,6 +75,8 @@ import StockManagement from '@/pages/Admin/StockManagement';
 import AgentDashboard from '@/pages/Admin/AgentDashboard';
 import ShippingSettings from '@/pages/Admin/ShippingSettings';
 import InvoiceManagement from '@/pages/Admin/InvoiceManagement';
+import AuditLogs from '@/pages/Admin/AuditLogs';
+import ParasutSettings from '@/pages/Admin/ParasutSettings';
 
 // Protected Route Component
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
@@ -229,6 +241,8 @@ function App() {
           <Route path="legal-pages/new" element={<LegalPagesEditor />} />
           <Route path="legal-pages/edit/:id" element={<LegalPagesEditor />} />
           <Route path="payment-methods" element={<AdminPaymentMethods />} />
+          <Route path="audit-logs" element={<AuditLogs />} />
+          <Route path="parasut" element={<ParasutSettings />} />
         </Route>
         
         {/* 404 Page */}
@@ -237,6 +251,7 @@ function App() {
       
       {/* Chat Widget - Admin panelinde gizli */}
       <ChatWidgetWrapper />
+      <CookieBannerWrapper />
     </Router>
     </HelmetProvider>
   );

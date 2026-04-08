@@ -9,6 +9,7 @@ import {
   ScanCommand
 } from '@aws-sdk/lib-dynamodb';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import * as parasut from '../../services/parasut';
 
 const client = new DynamoDBClient({});
 const dynamodb = DynamoDBDocumentClient.from(client);
@@ -299,7 +300,7 @@ export const cancelInvoice = async (event: APIGatewayProxyEvent): Promise<APIGat
   }
 };
 
-// GIB'e fatura gönder (e-Fatura/e-Arşiv)
+// Paraşüt'e fatura gönder (e-Fatura/e-Arşiv)
 export const sendToGib = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     const invoiceId = event.pathParameters?.id;
@@ -320,37 +321,86 @@ export const sendToGib = async (event: APIGatewayProxyEvent): Promise<APIGateway
 
     const invoice = result.Item;
 
-    // GIB API entegrasyonu burada yapılacak
-    // Gerçek implementasyonda GIB SOAP API'si kullanılacak
-    
-    // Şimdilik simülasyon
-    console.log('GIB API çağrısı simülasyonu:', {
+    // Paraşüt'e e-fatura/e-arşiv gönder
+    const parasutResult = await parasut.createEInvoice({
       invoiceNumber: invoice.invoiceNumber,
-      customer: invoice.customer,
-      taxNumber: invoice.taxNumber,
-      total: invoice.grandTotal,
+      customer: {
+        name: invoice.recipient?.name || invoice.customer,
+        email: invoice.recipient?.email || invoice.email,
+        phone: invoice.recipient?.phone || invoice.phone,
+        taxNumber: invoice.recipient?.taxNumber || invoice.taxNumber,
+        taxOffice: invoice.recipient?.taxOffice || invoice.taxOffice,
+        address: invoice.recipient?.address?.address || invoice.address,
+        city: invoice.recipient?.address?.city,
+        district: invoice.recipient?.address?.district,
+      },
+      items: invoice.items.map((item: any) => ({
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice || item.price,
+        vatRate: item.kdvRate || item.vatRate || 18,
+      })),
+      total: invoice.subtotal,
+      vatTotal: invoice.vatAmount || invoice.totalKDV,
+      grandTotal: invoice.grandTotal || invoice.total,
+      invoiceType: invoice.invoiceType || 'EARSIV',
+      orderId: invoice.orderId,
     });
 
-    // Başarılı gönderim simülasyonu
+    if (!parasutResult.success) {
+      await dynamodb.send(new UpdateCommand({
+        TableName: INVOICES_TABLE,
+        Key: { invoiceId },
+        UpdateExpression: 'set gibStatus = :gibStatus, errorMessage = :error, updatedAt = :updatedAt',
+        ExpressionAttributeValues: {
+          ':gibStatus': 'ERROR',
+          ':error': parasutResult.error,
+          ':updatedAt': new Date().toISOString(),
+        },
+      }));
+
+      return createResponse(500, {
+        success: false,
+        message: 'Fatura Paraşüt\'e gönderilemedi',
+        error: parasutResult.error,
+      });
+    }
+
+    // Başarılı gönderim
     await dynamodb.send(new UpdateCommand({
       TableName: INVOICES_TABLE,
       Key: { invoiceId },
-      UpdateExpression: 'set gibStatus = :gibStatus, sentToGibAt = :sentAt, updatedAt = :updatedAt',
+      UpdateExpression: 'set gibStatus = :gibStatus, parasutInvoiceId = :parasutId, pdfUrl = :pdfUrl, sentToGibAt = :sentAt, updatedAt = :updatedAt',
       ExpressionAttributeValues: {
         ':gibStatus': 'SENT',
+        ':parasutId': parasutResult.parasutInvoiceId,
+        ':pdfUrl': parasutResult.pdfUrl,
         ':sentAt': new Date().toISOString(),
         ':updatedAt': new Date().toISOString(),
       },
     }));
 
+    // Müşteriye PDF linki ile e-posta gönder
+    if (parasutResult.pdfUrl) {
+      await sendInvoiceEmail({
+        ...invoice,
+        pdfUrl: parasutResult.pdfUrl,
+      });
+    }
+
     return createResponse(200, {
       success: true,
-      message: 'Fatura GIB\'e başarıyla gönderildi',
+      message: 'Fatura Paraşüt üzerinden GIB\'e başarıyla gönderildi',
       gibStatus: 'SENT',
+      parasutInvoiceId: parasutResult.parasutInvoiceId,
+      pdfUrl: parasutResult.pdfUrl,
     });
-  } catch (error) {
-    console.error('Error sending to GIB:', error);
-    return createResponse(500, { error: 'GIB\'e gönderilirken hata oluştu' });
+  } catch (error: any) {
+    console.error('Error sending to GIB via Parasut:', error);
+    return createResponse(500, { 
+      error: 'Fatura gönderilirken hata oluştu',
+      details: error.message 
+    });
   }
 };
 

@@ -39,7 +39,9 @@ export function AdminProducts() {
   // Filter products
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.brand.toLowerCase().includes(searchQuery.toLowerCase());
+                         product.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.barcode?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -165,6 +167,7 @@ export function AdminProducts() {
                     <thead className="bg-muted border-b">
                       <tr>
                         <th className="text-left p-4 font-medium">Ürün</th>
+                        <th className="text-left p-4 font-medium">SKU/Barkod</th>
                         <th className="text-left p-4 font-medium">Kategori</th>
                         <th className="text-left p-4 font-medium">Fiyat</th>
                         <th className="text-left p-4 font-medium">Stok</th>
@@ -186,6 +189,22 @@ export function AdminProducts() {
                                 <p className="font-medium">{product.name}</p>
                                 <p className="text-sm text-muted-foreground">{product.brand}</p>
                               </div>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="space-y-1">
+                              {product.sku && (
+                                <p className="text-xs">
+                                  <span className="text-muted-foreground">SKU:</span>
+                                  <span className="font-mono font-medium ml-1">{product.sku}</span>
+                                </p>
+                              )}
+                              {product.barcode && (
+                                <p className="text-xs">
+                                  <span className="text-muted-foreground">Barkod:</span>
+                                  <span className="font-mono ml-1">{product.barcode}</span>
+                                </p>
+                              )}
                             </div>
                           </td>
                           <td className="p-4">

@@ -317,6 +317,9 @@ export const audit = {
       details: params.details || {},
     });
   },
+
+  // Direct access to logAuditEvent
+  logAuditEvent,
 };
 
 // GDPR/KVKK compliance: Generate user data report
