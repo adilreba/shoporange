@@ -567,6 +567,17 @@ export const useAuthStore = create<AuthState>()(
           
           const result = await googleAuth.signInWithGoogle(credential);
           
+          // Kullanıcıyı MOCK_USERS'a da ekle (admin panelinde görünmesi için)
+          const existingMockUser = MOCK_USERS.find(u => u.email === result.user.email);
+          if (!existingMockUser) {
+            MOCK_USERS.push({ 
+              ...result.user, 
+              password: 'google_oauth',
+              address: result.user.address || [],
+              phone: result.user.phone || ''
+            } as any);
+          }
+          
           set({ 
             user: result.user as User, 
             tokens: result.tokens,

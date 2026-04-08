@@ -335,8 +335,9 @@ export default function AdminUsers() {
         {/* Tabs ve Rol Filtreleri */}
         <div className="space-y-4 mb-6">
           {/* Üst Satır: Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full sm:w-auto">
+          <div className="flex items-center gap-2">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="w-full sm:w-auto">
               <TabsTrigger value="active" className="flex items-center gap-2 flex-1 sm:flex-none">
                 <UserCheck className="w-4 h-4" />
                 <span className="hidden sm:inline">Aktif Kullanıcılar</span>
