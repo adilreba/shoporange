@@ -529,6 +529,258 @@ export async function testConnection(): Promise<{
   }
 }
 
+// ==================== KART SAKLAMA (TOKENIZATION) ====================
+
+/**
+ * Kart sakla (Tokenization)
+ * Kart bilgileri İyzico'da saklanır, bize token döner
+ * Asla kart bilgilerini kendi veritabanımızda saklamıyoruz!
+ */
+export async function createCardToken(params: {
+  userId: string;
+  cardHolderName: string;
+  cardNumber: string;
+  expireMonth: string;
+  expireYear: string;
+  email?: string;
+}): Promise<{
+  success: boolean;
+  cardToken?: string;
+  cardUserKey?: string;
+  lastFourDigits?: string;
+  cardFamily?: string;
+  error?: string;
+}> {
+  try {
+    const iyzipay = await getIyzipay();
+    
+    const request = {
+      locale: Iyzipay.LOCALE.TR,
+      conversationId: `card_create_${Date.now()}`,
+      email: params.email || `${params.userId}@atushome.com`,
+      card: {
+        cardHolderName: params.cardHolderName,
+        cardNumber: params.cardNumber.replace(/\s/g, ''), // Boşlukları kaldır
+        expireMonth: params.expireMonth,
+        expireYear: params.expireYear.length === 2 ? `20${params.expireYear}` : params.expireYear,
+      },
+    };
+
+    return new Promise((resolve) => {
+      iyzipay.card.create(request, (err: any, result: any) => {
+        if (err || result.status === 'failure') {
+          resolve({
+            success: false,
+            error: err?.message || result?.errorMessage || 'Kart saklanamadı',
+          });
+          return;
+        }
+
+        resolve({
+          success: true,
+          cardToken: result.cardToken,
+          cardUserKey: result.cardUserKey,
+          lastFourDigits: result.lastFourDigits,
+          cardFamily: result.cardFamily,
+        });
+      });
+    });
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Kart saklama hatası',
+    };
+  }
+}
+
+/**
+ * Kayıtlı kartları listele
+ */
+export async function getStoredCards(cardUserKey: string): Promise<{
+  success: boolean;
+  cards?: Array<{
+    cardToken: string;
+    lastFourDigits: string;
+    cardFamily: string;
+    cardType: string;
+    cardAssociation: string;
+  }>;
+  error?: string;
+}> {
+  try {
+    const iyzipay = await getIyzipay();
+    
+    const request = {
+      locale: Iyzipay.LOCALE.TR,
+      conversationId: `card_list_${Date.now()}`,
+      cardUserKey,
+    };
+
+    return new Promise((resolve) => {
+      iyzipay.cardList.retrieve(request, (err: any, result: any) => {
+        if (err || result.status === 'failure') {
+          resolve({
+            success: false,
+            error: err?.message || result?.errorMessage || 'Kartlar listelenemedi',
+          });
+          return;
+        }
+
+        resolve({
+          success: true,
+          cards: result.cardDetails?.map((card: any) => ({
+            cardToken: card.cardToken,
+            lastFourDigits: card.lastFourDigits,
+            cardFamily: card.cardFamily,
+            cardType: card.cardType,
+            cardAssociation: card.cardAssociation,
+          })) || [],
+        });
+      });
+    });
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Kart listeleme hatası',
+    };
+  }
+}
+
+/**
+ * Kayıtlı kartı sil
+ */
+export async function deleteCardToken(params: {
+  cardToken: string;
+  cardUserKey: string;
+}): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const iyzipay = await getIyzipay();
+    
+    const request = {
+      locale: Iyzipay.LOCALE.TR,
+      conversationId: `card_delete_${Date.now()}`,
+      cardToken: params.cardToken,
+      cardUserKey: params.cardUserKey,
+    };
+
+    return new Promise((resolve) => {
+      iyzipay.card.delete(request, (err: any, result: any) => {
+        if (err || result.status === 'failure') {
+          resolve({
+            success: false,
+            error: err?.message || result?.errorMessage || 'Kart silinemedi',
+          });
+          return;
+        }
+
+        resolve({
+          success: true,
+          message: 'Kart başarıyla silindi',
+        });
+      });
+    });
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Kart silme hatası',
+    };
+  }
+}
+
+/**
+ * Kayıtlı kart ile ödeme (Tek tıkla ödeme)
+ */
+export async function payWithStoredCard(params: {
+  cardToken: string;
+  price: number;
+  paidPrice: number;
+  currency: string;
+  basketId: string;
+  buyer: {
+    id: string;
+    name: string;
+    surname: string;
+    email: string;
+    phone: string;
+  };
+  basketItems: any[];
+}): Promise<{
+  success: boolean;
+  paymentId?: string;
+  status?: string;
+  error?: string;
+}> {
+  try {
+    const iyzipay = await getIyzipay();
+    
+    const request = {
+      locale: Iyzipay.LOCALE.TR,
+      conversationId: `payment_card_${Date.now()}`,
+      price: params.price.toFixed(2),
+      paidPrice: params.paidPrice.toFixed(2),
+      currency: params.currency,
+      installment: '1',
+      basketId: params.basketId,
+      paymentChannel: Iyzipay.PAYMENT_CHANNEL.WEB,
+      buyer: {
+        id: params.buyer.id,
+        name: params.buyer.name,
+        surname: params.buyer.surname,
+        email: params.buyer.email,
+        gsmNumber: params.buyer.phone,
+        identityNumber: params.buyer.id,
+        registrationAddress: 'İstanbul, Türkiye',
+        ip: '85.34.78.112',
+        city: 'İstanbul',
+        country: 'Turkey',
+      },
+      shippingAddress: {
+        contactName: `${params.buyer.name} ${params.buyer.surname}`,
+        city: 'İstanbul',
+        country: 'Turkey',
+        address: 'Kadıköy, İstanbul',
+      },
+      billingAddress: {
+        contactName: `${params.buyer.name} ${params.buyer.surname}`,
+        city: 'İstanbul',
+        country: 'Turkey',
+        address: 'Kadıköy, İstanbul',
+      },
+      basketItems: params.basketItems,
+      paymentCard: {
+        cardToken: params.cardToken,
+      },
+    };
+
+    return new Promise((resolve) => {
+      iyzipay.payment.create(request, (err: any, result: any) => {
+        if (err || result.status === 'failure') {
+          resolve({
+            success: false,
+            error: err?.message || result?.errorMessage || 'Ödeme başarısız',
+          });
+          return;
+        }
+
+        resolve({
+          success: true,
+          paymentId: result.paymentId,
+          status: result.status,
+        });
+      });
+    });
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Ödeme hatası',
+    };
+  }
+}
+
 export default {
   createPaymentRequest,
   verify3DSecure,
@@ -537,4 +789,8 @@ export default {
   cancelPayment,
   getPaymentDetail,
   testConnection,
+  createCardToken,
+  getStoredCards,
+  deleteCardToken,
+  payWithStoredCard,
 };
