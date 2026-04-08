@@ -168,6 +168,7 @@ export function Login() {
             <div className="mt-6 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
               <p className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-2">Demo Giriş Bilgileri:</p>
               <div className="text-sm text-orange-700 dark:text-orange-300 space-y-1">
+                <p><strong>Super Admin:</strong> superadmin@atushome.com / superadmin123</p>
                 <p><strong>Admin:</strong> admin@atushome.com / admin123</p>
                 <p><strong>Kullanıcı:</strong> test@example.com / password123</p>
               </div>

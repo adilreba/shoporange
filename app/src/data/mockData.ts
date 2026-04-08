@@ -997,5 +997,14 @@ export const mockUsers = [
     role: 'admin',
     createdAt: '2023-12-01',
     orders: 0
+  },
+  {
+    id: 'superadmin1',
+    name: 'Super Admin',
+    email: 'superadmin@atushome.com',
+    phone: '0850 999 0000',
+    role: 'super_admin',
+    createdAt: '2023-11-01',
+    orders: 0
   }
 ];

@@ -12,6 +12,17 @@ const registerRateLimiter = new ClientRateLimiter();
 // Mock kullanıcılar (demo için)
 const MOCK_USERS = [
   {
+    id: 'superadmin-1',
+    email: 'superadmin@atushome.com',
+    password: 'superadmin123',
+    name: 'Super Admin',
+    role: 'super_admin',
+    phone: '+90 555 999 0000',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+    address: [],
+    createdAt: '2024-01-01'
+  },
+  {
     id: 'admin-1',
     email: 'admin@atushome.com',
     password: 'admin123',
