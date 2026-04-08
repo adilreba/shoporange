@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
-import { isGoogleAuthConfigured, getGoogleClientId } from '@/services/googleAuth';
+import { isGoogleAuthConfigured, getGoogleClientId, isMockMode } from '@/services/googleAuth';
 import { Button } from '@/components/ui/button';
 import { Chrome } from 'lucide-react';
 
@@ -96,6 +96,39 @@ export function GoogleLoginButton({ onSuccess, className = '' }: GoogleLoginButt
 
   // Fallback button when Google Auth is not configured
   if (!isGoogleAuthConfigured()) {
+    // Mock mode'da demo kullanıcı ile giriş simülasyonu
+    if (isMockMode()) {
+      return (
+        <Button
+          variant="outline"
+          className={`w-full ${className}`}
+          onClick={async () => {
+            try {
+              // Demo Google kullanıcısı için mock credential oluştur
+              const mockCredential = btoa(JSON.stringify({
+                email: 'demo.google@example.com',
+                name: 'Demo Google Kullanıcı',
+                picture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
+                sub: 'google-demo-' + Date.now()
+              }));
+              const success = await googleSignIn(mockCredential);
+              if (success) {
+                toast.success('Google ile giriş başarılı! (Demo)');
+                onSuccess?.();
+                navigate('/');
+              }
+            } catch (error) {
+              toast.error('Google girişi başarısız');
+            }
+          }}
+          disabled={isLoading}
+        >
+          <Chrome className="h-5 w-5 mr-2 text-blue-500" />
+          Google ile Devam Et (Demo)
+        </Button>
+      );
+    }
+    
     return (
       <Button
         variant="outline"

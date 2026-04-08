@@ -117,3 +117,12 @@ export function getGoogleClientId(): string {
 export function isGoogleAuthConfigured(): boolean {
   return !!GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== 'your-google-client-id.apps.googleusercontent.com';
 }
+
+/**
+ * Check if running in mock mode
+ */
+export function isMockMode(): boolean {
+  return import.meta.env.VITE_FORCE_MOCK_MODE === 'true' || 
+         !GOOGLE_CLIENT_ID || 
+         GOOGLE_CLIENT_ID === 'your-google-client-id.apps.googleusercontent.com';
+}
