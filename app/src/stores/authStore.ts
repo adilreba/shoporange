@@ -180,17 +180,23 @@ export const useAuthStore = create<AuthState>()(
       pendingVerificationEmail: null,
 
       initAuth: async () => {
+        console.log('[initAuth] Starting... MOCK_USERS count:', MOCK_USERS.length);
         if (isMockMode()) {
           // Mock mode'da localStorage'dan kontrol et
           const saved = localStorage.getItem('auth-storage');
+          console.log('[initAuth] localStorage data:', saved ? 'found' : 'not found');
           if (saved) {
             const parsed = JSON.parse(saved);
+            console.log('[initAuth] Parsed state:', parsed.state?.isAuthenticated, parsed.state?.user?.email);
             if (parsed.state?.isAuthenticated && parsed.state?.user) {
               const savedUser = parsed.state.user;
+              console.log('[initAuth] Looking for user:', savedUser.email, 'ID:', savedUser.id);
+              console.log('[initAuth] Available MOCK_USERS:', MOCK_USERS.map(u => ({ email: u.email, role: u.role })));
               // MOCK_USERS'tan güncel rolü al
               const updatedUser = MOCK_USERS.find(u => u.id === savedUser.id || u.email === savedUser.email);
+              console.log('[initAuth] Found in MOCK_USERS:', updatedUser ? { email: updatedUser.email, role: updatedUser.role } : 'NOT FOUND');
               if (updatedUser) {
-                console.log('[initAuth] Syncing role from MOCK_USERS:', savedUser.role, '->', updatedUser.role);
+                console.log('[initAuth] SYNCING ROLE:', savedUser.role, '->', updatedUser.role);
                 set({ 
                   ...parsed.state,
                   user: {
