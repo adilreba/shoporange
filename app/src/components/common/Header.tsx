@@ -56,7 +56,14 @@ export function Header() {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { isDark, toggleTheme } = useThemeStore();
-  const { isStaff } = usePermissions();
+  const { isStaff, userRole } = usePermissions();
+  
+  // Debug: Kullanıcı rolünü kontrol et
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      console.log('[Header] User:', user.email, 'Role:', user.role, 'isStaff:', isStaff, 'userRole:', userRole);
+    }
+  }, [isAuthenticated, user, isStaff, userRole]);
   const { totalItems } = useCartStore();
   const { getWishlistCount } = useWishlistStore();
   const { getCompareCount } = useCompareStore();

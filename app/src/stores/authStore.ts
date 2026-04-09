@@ -264,6 +264,23 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true, 
             isLoading: false 
           });
+          
+          // Mock mode'da kullanıcı rolünü MOCK_USERS'tan senkronize et
+          if (isMockMode()) {
+            setTimeout(() => {
+              const updatedUser = MOCK_USERS.find(u => u.id === result.user.id || u.email === result.user.email);
+              if (updatedUser && updatedUser.role !== result.user.role) {
+                console.log('[AuthStore] Syncing role from MOCK_USERS:', updatedUser.role);
+                set({ 
+                  user: { 
+                    ...result.user, 
+                    role: updatedUser.role 
+                  } as User 
+                });
+              }
+            }, 100);
+          }
+          
           return true;
         } catch (error: any) {
           console.error('Login error:', error);
