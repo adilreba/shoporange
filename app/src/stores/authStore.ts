@@ -784,10 +784,17 @@ export const refreshUserFromMock = () => {
   const { user, isAuthenticated } = state;
   if (!isAuthenticated || !user || !isMockMode()) return;
   
-  const updatedUser = MOCK_USERS.find(u => u.id === user.id);
+  // ID veya email'e göre ara (Google login kullanıcıları için email eşleşmesi)
+  const updatedUser = MOCK_USERS.find(u => u.id === user.id || u.email === user.email);
   if (updatedUser) {
     const { password: _, ...userWithoutPassword } = updatedUser;
-    useAuthStore.setState({ user: userWithoutPassword as User });
+    // ID'yi koru (Google login ID'si farklı olabilir)
+    useAuthStore.setState({ 
+      user: { 
+        ...userWithoutPassword, 
+        id: user.id // Mevcut ID'yi koru (localStorage persist için)
+      } as User 
+    });
   }
 };
 
