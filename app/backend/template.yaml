@@ -2390,7 +2390,7 @@ Resources:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /shipping/order/{orderId}
+            Path: /shipping/by-order/{orderId}
             Method: get
             RestApiId: !Ref ApiGateway
 
@@ -2556,7 +2556,7 @@ Resources:
         Variables:
           IYZICO_SECRET_NAME: !Sub 'atushome/${AWS::StackName}/iyzico'
           IYZICO_MOCK_MODE: 'true'
-          FRONTEND_URL: !Sub 'https://${CloudFrontDistribution.DomainName}'
+          FRONTEND_URL: 'https://atushome.com'
       Policies:
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:atushome/${AWS::StackName}/iyzico-*'
