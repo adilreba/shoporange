@@ -573,7 +573,7 @@ export const userApi = {
       }
       
       // 3. authStore MOCK_USERS'u da güncelle (import ederek)
-      const { MOCK_USERS: authStoreMockUsers } = await import('@/stores/authStore');
+      const { MOCK_USERS: authStoreMockUsers, refreshUserFromMock } = await import('@/stores/authStore');
       const authStoreIndex = authStoreMockUsers.findIndex((u: any) => u.id === userId);
       if (authStoreIndex !== -1) {
         authStoreMockUsers[authStoreIndex] = {
@@ -581,6 +581,9 @@ export const userApi = {
           role: newRole,
         };
       }
+      
+      // 4. Eğer güncellenen kullanıcı mevcut login olmuş kullanıcıysa, user state'ini de güncelle
+      refreshUserFromMock();
       
       if (userIndex === -1) {
         throw new Error('Kullanıcı bulunamadı');

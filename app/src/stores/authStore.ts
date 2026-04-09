@@ -118,6 +118,7 @@ interface AuthState {
   forgotPassword: (email: string) => Promise<boolean>;
   resetPassword: (email: string, code: string, password: string) => Promise<boolean>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
+  refreshUserFromMock: () => void;
 }
 
 // Mock login fonksiyonu
@@ -743,6 +744,19 @@ export const useAuthStore = create<AuthState>()(
 
       clearError: () => {
         set({ error: null });
+      },
+
+      refreshUserFromMock: () => {
+        // Mock mode'da mevcut kullanıcının bilgilerini MOCK_USERS'tan yenile
+        // (Rol değişikliği sonrası kullanıcı state'ini güncellemek için)
+        const { user, isAuthenticated } = get();
+        if (!isAuthenticated || !user || !isMockMode()) return;
+        
+        const updatedUser = MOCK_USERS.find(u => u.id === user.id);
+        if (updatedUser) {
+          const { password: _, ...userWithoutPassword } = updatedUser;
+          set({ user: userWithoutPassword as User });
+        }
       }
     }),
     {
@@ -761,6 +775,20 @@ export const useAuthStore = create<AuthState>()(
 // Uygulama başladığında auth'u initialize et
 export const initializeAuth = async () => {
   await useAuthStore.getState().initAuth();
+};
+
+// Mock mode'da mevcut kullanıcının bilgilerini MOCK_USERS'tan yenile
+// (Rol değişikliği sonrası kullanıcı state'ini güncellemek için)
+export const refreshUserFromMock = () => {
+  const state = useAuthStore.getState();
+  const { user, isAuthenticated } = state;
+  if (!isAuthenticated || !user || !isMockMode()) return;
+  
+  const updatedUser = MOCK_USERS.find(u => u.id === user.id);
+  if (updatedUser) {
+    const { password: _, ...userWithoutPassword } = updatedUser;
+    useAuthStore.setState({ user: userWithoutPassword as User });
+  }
 };
 
 // Get access token for API calls
