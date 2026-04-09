@@ -144,18 +144,24 @@ export default function AdminUsers() {
       if (isMockMode()) {
         await new Promise(resolve => setTimeout(resolve, 500));
         
+        console.log('[AdminUsers] fetchUsers START');
+        console.log('[AdminUsers] authStoreUsers:', authStoreUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
+        
         // Mock veriler (mockData.ts)
         const baseUsers = mockUsers.filter((u: any) => u.role !== 'super_admin' || u.id === 'superadmin1');
+        console.log('[AdminUsers] baseUsers from mockData:', baseUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
         
         // localStorage'dan google kullanıcılarını al
         let googleUsers: User[] = [];
         try {
           const saved = localStorage.getItem('google-users');
+          console.log('[AdminUsers] localStorage google-users:', saved);
           if (saved) {
             googleUsers = JSON.parse(saved);
+            console.log('[AdminUsers] parsed googleUsers:', googleUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
           }
         } catch (e) {
-          console.log('localStorage okuma hatası');
+          console.log('[AdminUsers] localStorage okuma hatası:', e);
         }
         
         // AuthStore'daki kullanıcıları da ekle (yenileri)
@@ -171,6 +177,7 @@ export default function AdminUsers() {
           createdAt: u.createdAt,
           isActive: true,
         }));
+        console.log('[AdminUsers] storeUsers from authStore:', storeUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
         
         // Google kullanıcılarını localStorage'a kaydet (yenileri)
         const allGoogleUsers = [...googleUsers, ...storeUsers];
@@ -179,7 +186,9 @@ export default function AdminUsers() {
         );
         localStorage.setItem('google-users', JSON.stringify(uniqueUsers));
         
-        setUsers([...baseUsers, ...uniqueUsers]);
+        const finalUsers = [...baseUsers, ...uniqueUsers];
+        console.log('[AdminUsers] finalUsers set:', finalUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
+        setUsers(finalUsers);
         setDeletedUsers([]);
         return;
       }
@@ -237,6 +246,8 @@ export default function AdminUsers() {
   const handleRoleChange = async () => {
     if (!userToChangeRole) return;
     
+    console.log('[AdminUsers] handleRoleChange START - user:', userToChangeRole.id, userToChangeRole.email, 'newRole:', selectedRole);
+    
     // Süper admin sadece süper admin tarafından atanabilir
     if (selectedRole === 'super_admin' && !isSuperAdmin) {
       toast.error('Sadece Süper Admin bu rolü atayabilir');
@@ -250,10 +261,15 @@ export default function AdminUsers() {
     }
 
     try {
-      await userApi.updateRole(userToChangeRole.id, selectedRole);
+      console.log('[AdminUsers] Calling userApi.updateRole...');
+      const result = await userApi.updateRole(userToChangeRole.id, selectedRole);
+      console.log('[AdminUsers] updateRole result:', result);
       toast.success(`${userToChangeRole.name} kullanıcısının rolü ${ROLE_NAMES[selectedRole]} olarak güncellendi`);
-      fetchUsers();
+      console.log('[AdminUsers] Calling fetchUsers...');
+      await fetchUsers();
+      console.log('[AdminUsers] fetchUsers completed');
     } catch (error) {
+      console.error('[AdminUsers] handleRoleChange ERROR:', error);
       toast.error('Rol güncellenirken bir hata oluştu');
     } finally {
       setUserToChangeRole(null);
