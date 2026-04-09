@@ -180,42 +180,58 @@ export const useAuthStore = create<AuthState>()(
       pendingVerificationEmail: null,
 
       initAuth: async () => {
-        console.log('[initAuth] Starting...');
+        console.log('[initAuth] Starting... MOCK_USERS:', MOCK_USERS.map(u => ({ id: u.id, email: u.email, role: u.role })));
         
-        // HER ZAMAN MOCK_USERS'tan güncel rolü al (Mock mode veya gerçek)
         const saved = localStorage.getItem('auth-storage');
+        console.log('[initAuth] localStorage auth-storage:', saved ? 'FOUND' : 'NOT FOUND');
         
         if (saved) {
-          const parsed = JSON.parse(saved);
-          
-          if (parsed.state?.isAuthenticated && parsed.state?.user) {
-            const savedUser = parsed.state.user;
+          try {
+            const parsed = JSON.parse(saved);
+            console.log('[initAuth] Parsed state:', parsed.state ? 'EXISTS' : 'NOT EXISTS', 'user:', parsed.state?.user?.email);
             
-            // MOCK_USERS'tan en güncel kullanıcı bilgisini al
-            const currentMockUser = MOCK_USERS.find(u => u.id === savedUser.id) || 
-                                   MOCK_USERS.find(u => u.email === savedUser.email);
-            
-            if (currentMockUser && currentMockUser.role !== savedUser.role) {
-              console.log('[initAuth] Rol senkronize edildi:', savedUser.role, '->', currentMockUser.role);
+            if (parsed.state?.isAuthenticated && parsed.state?.user) {
+              const savedUser = parsed.state.user;
+              console.log('[initAuth] Looking for user:', savedUser.id, savedUser.email);
               
-              set({ 
-                isAuthenticated: true,
-                tokens: parsed.state.tokens,
-                user: { ...savedUser, role: currentMockUser.role },
-                isLoading: false
-              });
+              // MOCK_USERS'tan en güncel kullanıcı bilgisini al
+              const currentMockUser = MOCK_USERS.find(u => u.id === savedUser.id) || 
+                                     MOCK_USERS.find(u => u.email === savedUser.email);
+              
+              console.log('[initAuth] Found in MOCK_USERS:', currentMockUser ? { id: currentMockUser.id, role: currentMockUser.role } : 'NOT FOUND');
+              
+              if (currentMockUser && currentMockUser.role !== savedUser.role) {
+                console.log('[initAuth] Role SYNCED:', savedUser.role, '->', currentMockUser.role);
+                
+                set({ 
+                  isAuthenticated: true,
+                  tokens: parsed.state.tokens,
+                  user: { ...savedUser, role: currentMockUser.role },
+                  isLoading: false
+                });
+                return;
+              } else if (currentMockUser) {
+                console.log('[initAuth] Role already up to date:', savedUser.role);
+              } else {
+                console.log('[initAuth] User not found in MOCK_USERS');
+              }
+            } else {
+              console.log('[initAuth] No authenticated user in localStorage');
+            }
+            
+            // Normal yükle
+            if (parsed.state?.isAuthenticated) {
+              set({ ...parsed.state, isLoading: false });
+              console.log('[initAuth] State loaded from localStorage');
               return;
             }
-          }
-          
-          // Rol değişmemişse veya kullanıcı bulunamadıysa normal yükle
-          if (parsed.state?.isAuthenticated) {
-            set({ ...parsed.state, isLoading: false });
-            return;
+          } catch (e) {
+            console.error('[initAuth] Error parsing localStorage:', e);
           }
         }
         
         set({ isLoading: false });
+        console.log('[initAuth] Finished without loading');
 
         // Gerçek Cognito auth
         try {
