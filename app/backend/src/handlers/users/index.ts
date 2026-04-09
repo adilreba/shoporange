@@ -85,6 +85,17 @@ export const updateUser = async (event: APIGatewayProxyEvent): Promise<APIGatewa
       updateExpressions.push('address = :address');
       expressionValues[':address'] = updates.address;
     }
+    // Rol güncelleme desteği
+    if (updates.role) {
+      updateExpressions.push('#role = :role');
+      expressionValues[':role'] = updates.role;
+      expressionNames['#role'] = 'role';
+    }
+    // Bildirim tercihi güncelleme desteği
+    if (updates.notificationPreference) {
+      updateExpressions.push('notificationPreference = :notificationPreference');
+      expressionValues[':notificationPreference'] = updates.notificationPreference;
+    }
     updateExpressions.push('updatedAt = :updatedAt');
 
     const result = await dynamodb.send(new UpdateCommand({

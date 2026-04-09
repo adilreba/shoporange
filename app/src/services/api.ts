@@ -554,7 +554,7 @@ export const userApi = {
       return { success: true, message: 'Rol güncellendi' };
     }
     try {
-      return await fetchApi(`/users/${userId}/role`, {
+      return await fetchApi(`/users/${userId}`, {
         method: 'PUT',
         body: JSON.stringify({ role: newRole }),
       });

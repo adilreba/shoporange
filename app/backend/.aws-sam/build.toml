@@ -43,7 +43,7 @@ architecture = "x86_64"
 handler = "index.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["CreatePaymentIntentFunction", "StripeWebhookFunction"]
+functions = ["CreatePaymentIntentFunction", "StripeWebhookFunction", "IyzicoCreatePaymentFunction", "IyzicoVerifyPaymentFunction", "IyzicoInstallmentsFunction", "IyzicoRefundFunction", "IyzicoCancelFunction"]
 
 [function_build_definitions.9ef0dbf7-c949-4bb8-8b6f-6512af22c050]
 codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/admin"
@@ -52,7 +52,7 @@ architecture = "x86_64"
 handler = "index.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["SeedDataFunction", "AdminGetProductsFunction", "AdminCreateProductFunction", "AdminUpdateProductFunction", "AdminDeleteProductFunction", "AdminGetOrdersFunction", "AdminUpdateOrderFunction", "AdminGetUsersFunction"]
+functions = ["SeedDataFunction", "AdminGetProductsFunction", "AdminCreateProductFunction", "AdminUpdateProductFunction", "AdminDeleteProductFunction", "AdminGetOrdersFunction", "AdminUpdateOrderFunction", "AdminGetUsersFunction", "ParasutConfigFunction", "ParasutConfigUpdateFunction", "ParasutTestConnectionFunction", "ParasutStatusFunction", "ParasutInvoiceSyncFunction"]
 
 [function_build_definitions.55767ea0-7726-40e8-a25d-cc2a9b6298ac]
 codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/verification"
@@ -88,7 +88,7 @@ architecture = "x86_64"
 handler = "index.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["CreateShipmentFunction", "GetShipmentFunction", "TrackShipmentFunction", "CancelShipmentFunction", "ShippingWebhookFunction", "GetShippingRatesFunction", "GetShippingProvidersFunction"]
+functions = ["CreateShipmentFunction", "GetShipmentFunction", "TrackShipmentFunction", "CancelShipmentFunction", "ShippingWebhookFunction", "GetShippingRatesFunction", "GetShippingProvidersFunction", "GetShipmentsByOrderFunction", "CreateBarcodeFunction", "TestShippingConnectionFunction"]
 
 [function_build_definitions.703ff245-6c77-44e5-b7ba-fa990502353e]
 codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/notifications"
