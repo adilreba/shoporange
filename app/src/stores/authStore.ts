@@ -185,8 +185,22 @@ export const useAuthStore = create<AuthState>()(
           const saved = localStorage.getItem('auth-storage');
           if (saved) {
             const parsed = JSON.parse(saved);
-            if (parsed.state?.isAuthenticated) {
-              set({ ...parsed.state });
+            if (parsed.state?.isAuthenticated && parsed.state?.user) {
+              const savedUser = parsed.state.user;
+              // MOCK_USERS'tan güncel rolü al
+              const updatedUser = MOCK_USERS.find(u => u.id === savedUser.id || u.email === savedUser.email);
+              if (updatedUser) {
+                console.log('[initAuth] Syncing role from MOCK_USERS:', savedUser.role, '->', updatedUser.role);
+                set({ 
+                  ...parsed.state,
+                  user: {
+                    ...savedUser,
+                    role: updatedUser.role // Güncel rolü kullan
+                  }
+                });
+              } else {
+                set({ ...parsed.state });
+              }
             }
           }
           set({ isLoading: false });
