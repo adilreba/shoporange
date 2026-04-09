@@ -5,7 +5,7 @@ import {
   AlertTriangle, UserX, UserCheck, Shield, Edit2
 } from 'lucide-react';
 import { api, userApi, isMockMode } from '@/services/api';
-import { MOCK_USERS as authStoreUsers, useAuthStore } from '@/stores/authStore';
+import { MOCK_USERS, useAuthStore } from '@/stores/authStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -147,7 +147,8 @@ export default function AdminUsers() {
         
         // Ana kullanıcı kaynağı: authStore.ts'deki MOCK_USERS
         // Şifreleri çıkararak kullanıcı listesi oluştur
-        const baseUsers = authStoreUsers.map((u: any) => ({
+        console.log('[AdminUsers] MOCK_USERS:', MOCK_USERS.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
+        const baseUsers = MOCK_USERS.map((u: any) => ({
           id: u.id,
           name: u.name,
           email: u.email,
@@ -250,8 +251,21 @@ export default function AdminUsers() {
       return;
     }
 
+    console.log('[AdminUsers] handleRoleChange executing...');
+    
     try {
       console.log('[AdminUsers] Calling userApi.updateRole...');
+      
+      // Mock mode'da doğrudan MOCK_USERS'ı güncelle
+      if (isMockMode()) {
+        const userIndex = MOCK_USERS.findIndex((u: any) => u.id === userToChangeRole.id);
+        console.log('[AdminUsers] Found user in MOCK_USERS at index:', userIndex);
+        if (userIndex !== -1) {
+          MOCK_USERS[userIndex].role = selectedRole;
+          console.log('[AdminUsers] MOCK_USERS updated:', MOCK_USERS[userIndex].email, '->', selectedRole);
+        }
+      }
+      
       const result = await userApi.updateRole(userToChangeRole.id, selectedRole);
       console.log('[AdminUsers] updateRole result:', result);
       
