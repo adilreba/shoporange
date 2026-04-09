@@ -809,6 +809,23 @@ export const useAuthStore = create<AuthState>()(
         needsVerification: state.needsVerification,
         pendingVerificationEmail: state.pendingVerificationEmail,
       }),
+      onRehydrateStorage: () => (state) => {
+        // State localStorage'dan geri yüklendikten sonra çalışır
+        console.log('[onRehydrateStorage] State rehydrated:', state?.user?.email, 'role:', state?.user?.role);
+        
+        if (state?.isAuthenticated && state?.user) {
+          const savedUser = state.user;
+          
+          // MOCK_USERS'tan güncel rolü al
+          const currentMockUser = MOCK_USERS.find(u => u.id === savedUser.id) || 
+                                 MOCK_USERS.find(u => u.email === savedUser.email);
+          
+          if (currentMockUser && currentMockUser.role !== savedUser.role) {
+            console.log('[onRehydrateStorage] Role updated:', savedUser.role, '->', currentMockUser.role);
+            state.user = { ...savedUser, role: currentMockUser.role } as any;
+          }
+        }
+      }
     }
   )
 );
