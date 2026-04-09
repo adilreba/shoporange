@@ -96,7 +96,13 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
 function App() {
   useEffect(() => {
     // Uygulama başladığında auth'u initialize et
-    initializeAuth();
+    // persist middleware'den sonra çalışması için küçük bir gecikme
+    const timer = setTimeout(() => {
+      console.log('[App] Initializing auth...');
+      initializeAuth();
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   return (
