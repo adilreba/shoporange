@@ -543,46 +543,43 @@ export const userApi = {
         console.log('[updateRole] AFTER:', MOCK_USERS[userIndex]);
       }
       
-      // 2. authStore MOCK_USERS'u da güncelle (BUNU localStorage'dan ÖNCE yap)
-      const { MOCK_USERS: authStoreMockUsers, refreshUserFromMock } = await import('@/stores/authStore');
-      console.log('[updateRole] authStore MOCK_USERS count:', authStoreMockUsers.length);
-      const authStoreIndex = authStoreMockUsers.findIndex((u: any) => u.id === userId);
-      console.log('[updateRole] Found in authStore MOCK_USERS at index:', authStoreIndex);
-      if (authStoreIndex !== -1) {
-        console.log('[updateRole] authStore BEFORE:', authStoreMockUsers[authStoreIndex]);
-        authStoreMockUsers[authStoreIndex] = {
-          ...authStoreMockUsers[authStoreIndex],
-          role: newRole,
-        };
-        console.log('[updateRole] authStore AFTER:', authStoreMockUsers[authStoreIndex]);
+      // 2. authStore MOCK_USERS'u doğrudan güncelle (circular dependency'yi aşmak için dinamik import)
+      try {
+        const authStoreModule = await import('@/stores/authStore');
+        const authMockUsers = (authStoreModule as any).MOCK_USERS;
+        console.log('[updateRole] authStore MOCK_USERS:', authMockUsers?.map((u: any) => ({ email: u.email, role: u.role })));
+        
+        if (authMockUsers && Array.isArray(authMockUsers)) {
+          const authIdx = authMockUsers.findIndex((u: any) => u.id === userId || u.email === MOCK_USERS[userIndex]?.email);
+          console.log('[updateRole] authStore found at index:', authIdx);
+          if (authIdx !== -1) {
+            authMockUsers[authIdx].role = newRole;
+            console.log('[updateRole] authStore user updated to:', newRole);
+          }
+        }
+        
+        // State'i yenile
+        authStoreModule.refreshUserFromMock?.();
+      } catch (e) {
+        console.error('[updateRole] authStore update failed:', e);
       }
       
       // 3. localStorage'daki kullanıcıyı güncelle
       try {
         const saved = localStorage.getItem('google-users');
-        console.log('[updateRole] google-users in localStorage:', saved ? 'found' : 'not found');
         if (saved) {
           const googleUsers = JSON.parse(saved);
           const googleUserIndex = googleUsers.findIndex((u: any) => u.id === userId);
-          console.log('[updateRole] Found in google-users at index:', googleUserIndex);
           if (googleUserIndex !== -1) {
-            googleUsers[googleUserIndex] = {
-              ...googleUsers[googleUserIndex],
-              role: newRole,
-            };
+            googleUsers[googleUserIndex].role = newRole;
             localStorage.setItem('google-users', JSON.stringify(googleUsers));
-            console.log('[updateRole] google-users updated in localStorage');
           }
         }
       } catch (e) {
-        console.log('[updateRole] localStorage güncelleme hatası:', e);
+        console.log('[updateRole] localStorage error:', e);
       }
       
-      // 4. Eğer güncellenen kullanıcı mevcut login olmuş kullanıcıysa, user state'ini de güncelle
-      refreshUserFromMock();
-      
-      if (userIndex === -1 && authStoreIndex === -1) {
-        console.log('[updateRole] ERROR: User not found in any MOCK_USERS');
+      if (userIndex === -1) {
         throw new Error('Kullanıcı bulunamadı');
       }
       
