@@ -489,6 +489,14 @@ Resources:
           RequireLowercase: true
           RequireNumbers: true
           RequireSymbols: false
+      Schema:
+        - Name: role
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+          StringAttributeConstraints:
+            MinLength: 1
+            MaxLength: 20
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -975,12 +983,48 @@ Resources:
     Properties:
       CodeUri: dist/handlers/admin
       Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminUpdateUserAttributes
+                - cognito-idp:AdminGetUser
+              Resource: !GetAtt UserPool.Arn
       Events:
         ApiEvent:
           Type: Api
           Properties:
             Path: /admin/users
             Method: get
+            RestApiId: !Ref ApiGateway
+
+  # Admin - Update User Role
+  AdminUpdateUserRoleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminUpdateUserAttributes
+                - cognito-idp:AdminGetUser
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/users/{id}/role
+            Method: put
             RestApiId: !Ref ApiGateway
 
   # ============================================

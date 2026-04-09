@@ -10,6 +10,8 @@ import {
   ConfirmSignUpCommand,
   AdminCreateUserCommand,
   AdminSetUserPasswordCommand,
+  AdminUpdateUserAttributesCommand,
+  AdminGetUserCommand,
   AuthFlowType,
 } from '@aws-sdk/client-cognito-identity-provider';
 
@@ -270,6 +272,55 @@ export async function adminCreateUser(
   });
 
   await client.send(setPasswordCommand);
+}
+
+/**
+ * Admin: Update user role (custom:role attribute)
+ */
+export async function adminUpdateUserRole(
+  email: string,
+  newRole: string
+): Promise<void> {
+  const command = new AdminUpdateUserAttributesCommand({
+    UserPoolId: USER_POOL_ID,
+    Username: email,
+    UserAttributes: [
+      { Name: 'custom:role', Value: newRole },
+    ],
+  });
+
+  await client.send(command);
+}
+
+/**
+ * Admin: Get user details including custom attributes
+ */
+export async function adminGetUser(email: string): Promise<any> {
+  const command = new AdminGetUserCommand({
+    UserPoolId: USER_POOL_ID,
+    Username: email,
+  });
+
+  const response = await client.send(command);
+  
+  // Convert attributes to object
+  const attributes: Record<string, string> = {};
+  response.UserAttributes?.forEach((attr) => {
+    if (attr.Name && attr.Value) {
+      attributes[attr.Name] = attr.Value;
+    }
+  });
+
+  return {
+    username: response.Username,
+    email: attributes.email,
+    name: attributes.name,
+    role: attributes['custom:role'] || 'user',
+    emailVerified: attributes.email_verified === 'true',
+    createdAt: response.UserCreateDate,
+    lastModifiedAt: response.UserLastModifiedDate,
+    status: response.UserStatus,
+  };
 }
 
 /**

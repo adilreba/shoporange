@@ -3,6 +3,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand, PutSecretValueCommand, CreateSecretCommand } from '@aws-sdk/client-secrets-manager';
 import * as parasut from '../../services/parasut';
+import * as cognito from '../../services/cognito';
 
 // DynamoDB client - SDK v3
 const client = new DynamoDBClient({});
@@ -271,6 +272,68 @@ export const getAllUsers = async (): Promise<APIGatewayProxyResult> => {
   }
 };
 
+export const updateUserRole = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const userId = event.pathParameters?.id;
+    if (!userId || !event.body) {
+      return createErrorResponse(400, 'User ID and body required');
+    }
+
+    const { role } = JSON.parse(event.body);
+    if (!role) {
+      return createErrorResponse(400, 'Role is required');
+    }
+
+    // Valid roles
+    const validRoles = ['super_admin', 'admin', 'editor', 'support', 'user'];
+    if (!validRoles.includes(role)) {
+      return createErrorResponse(400, 'Invalid role');
+    }
+
+    // Get user from DynamoDB to find email
+    const userResult = await dynamodb.send(new GetCommand({
+      TableName: USERS_TABLE,
+      Key: { id: userId }
+    }));
+
+    if (!userResult.Item) {
+      return createErrorResponse(404, 'User not found');
+    }
+
+    const userEmail = userResult.Item.email;
+    if (!userEmail) {
+      return createErrorResponse(400, 'User email not found');
+    }
+
+    // Update role in Cognito
+    await cognito.adminUpdateUserRole(userEmail, role);
+
+    // Update role in DynamoDB
+    await dynamodb.send(new UpdateCommand({
+      TableName: USERS_TABLE,
+      Key: { id: userId },
+      UpdateExpression: 'SET #role = :role, updatedAt = :updatedAt',
+      ExpressionAttributeNames: { '#role': 'role' },
+      ExpressionAttributeValues: {
+        ':role': role,
+        ':updatedAt': new Date().toISOString()
+      }
+    }));
+
+    // Log the action
+    console.log(`User role updated: ${userId} (${userEmail}) -> ${role}`);
+
+    return createSuccessResponse({ 
+      message: 'User role updated successfully',
+      userId,
+      role 
+    });
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    return createErrorResponse(500, 'Failed to update user role');
+  }
+};
+
 // ========== SEED DATA ==========
 
 const sampleProducts = [
@@ -362,6 +425,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   // Users
   if (path === '/admin/users' || path.endsWith('/admin/users')) {
     if (method === 'GET') return getAllUsers();
+  }
+
+  // Update User Role
+  if (path.includes('/admin/users/') && path.includes('/role')) {
+    if (method === 'PUT') return updateUserRole(event);
   }
 
   // Seed Data

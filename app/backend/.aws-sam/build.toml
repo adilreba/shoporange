@@ -52,7 +52,7 @@ architecture = "x86_64"
 handler = "index.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["SeedDataFunction", "AdminGetProductsFunction", "AdminCreateProductFunction", "AdminUpdateProductFunction", "AdminDeleteProductFunction", "AdminGetOrdersFunction", "AdminUpdateOrderFunction", "AdminGetUsersFunction", "ParasutConfigFunction", "ParasutConfigUpdateFunction", "ParasutTestConnectionFunction", "ParasutStatusFunction", "ParasutInvoiceSyncFunction"]
+functions = ["SeedDataFunction", "AdminGetProductsFunction", "AdminCreateProductFunction", "AdminUpdateProductFunction", "AdminDeleteProductFunction", "AdminGetOrdersFunction", "AdminUpdateOrderFunction", "AdminGetUsersFunction", "AdminUpdateUserRoleFunction", "ParasutConfigFunction", "ParasutConfigUpdateFunction", "ParasutTestConnectionFunction", "ParasutStatusFunction", "ParasutInvoiceSyncFunction"]
 
 [function_build_definitions.55767ea0-7726-40e8-a25d-cc2a9b6298ac]
 codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/verification"
