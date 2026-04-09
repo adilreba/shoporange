@@ -9,53 +9,28 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 const MOCK_USERS = AuthStoreMockUsers as any[];
 
 // Mock kullanıcıları initialize et (bcrypt hash ile)
+// NOT: MOCK_USERS authStore.ts'den geliyor, orada zaten tanımlı
+// Bu fonksiyon sadece şifreleri hash'lemek için kullanılıyor
+let mockUsersInitialized = false;
+
 async function initializeMockUsers() {
-  if (MOCK_USERS.length > 0) return; // Zaten initialize edilmiş
+  if (mockUsersInitialized) return; // Zaten initialize edilmiş
   
-  // Admin kullanıcısı
-  MOCK_USERS.push({
-    id: 'admin-1',
-    email: 'admin@atushome.com',
-    password: await hashPassword('admin123'), // bcrypt hash
-    name: 'Admin Kullanıcı',
-    role: 'admin',
-    phone: '+90 555 999 8888',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-    address: [],
-    createdAt: '2024-01-01',
-    isActive: true,
-    deletedAt: null,
-    deletedBy: null,
-  });
+  // Mevcut kullanıcıların şifrelerini hash'le (plaintext ise)
+  for (let i = 0; i < MOCK_USERS.length; i++) {
+    const user = MOCK_USERS[i];
+    // Şifre zaten hash'lenmemişse (bcrypt hash'leri $2a$ ile başlar)
+    if (user.password && !user.password.startsWith('$2')) {
+      user.password = await hashPassword(user.password);
+    }
+    // isActive alanı yoksa ekle
+    if (user.isActive === undefined) {
+      user.isActive = true;
+    }
+  }
   
-  // Test kullanıcısı
-  MOCK_USERS.push({
-    id: 'user-1',
-    email: 'test@example.com',
-    password: await hashPassword('password123'), // bcrypt hash
-    name: 'Test Kullanıcı',
-    role: 'user',
-    phone: '+90 555 123 4567',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-    address: [
-      {
-        id: 'addr-1',
-        title: 'Ev',
-        fullName: 'Test Kullanıcı',
-        phone: '+90 555 123 4567',
-        city: 'İstanbul',
-        district: 'Kadıköy',
-        neighborhood: 'Moda',
-        addressLine: 'Moda Caddesi No:123 D:5',
-        zipCode: '34710',
-        isDefault: true
-      }
-    ],
-    createdAt: '2024-01-01',
-    isActive: true,
-    deletedAt: null,
-    deletedBy: null,
-  });
+  mockUsersInitialized = true;
+  console.log('[initializeMockUsers] Mock users initialized:', MOCK_USERS.length);
 }
 
 // Geliştirme/test için Mock mode - VITE_FORCE_MOCK_MODE=true ile aktif edilir
@@ -529,42 +504,20 @@ export const userApi = {
       await new Promise(resolve => setTimeout(resolve, 300));
       
       console.log('[updateRole] START - userId:', userId, 'newRole:', newRole);
-      console.log('[updateRole] api.ts MOCK_USERS count:', MOCK_USERS.length);
       
-      // 1. api.ts MOCK_USERS'u güncelle
+      // MOCK_USERS authStore.ts'den geliyor (aynı referans)
       const userIndex = MOCK_USERS.findIndex(u => u.id === userId);
-      console.log('[updateRole] Found in api.ts MOCK_USERS at index:', userIndex);
-      if (userIndex !== -1) {
-        console.log('[updateRole] BEFORE:', MOCK_USERS[userIndex]);
-        MOCK_USERS[userIndex] = {
-          ...MOCK_USERS[userIndex],
-          role: newRole,
-        };
-        console.log('[updateRole] AFTER:', MOCK_USERS[userIndex]);
+      console.log('[updateRole] Found user at index:', userIndex);
+      
+      if (userIndex === -1) {
+        throw new Error('Kullanıcı bulunamadı');
       }
       
-      // 2. authStore MOCK_USERS'u doğrudan güncelle (circular dependency'yi aşmak için dinamik import)
-      try {
-        const authStoreModule = await import('@/stores/authStore');
-        const authMockUsers = (authStoreModule as any).MOCK_USERS;
-        console.log('[updateRole] authStore MOCK_USERS:', authMockUsers?.map((u: any) => ({ email: u.email, role: u.role })));
-        
-        if (authMockUsers && Array.isArray(authMockUsers)) {
-          const authIdx = authMockUsers.findIndex((u: any) => u.id === userId || u.email === MOCK_USERS[userIndex]?.email);
-          console.log('[updateRole] authStore found at index:', authIdx);
-          if (authIdx !== -1) {
-            authMockUsers[authIdx].role = newRole;
-            console.log('[updateRole] authStore user updated to:', newRole);
-          }
-        }
-        
-        // State'i yenile
-        authStoreModule.refreshUserFromMock?.();
-      } catch (e) {
-        console.error('[updateRole] authStore update failed:', e);
-      }
+      // Rolü güncelle (aynı array'i güncelliyoruz, authStore de otomatik güncellenir)
+      MOCK_USERS[userIndex].role = newRole;
+      console.log('[updateRole] User role updated to:', newRole);
       
-      // 3. localStorage'daki kullanıcıyı güncelle
+      // localStorage'daki kullanıcıyı da güncelle (Google login ile gelenler için)
       try {
         const saved = localStorage.getItem('google-users');
         if (saved) {
@@ -579,15 +532,13 @@ export const userApi = {
         console.log('[updateRole] localStorage error:', e);
       }
       
-      if (userIndex === -1) {
-        throw new Error('Kullanıcı bulunamadı');
-      }
-      
       console.log('[updateRole] SUCCESS');
       return { success: true, message: 'Rol güncellendi' };
     }
+    
+    // Gerçek API çağrısı
     try {
-      return await fetchApi(`/users/${userId}`, {
+      return await fetchApi(`/admin/users/${userId}/role`, {
         method: 'PUT',
         body: JSON.stringify({ role: newRole }),
       });

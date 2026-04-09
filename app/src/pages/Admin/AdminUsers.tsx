@@ -5,7 +5,6 @@ import {
   AlertTriangle, UserX, UserCheck, Shield, Edit2
 } from 'lucide-react';
 import { api, userApi, isMockMode } from '@/services/api';
-import { mockUsers } from '@/data/mockData';
 import { MOCK_USERS as authStoreUsers } from '@/stores/authStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -140,54 +139,45 @@ export default function AdminUsers() {
     try {
       setLoading(true);
       
-      // Mock mode'da mockUsers kullan ve localStorage'dan ek kullanıcıları al
+      // Mock mode'da authStore'daki MOCK_USERS kullan
       if (isMockMode()) {
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        console.log('[AdminUsers] fetchUsers START');
-        console.log('[AdminUsers] authStoreUsers:', authStoreUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
+        console.log('[AdminUsers] fetchUsers START - Mock Mode');
         
-        // Mock veriler (mockData.ts)
-        const baseUsers = mockUsers.filter((u: any) => u.role !== 'super_admin' || u.id === 'superadmin1');
-        console.log('[AdminUsers] baseUsers from mockData:', baseUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
-        
-        // localStorage'dan google kullanıcılarını al
-        let googleUsers: User[] = [];
-        try {
-          const saved = localStorage.getItem('google-users');
-          console.log('[AdminUsers] localStorage google-users:', saved);
-          if (saved) {
-            googleUsers = JSON.parse(saved);
-            console.log('[AdminUsers] parsed googleUsers:', googleUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
-          }
-        } catch (e) {
-          console.log('[AdminUsers] localStorage okuma hatası:', e);
-        }
-        
-        // AuthStore'daki kullanıcıları da ekle (yenileri)
-        const storeUsers = authStoreUsers.filter((u: any) => {
-          return !baseUsers.find((bu: User) => bu.email === u.email) &&
-                 !googleUsers.find((gu: User) => gu.email === u.email);
-        }).map((u: any) => ({
+        // Ana kullanıcı kaynağı: authStore.ts'deki MOCK_USERS
+        // Şifreleri çıkararak kullanıcı listesi oluştur
+        const baseUsers = authStoreUsers.map((u: any) => ({
           id: u.id,
           name: u.name,
           email: u.email,
           phone: u.phone || '',
           role: u.role,
           createdAt: u.createdAt,
-          isActive: true,
+          isActive: u.isActive !== false,
+          avatar: u.avatar,
+          address: u.address || [],
         }));
-        console.log('[AdminUsers] storeUsers from authStore:', storeUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
         
-        // Google kullanıcılarını localStorage'a kaydet (yenileri)
-        const allGoogleUsers = [...googleUsers, ...storeUsers];
-        const uniqueUsers = allGoogleUsers.filter((user, index, self) =>
-          index === self.findIndex((u) => u.email === user.email)
-        );
-        localStorage.setItem('google-users', JSON.stringify(uniqueUsers));
+        // localStorage'dan ek kullanıcıları al (Google login ile gelenler)
+        let extraUsers: User[] = [];
+        try {
+          const saved = localStorage.getItem('google-users');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            // Sadece authStore'da olmayan kullanıcıları ekle
+            extraUsers = parsed.filter((u: any) => 
+              !baseUsers.find((bu: User) => bu.email === u.email)
+            );
+          }
+        } catch (e) {
+          console.log('[AdminUsers] localStorage okuma hatası:', e);
+        }
         
-        const finalUsers = [...baseUsers, ...uniqueUsers];
-        console.log('[AdminUsers] finalUsers set:', finalUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
+        // Tüm kullanıcıları birleştir
+        const finalUsers = [...baseUsers, ...extraUsers];
+        console.log('[AdminUsers] Kullanıcılar:', finalUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
+        
         setUsers(finalUsers);
         setDeletedUsers([]);
         return;
@@ -207,8 +197,8 @@ export default function AdminUsers() {
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Kullanıcılar yüklenirken bir sorun oluştu');
-      // Hata durumunda mock veri kullan
-      setUsers(mockUsers);
+      // Hata durumunda boş liste göster
+      setUsers([]);
       setDeletedUsers([]);
     } finally {
       setLoading(false);

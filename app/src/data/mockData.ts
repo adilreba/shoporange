@@ -942,62 +942,10 @@ export const adminMockOrders = [
   }
 ];
 
-// Mock Users for Admin Panel
-export const mockUsers: User[] = [
-  {
-    id: 'u1',
-    name: 'Ahmet Yılmaz',
-    email: 'ahmet@example.com',
-    phone: '0532 123 4567',
-    role: 'user',
-    createdAt: '2024-01-15',
-    isActive: true
-  },
-  {
-    id: 'u2',
-    name: 'Ayşe Demir',
-    email: 'ayse@example.com',
-    phone: '0533 234 5678',
-    role: 'user',
-    createdAt: '2024-02-01',
-    isActive: true
-  },
-  {
-    id: 'u3',
-    name: 'Mehmet Kaya',
-    email: 'mehmet@example.com',
-    phone: '0534 345 6789',
-    role: 'user',
-    createdAt: '2024-02-10',
-    isActive: true
-  },
-  {
-    id: 'u4',
-    name: 'Zeynep Şahin',
-    email: 'zeynep@example.com',
-    phone: '0535 456 7890',
-    role: 'user',
-    createdAt: '2024-02-20',
-    isActive: true
-  },
-  {
-    id: 'u5',
-    name: 'Can Özdemir',
-    email: 'can@example.com',
-    phone: '0536 567 8901',
-    role: 'user',
-    createdAt: '2024-03-01',
-    isActive: true
-  },
-  {
-    id: 'admin1',
-    name: 'Admin User',
-    email: 'admin@atushome.com',
-    phone: '0850 123 4567',
-    role: 'admin',
-    createdAt: '2023-12-01',
-    isActive: true
-  },
+// Mock Users for Admin Panel - BU ARTIK KULLANILMIYOR
+// Lütfen authStore.ts'deki MOCK_USERS kullanın
+// Bu dizi sadece geriye uyumluluk için tutuluyor
+export const mockUsers: User[] = [];
   {
     id: 'superadmin1',
     name: 'Super Admin',
