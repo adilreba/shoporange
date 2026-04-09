@@ -1,29 +1,12 @@
-import { getIdToken } from '@/stores/authStore';
+import { getIdToken, MOCK_USERS as AuthStoreMockUsers } from '@/stores/authStore';
 import { hashPassword, verifyPassword } from '@/utils/security';
 
 // API Configuration
 const DEFAULT_API_URL = 'https://your-api-gateway-url.execute-api.eu-west-1.amazonaws.com/prod';
 const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 
-// Mock kullanıcılar (development/demo için)
-interface MockUser {
-  id: string;
-  email: string;
-  password: string;
-  name: string;
-  role: string;
-  phone: string;
-  avatar: string;
-  address: any[];
-  createdAt: string;
-  isActive?: boolean;
-  deletedAt?: string | null;
-  deletedBy?: string | null;
-}
-
-// Mock kullanıcılar - şifreler bcrypt hash ile saklanır
-// Not: Gerçek hash'ler başında $2a$12$ olur
-const MOCK_USERS: MockUser[] = [];
+// Mock kullanıcılar - authStore.ts'den al, böylece her yerde aynı dizi olur
+const MOCK_USERS = AuthStoreMockUsers as any[];
 
 // Mock kullanıcıları initialize et (bcrypt hash ile)
 async function initializeMockUsers() {
