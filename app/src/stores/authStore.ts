@@ -180,35 +180,51 @@ export const useAuthStore = create<AuthState>()(
       pendingVerificationEmail: null,
 
       initAuth: async () => {
-        console.log('[initAuth] Starting... MOCK_USERS count:', MOCK_USERS.length);
+        console.log('[initAuth] Starting... MOCK_USERS:', MOCK_USERS.map(u => ({ email: u.email, role: u.role })));
         if (isMockMode()) {
           // Mock mode'da localStorage'dan kontrol et
           const saved = localStorage.getItem('auth-storage');
-          console.log('[initAuth] localStorage data:', saved ? 'found' : 'not found');
+          console.log('[initAuth] localStorage:', saved ? 'found' : 'not found');
+          
           if (saved) {
             const parsed = JSON.parse(saved);
-            console.log('[initAuth] Parsed state:', parsed.state?.isAuthenticated, parsed.state?.user?.email);
+            console.log('[initAuth] Parsed user:', parsed.state?.user?.email, 'role:', parsed.state?.user?.role);
+            
             if (parsed.state?.isAuthenticated && parsed.state?.user) {
               const savedUser = parsed.state.user;
-              console.log('[initAuth] Looking for user:', savedUser.email, 'ID:', savedUser.id);
-              console.log('[initAuth] Available MOCK_USERS:', MOCK_USERS.map(u => ({ email: u.email, role: u.role })));
-              // MOCK_USERS'tan güncel rolü al
-              const updatedUser = MOCK_USERS.find(u => u.id === savedUser.id || u.email === savedUser.email);
-              console.log('[initAuth] Found in MOCK_USERS:', updatedUser ? { email: updatedUser.email, role: updatedUser.role } : 'NOT FOUND');
-              if (updatedUser) {
-                console.log('[initAuth] SYNCING ROLE:', savedUser.role, '->', updatedUser.role);
+              const mockUser = MOCK_USERS.find(u => u.email === savedUser.email);
+              
+              console.log('[initAuth] MOCK_USER found:', mockUser ? { email: mockUser.email, role: mockUser.role } : 'NO');
+              
+              if (mockUser && mockUser.role !== savedUser.role) {
+                console.log('[initAuth] ROLE UPDATE:', savedUser.role, '->', mockUser.role);
+                
+                // SADECE user objesini güncelle
+                const newUser = { ...savedUser, role: mockUser.role };
+                console.log('[initAuth] NEW USER:', newUser);
+                
                 set({ 
-                  ...parsed.state,
-                  user: {
-                    ...savedUser,
-                    role: updatedUser.role // Güncel rolü kullan
-                  }
+                  isAuthenticated: true,
+                  tokens: parsed.state.tokens,
+                  user: newUser,
+                  isLoading: false
                 });
-              } else {
-                set({ ...parsed.state });
+                
+                console.log('[initAuth] State updated with new role');
+                return;
               }
             }
           }
+          
+          // Eğer güncelleme yapılmadıysa normal yükle
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.state?.isAuthenticated) {
+              set({ ...parsed.state, isLoading: false });
+              return;
+            }
+          }
+          
           set({ isLoading: false });
           return;
         }
