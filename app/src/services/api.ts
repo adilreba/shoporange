@@ -544,13 +544,48 @@ export const userApi = {
   updateRole: async (userId: string, newRole: string) => {
     if (isMockMode()) {
       await new Promise(resolve => setTimeout(resolve, 300));
-      const userIndex = MOCK_USERS.findIndex(u => u.id === userId);
-      if (userIndex === -1) throw new Error('Kullanıcı bulunamadı');
       
-      MOCK_USERS[userIndex] = {
-        ...MOCK_USERS[userIndex],
-        role: newRole,
-      };
+      // 1. api.ts MOCK_USERS'u güncelle
+      const userIndex = MOCK_USERS.findIndex(u => u.id === userId);
+      if (userIndex !== -1) {
+        MOCK_USERS[userIndex] = {
+          ...MOCK_USERS[userIndex],
+          role: newRole,
+        };
+      }
+      
+      // 2. localStorage'daki kullanıcıyı güncelle (Admin panelinde görünmesi için)
+      try {
+        const saved = localStorage.getItem('google-users');
+        if (saved) {
+          const googleUsers = JSON.parse(saved);
+          const googleUserIndex = googleUsers.findIndex((u: any) => u.id === userId);
+          if (googleUserIndex !== -1) {
+            googleUsers[googleUserIndex] = {
+              ...googleUsers[googleUserIndex],
+              role: newRole,
+            };
+            localStorage.setItem('google-users', JSON.stringify(googleUsers));
+          }
+        }
+      } catch (e) {
+        console.log('localStorage güncelleme hatası');
+      }
+      
+      // 3. authStore MOCK_USERS'u da güncelle (import ederek)
+      const { MOCK_USERS: authStoreMockUsers } = await import('@/stores/authStore');
+      const authStoreIndex = authStoreMockUsers.findIndex((u: any) => u.id === userId);
+      if (authStoreIndex !== -1) {
+        authStoreMockUsers[authStoreIndex] = {
+          ...authStoreMockUsers[authStoreIndex],
+          role: newRole,
+        };
+      }
+      
+      if (userIndex === -1) {
+        throw new Error('Kullanıcı bulunamadı');
+      }
+      
       return { success: true, message: 'Rol güncellendi' };
     }
     try {
