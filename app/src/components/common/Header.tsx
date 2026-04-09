@@ -157,7 +157,7 @@ export function Header() {
                     >
                       <span className="text-lg">📦</span> Tüm Ürünler
                     </Link>
-                    {isAuthenticated && user?.role === 'admin' && (
+                    {isAuthenticated && isAdmin && (
                       <Link 
                         to="/admin" 
                         className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors text-sm font-medium text-orange-600"
