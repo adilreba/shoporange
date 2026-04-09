@@ -180,37 +180,37 @@ export const useAuthStore = create<AuthState>()(
       pendingVerificationEmail: null,
 
       initAuth: async () => {
-        console.log('[initAuth] Starting... MOCK_USERS:', MOCK_USERS.map(u => ({ email: u.email, role: u.role })));
         if (isMockMode()) {
           // Mock mode'da localStorage'dan kontrol et
           const saved = localStorage.getItem('auth-storage');
-          console.log('[initAuth] localStorage:', saved ? 'found' : 'not found');
           
           if (saved) {
             const parsed = JSON.parse(saved);
-            console.log('[initAuth] Parsed user:', parsed.state?.user?.email, 'role:', parsed.state?.user?.role);
             
             if (parsed.state?.isAuthenticated && parsed.state?.user) {
               const savedUser = parsed.state.user;
-              const mockUser = MOCK_USERS.find(u => u.email === savedUser.email);
               
-              console.log('[initAuth] MOCK_USER found:', mockUser ? { email: mockUser.email, role: mockUser.role } : 'NO');
+              // ÖNEMLİ: MOCK_USERS'tan en güncel kullanıcı bilgisini al
+              // Rol değişiklikleri buradan yansıyacak
+              const currentMockUser = MOCK_USERS.find(u => u.email === savedUser.email);
               
-              if (mockUser && mockUser.role !== savedUser.role) {
-                console.log('[initAuth] ROLE UPDATE:', savedUser.role, '->', mockUser.role);
+              if (currentMockUser) {
+                // Eğer rol değişmişse, güncel rolü kullan
+                if (currentMockUser.role !== savedUser.role) {
+                  console.log('[initAuth] Rol güncellendi:', savedUser.role, '->', currentMockUser.role);
+                }
                 
-                // SADECE user objesini güncelle
-                const newUser = { ...savedUser, role: mockUser.role };
-                console.log('[initAuth] NEW USER:', newUser);
+                const updatedUser = {
+                  ...savedUser,
+                  role: currentMockUser.role, // Her zaman MOCK_USERS'taki güncel rolü kullan
+                };
                 
                 set({ 
                   isAuthenticated: true,
                   tokens: parsed.state.tokens,
-                  user: newUser,
+                  user: updatedUser,
                   isLoading: false
                 });
-                
-                console.log('[initAuth] State updated with new role');
                 return;
               }
             }
