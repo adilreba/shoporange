@@ -37,6 +37,8 @@ export function usePermissions() {
   const isSuperAdmin = userRole === 'super_admin';
   const isEditor = userRole === 'editor';
   const isSupport = userRole === 'support';
+  // Admin paneline erişebilen roller (admin, super_admin, editor, support)
+  const isStaff = isAdmin || isEditor || isSupport;
 
   return {
     permissions,
@@ -48,6 +50,7 @@ export function usePermissions() {
     isSuperAdmin,
     isEditor,
     isSupport,
+    isStaff,
   };
 }
 

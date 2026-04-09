@@ -56,7 +56,7 @@ export function Header() {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { isDark, toggleTheme } = useThemeStore();
-  const { isAdmin } = usePermissions();
+  const { isStaff } = usePermissions();
   const { totalItems } = useCartStore();
   const { getWishlistCount } = useWishlistStore();
   const { getCompareCount } = useCompareStore();
@@ -157,7 +157,7 @@ export function Header() {
                     >
                       <span className="text-lg">📦</span> Tüm Ürünler
                     </Link>
-                    {isAuthenticated && isAdmin && (
+                    {isAuthenticated && isStaff && (
                       <Link 
                         to="/admin" 
                         className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors text-sm font-medium text-orange-600"
@@ -374,7 +374,7 @@ export function Header() {
                       <User className="h-4 w-4 mr-2" />
                       Profilim
                     </DropdownMenuItem>
-                    {isAuthenticated && isAdmin && (
+                    {isAuthenticated && isStaff && (
                       <DropdownMenuItem onClick={() => navigate('/admin')}>
                         <BarChart3 className="h-4 w-4 mr-2" />
                         Admin Paneli
@@ -439,7 +439,7 @@ export function Header() {
                       <Ticket className="mr-2 h-4 w-4" />
                       Kuponlarım
                     </DropdownMenuItem>
-                    {isAdmin && (
+                    {isStaff && (
                     <DropdownMenuItem asChild>
                       <Link to="/admin" className="flex items-center cursor-pointer">
                         <BarChart3 className="mr-2 h-4 w-4" />
