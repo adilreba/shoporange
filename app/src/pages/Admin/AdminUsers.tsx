@@ -5,7 +5,7 @@ import {
   AlertTriangle, UserX, UserCheck, Shield, Edit2
 } from 'lucide-react';
 import { api, userApi, isMockMode } from '@/services/api';
-import { MOCK_USERS as authStoreUsers } from '@/stores/authStore';
+import { MOCK_USERS as authStoreUsers, useAuthStore } from '@/stores/authStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -254,6 +254,14 @@ export default function AdminUsers() {
       console.log('[AdminUsers] Calling userApi.updateRole...');
       const result = await userApi.updateRole(userToChangeRole.id, selectedRole);
       console.log('[AdminUsers] updateRole result:', result);
+      
+      // Eğer değiştirilen kullanıcı şu an giriş yapmışsa, authStore'u güncelle
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser && (currentUser.id === userToChangeRole.id || currentUser.email === userToChangeRole.email)) {
+        console.log('[AdminUsers] Updating current user role in authStore:', selectedRole);
+        useAuthStore.setState({ user: { ...currentUser, role: selectedRole } });
+      }
+      
       toast.success(`${userToChangeRole.name} kullanıcısının rolü ${ROLE_NAMES[selectedRole]} olarak güncellendi`);
       console.log('[AdminUsers] Calling fetchUsers...');
       await fetchUsers();
