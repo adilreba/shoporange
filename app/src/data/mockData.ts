@@ -946,13 +946,3 @@ export const adminMockOrders = [
 // Lütfen authStore.ts'deki MOCK_USERS kullanın
 // Bu dizi sadece geriye uyumluluk için tutuluyor
 export const mockUsers: User[] = [];
-  {
-    id: 'superadmin1',
-    name: 'Super Admin',
-    email: 'superadmin@atushome.com',
-    phone: '0850 999 0000',
-    role: 'super_admin',
-    createdAt: '2023-11-01',
-    isActive: true
-  }
-];
