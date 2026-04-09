@@ -41,7 +41,7 @@ import { useCartStore } from '@/stores/cartStore';
 import { useWishlistStore } from '@/stores/wishlistStore';
 import { useCompareStore } from '@/stores/compareStore';
 import { useThemeStore } from '@/stores/themeStore';
-import { usePermissions } from '@/hooks/usePermissions';
+// import { usePermissions } from '@/hooks/usePermissions';
 import { categories } from '@/data/mockData';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { LiveSearch } from '@/components/search/LiveSearch';
@@ -56,14 +56,17 @@ export function Header() {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { isDark, toggleTheme } = useThemeStore();
-  const { isStaff, userRole } = usePermissions();
+  
+  // DOĞRUDAN ROL KONTROLÜ - Hook'u bypass et
+  const userRole = user?.role;
+  const isStaffUser = userRole === 'admin' || userRole === 'super_admin' || userRole === 'editor' || userRole === 'support';
   
   // Debug: Kullanıcı rolünü kontrol et
   useEffect(() => {
     if (isAuthenticated && user) {
-      console.log('[Header] User:', user.email, 'Role:', user.role, 'isStaff:', isStaff, 'userRole:', userRole);
+      console.log('[Header] USER:', user.email, 'ROLE:', userRole, 'IS_STAFF:', isStaffUser);
     }
-  }, [isAuthenticated, user, isStaff, userRole]);
+  }, [isAuthenticated, user, userRole, isStaffUser]);
   const { totalItems } = useCartStore();
   const { getWishlistCount } = useWishlistStore();
   const { getCompareCount } = useCompareStore();
@@ -164,7 +167,7 @@ export function Header() {
                     >
                       <span className="text-lg">📦</span> Tüm Ürünler
                     </Link>
-                    {isAuthenticated && isStaff && (
+                    {isAuthenticated && isStaffUser && (
                       <Link 
                         to="/admin" 
                         className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors text-sm font-medium text-orange-600"
@@ -381,7 +384,7 @@ export function Header() {
                       <User className="h-4 w-4 mr-2" />
                       Profilim
                     </DropdownMenuItem>
-                    {isAuthenticated && isStaff && (
+                    {isAuthenticated && isStaffUser && (
                       <DropdownMenuItem onClick={() => navigate('/admin')}>
                         <BarChart3 className="h-4 w-4 mr-2" />
                         Admin Paneli
@@ -446,7 +449,7 @@ export function Header() {
                       <Ticket className="mr-2 h-4 w-4" />
                       Kuponlarım
                     </DropdownMenuItem>
-                    {isStaff && (
+                    {isStaffUser && (
                     <DropdownMenuItem asChild>
                       <Link to="/admin" className="flex items-center cursor-pointer">
                         <BarChart3 className="mr-2 h-4 w-4" />
