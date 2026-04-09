@@ -513,9 +513,24 @@ export const userApi = {
         throw new Error('Kullanıcı bulunamadı');
       }
       
-      // Rolü güncelle (aynı array'i güncelliyoruz, authStore de otomatik güncellenir)
+      // Rolü güncelle
       MOCK_USERS[userIndex].role = newRole;
-      console.log('[updateRole] User role updated to:', newRole);
+      console.log('[updateRole] MOCK_USERS updated:', MOCK_USERS[userIndex].email, '->', newRole);
+      
+      // ÖNEMLİ: Eğer güncellenen kullanıcı şu an giriş yapmışsa, authStore'u da güncelle
+      try {
+        const { useAuthStore } = await import('@/stores/authStore');
+        const authState = useAuthStore.getState();
+        if (authState.user?.id === userId || authState.user?.email === MOCK_USERS[userIndex].email) {
+          console.log('[updateRole] Updating current user in authStore');
+          const updatedUser = { ...authState.user, role: newRole };
+          useAuthStore.setState({
+            user: updatedUser as any
+          });
+        }
+      } catch (e) {
+        console.error('[updateRole] authStore update error:', e);
+      }
       
       // localStorage'daki kullanıcıyı da güncelle (Google login ile gelenler için)
       try {
