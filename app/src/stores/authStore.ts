@@ -9,9 +9,25 @@ import { checkPasswordStrength, isValidEmail, ClientRateLimiter } from '@/utils/
 const loginRateLimiter = new ClientRateLimiter();
 const registerRateLimiter = new ClientRateLimiter();
 
+// Google kullanıcılarını localStorage'dan MOCK_USERS'a yükle
+const loadGoogleUsersFromStorage = () => {
+  try {
+    const saved = localStorage.getItem('google-users');
+    if (saved) {
+      const googleUsers = JSON.parse(saved);
+      console.log('[loadGoogleUsers] Loaded from localStorage:', googleUsers.length, 'users');
+      return googleUsers;
+    }
+  } catch (e) {
+    console.log('[loadGoogleUsers] Error loading:', e);
+  }
+  return [];
+};
+
 // Mock kullanıcılar (demo için)
 // Export for admin panel to access all mock users
 export const MOCK_USERS = [
+  ...loadGoogleUsersFromStorage(),
   {
     id: 'superadmin-1',
     email: 'superadmin@atushome.com',
