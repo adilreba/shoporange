@@ -36,7 +36,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore, MOCK_USERS } from '@/stores/authStore';
 import { useCartStore } from '@/stores/cartStore';
 import { useWishlistStore } from '@/stores/wishlistStore';
 import { useCompareStore } from '@/stores/compareStore';
@@ -65,6 +65,15 @@ export function Header() {
   useEffect(() => {
     if (isAuthenticated && user) {
       console.log('[Header] USER:', user.email, 'ROLE:', userRole, 'IS_STAFF:', isStaffUser);
+      
+      // MOCK_USERS'tan güncel rolü kontrol et ve senkronize et
+      const mockUser = MOCK_USERS.find(u => u.id === user.id) || 
+                       MOCK_USERS.find(u => u.email === user.email);
+      
+      if (mockUser && mockUser.role !== user.role) {
+        console.log('[Header] Role mismatch detected! Updating:', user.role, '->', mockUser.role);
+        useAuthStore.setState({ user: { ...user, role: mockUser.role as any } });
+      }
     }
   }, [isAuthenticated, user, userRole, isStaffUser]);
   const { totalItems } = useCartStore();
