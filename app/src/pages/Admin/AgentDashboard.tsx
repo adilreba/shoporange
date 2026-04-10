@@ -65,14 +65,14 @@ export default function AgentDashboard() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const notifiedSessionsRef = useRef<Set<string>>(new Set());
 
-  // Admin kontrolü
+  // Admin kontrolü - Destek ekibi (support, admin, super_admin) erişebilir
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
-    const isAdmin = user?.role === 'admin' || user?.email?.includes('admin');
-    if (!isAdmin) {
+    const isStaff = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'support';
+    if (!isStaff) {
       toast.error('Bu sayfaya erişim yetkiniz yok');
       navigate('/');
     }
