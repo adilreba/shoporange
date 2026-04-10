@@ -64,15 +64,30 @@ export function Header() {
   // Debug: Kullanıcı rolünü kontrol et
   useEffect(() => {
     if (isAuthenticated && user) {
-      console.log('[Header] USER:', user.email, 'ROLE:', userRole, 'IS_STAFF:', isStaffUser);
+      console.log('[Header] USER id:', user.id, 'email:', user.email, 'ROLE:', userRole);
+      console.log('[Header] MOCK_USERS count:', MOCK_USERS.length);
       
-      // MOCK_USERS'tan güncel rolü kontrol et ve senkronize et
-      const mockUser = MOCK_USERS.find(u => u.id === user.id) || 
-                       MOCK_USERS.find(u => u.email === user.email);
+      // ID ile dene
+      const mockUserById = MOCK_USERS.find(u => u.id === user.id);
+      console.log('[Header] Found by ID:', mockUserById ? {id: mockUserById.id, role: mockUserById.role} : 'NOT FOUND');
       
-      if (mockUser && mockUser.role !== user.role) {
-        console.log('[Header] Role mismatch detected! Updating:', user.role, '->', mockUser.role);
-        useAuthStore.setState({ user: { ...user, role: mockUser.role as any } });
+      // Email ile dene
+      const mockUserByEmail = MOCK_USERS.find(u => u.email === user.email);
+      console.log('[Header] Found by EMAIL:', mockUserByEmail ? {id: mockUserByEmail.id, role: mockUserByEmail.role} : 'NOT FOUND');
+      
+      // Her durumda MOCK_USERS'tan güncel rolü al
+      const mockUser = mockUserById || mockUserByEmail;
+      
+      if (mockUser) {
+        if (mockUser.role !== user.role) {
+          console.log('[Header] UPDATING role:', user.role, '->', mockUser.role);
+          useAuthStore.setState({ user: { ...user, role: mockUser.role as any } });
+        } else {
+          console.log('[Header] Role already correct:', user.role);
+        }
+      } else {
+        console.log('[Header] ERROR: User not found in MOCK_USERS!');
+        console.log('[Header] Available IDs:', MOCK_USERS.map(u => u.id));
       }
     }
   }, [isAuthenticated, user, userRole, isStaffUser]);
