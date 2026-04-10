@@ -20,12 +20,24 @@ import {
   Truck,
   FileText,
   CreditCard,
-  Shield
+  Shield,
+  Check,
+  AlertCircle,
+  MessageSquare,
+  UserPlus,
+  ShoppingBag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useThemeStore } from '@/stores/themeStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useLiveChatStore } from '@/stores/liveChatStore';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 const menuItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
@@ -50,6 +62,19 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  // Bildirim tipi
+  interface Notification {
+    id: string;
+    title: string;
+    message: string;
+    type: 'info' | 'warning' | 'success' | 'error';
+    timestamp: Date;
+    read: boolean;
+    link?: string;
+    icon?: React.ReactNode;
+  }
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useThemeStore();
@@ -69,17 +94,130 @@ export default function AdminLayout() {
     fetchWaitingSessions();
   }, [user?.id, user?.email, isConnected, connectionStatus, connect, fetchWaitingSessions]);
 
-  // Canlı destek bildirim sayısını hesapla
+  // Rol bazlı bildirimleri oluştur
+  const generateNotifications = (): Notification[] => {
+    if (!user) return [];
+    
+    const notifs: Notification[] = [];
+    const userRole = user.role;
+    
+    // SUPER_ADMIN için bildirimler
+    if (userRole === 'super_admin') {
+      notifs.push({
+        id: '1',
+        title: 'Sistem Uyarısı',
+        message: 'Son 24 saatte 3 yeni kullanıcı kaydı oluşturuldu',
+        type: 'info',
+        timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 dk önce
+        read: false,
+        link: '/admin/users',
+        icon: <UserPlus className="w-4 h-4" />
+      });
+      notifs.push({
+        id: '2',
+        title: 'Güvenlik Uyarısı',
+        message: 'Şüpheli giriş denemesi tespit edildi',
+        type: 'warning',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 saat önce
+        read: false,
+        link: '/admin/audit-logs',
+        icon: <AlertCircle className="w-4 h-4" />
+      });
+    }
+    
+    // ADMIN için bildirimler
+    if (userRole === 'admin' || userRole === 'super_admin') {
+      notifs.push({
+        id: '3',
+        title: 'Yeni Sipariş',
+        message: 'Bekleyen 5 yeni sipariş var',
+        type: 'success',
+        timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 dk önce
+        read: false,
+        link: '/admin/orders',
+        icon: <ShoppingBag className="w-4 h-4" />
+      });
+      notifs.push({
+        id: '4',
+        title: 'Stok Uyarısı',
+        message: '3 ürünün stok seviyesi kritik düzeyde',
+        type: 'warning',
+        timestamp: new Date(Date.now() - 1000 * 60 * 45), // 45 dk önce
+        read: true,
+        link: '/admin/stock',
+        icon: <Package className="w-4 h-4" />
+      });
+    }
+    
+    // SUPPORT için canlı destek bildirimleri
+    if (userRole === 'support' || userRole === 'admin' || userRole === 'super_admin') {
+      const pendingChats = agentRequests.filter(req => req.status === 'pending').length;
+      if (pendingChats > 0 && !isSupportPage) {
+        notifs.push({
+          id: '5',
+          title: 'Canlı Destek',
+          message: `${pendingChats} bekleyen destek talebi var`,
+          type: 'info',
+          timestamp: new Date(),
+          read: false,
+          link: '/admin/support',
+          icon: <MessageSquare className="w-4 h-4" />
+        });
+      }
+    }
+    
+    // EDITOR için içerik bildirimleri
+    if (userRole === 'editor' || userRole === 'admin' || userRole === 'super_admin') {
+      notifs.push({
+        id: '6',
+        title: 'İçerik Onayı',
+        message: '2 yeni ürün incelemenizi bekliyor',
+        type: 'info',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3), // 3 saat önce
+        read: false,
+        link: '/admin/products',
+        icon: <FileText className="w-4 h-4" />
+      });
+    }
+    
+    return notifs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  };
+
+  // Bildirimleri güncelle
   useEffect(() => {
-    // SADECE cevaplanmamış (pending) bekleyenleri göster
-    const pendingCount = agentRequests.filter(req => req.status === 'pending').length;
+    const notifs = generateNotifications();
+    setNotifications(notifs);
+    const unreadCount = notifs.filter(n => !n.read).length;
+    setNotificationCount(unreadCount);
+  }, [user?.role, agentRequests, isSupportPage]);
+
+  // Bildirimi okundu olarak işaretle
+  const markAsRead = (id: string) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === id ? { ...n, read: true } : n)
+    );
+    setNotificationCount(prev => Math.max(0, prev - 1));
+  };
+
+  // Tüm bildirimleri okundu olarak işaretle
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotificationCount(0);
+  };
+
+  // Zaman formatı
+  const formatTime = (date: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
     
-    console.log('[AdminLayout] Chat notification:', { pendingCount, isSupportPage, agentCount: agentRequests.length });
-    
-    // Destek sayfasındaysa bildirim gösterme (0)
-    // Başka sayfadaysa bekleyen sayısını göster
-    setNotificationCount(isSupportPage ? 0 : pendingCount);
-  }, [agentRequests, isSupportPage]);
+    if (minutes < 1) return 'Şimdi';
+    if (minutes < 60) return `${minutes} dk önce`;
+    if (hours < 24) return `${hours} saat önce`;
+    return `${days} gün önce`;
+  };
 
   // Admin panelinden çıkış - sadece front-end'e (anasayfa) yönlendir, oturum kapanmasın
   const handleExitAdmin = () => {
@@ -268,11 +406,81 @@ export default function AdminLayout() {
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
 
-            {/* Notifications */}
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-            </Button>
+            {/* Notifications Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="w-5 h-5" />
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                      {notificationCount > 9 ? '9+' : notificationCount}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+                <div className="flex items-center justify-between px-3 py-2 border-b">
+                  <span className="font-semibold text-sm">Bildirimler</span>
+                  {notificationCount > 0 && (
+                    <button 
+                      onClick={markAllAsRead}
+                      className="text-xs text-orange-500 hover:text-orange-600 flex items-center gap-1"
+                    >
+                      <Check className="w-3 h-3" />
+                      Tümünü okundu işaretle
+                    </button>
+                  )}
+                </div>
+                
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-gray-500">
+                    <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">Bildirim yok</p>
+                  </div>
+                ) : (
+                  notifications.map((notif) => (
+                    <DropdownMenuItem 
+                      key={notif.id}
+                      className={cn(
+                        "flex items-start gap-3 p-3 cursor-pointer",
+                        !notif.read && "bg-orange-50 dark:bg-orange-900/20"
+                      )}
+                      onClick={() => {
+                        markAsRead(notif.id);
+                        if (notif.link) navigate(notif.link);
+                      }}
+                    >
+                      <div className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                        notif.type === 'error' && "bg-red-100 text-red-600",
+                        notif.type === 'warning' && "bg-yellow-100 text-yellow-600",
+                        notif.type === 'success' && "bg-green-100 text-green-600",
+                        notif.type === 'info' && "bg-blue-100 text-blue-600"
+                      )}>
+                        {notif.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          "text-sm font-medium",
+                          !notif.read && "text-gray-900 dark:text-white"
+                        )}>
+                          {notif.title}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                          {notif.message}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {formatTime(notif.timestamp)}
+                        </p>
+                      </div>
+                      {!notif.read && (
+                        <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0 mt-1" />
+                      )}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Admin'den Çıkış - Front-end'e git */}
             <Button 
