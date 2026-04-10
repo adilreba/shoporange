@@ -86,7 +86,11 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
     return <Navigate to="/login" replace />;
   }
   
-  if (requireAdmin && user?.role !== 'admin' && user?.role !== 'super_admin') {
+  // Admin paneline erişebilen roller: admin, super_admin, editor, support
+  const isStaff = user?.role === 'admin' || user?.role === 'super_admin' || 
+                  user?.role === 'editor' || user?.role === 'support';
+  
+  if (requireAdmin && !isStaff) {
     return <Navigate to="/" replace />;
   }
   
