@@ -53,7 +53,7 @@ export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useThemeStore();
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const { agentRequests, connect, isConnected, connectionStatus, fetchWaitingSessions } = useLiveChatStore();
   const isSupportPage = location.pathname === '/admin/support';
 
@@ -81,9 +81,9 @@ export default function AdminLayout() {
     setNotificationCount(isSupportPage ? 0 : pendingCount);
   }, [agentRequests, isSupportPage]);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  // Admin panelinden çıkış - sadece front-end'e (anasayfa) yönlendir, oturum kapanmasın
+  const handleExitAdmin = () => {
+    navigate('/');
   };
 
   const isActive = (path: string, exact?: boolean) => {
@@ -274,8 +274,13 @@ export default function AdminLayout() {
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
             </Button>
 
-            {/* Logout */}
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
+            {/* Admin'den Çıkış - Front-end'e git */}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleExitAdmin}
+              title="Admin Panelinden Çık"
+            >
               <LogOut className="w-5 h-5" />
             </Button>
           </div>
