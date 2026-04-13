@@ -1,5 +1,18 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import * as cognito from '../../services/cognito';
+import {
+  CognitoIdentityProviderClient,
+  SignUpCommand,
+  InitiateAuthCommand,
+  GetUserCommand,
+  GlobalSignOutCommand,
+  ForgotPasswordCommand,
+  ConfirmForgotPasswordCommand,
+  ResendConfirmationCodeCommand,
+  ConfirmSignUpCommand,
+  AdminCreateUserCommand,
+  AdminSetUserPasswordCommand,
+  AuthFlowType,
+} from '@aws-sdk/client-cognito-identity-provider';
 import {
   securityHeaders,
   sanitizeInput,
@@ -9,6 +22,188 @@ import {
   validatePasswordStrength,
   logSecurityEvent,
 } from '../../utils/security';
+
+// ===== COGNITO CLIENT SETUP =====
+const cognitoClient = new CognitoIdentityProviderClient({
+  region: process.env.AWS_REGION || 'eu-west-1',
+});
+
+const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || '';
+const CLIENT_ID = process.env.COGNITO_CLIENT_ID || '';
+
+// ===== COGNITO FUNCTIONS =====
+async function signUp(input: { email: string; password: string; name: string; phone?: string }): Promise<{ userSub: string }> {
+  const command = new SignUpCommand({
+    ClientId: CLIENT_ID,
+    Username: input.email,
+    Password: input.password,
+    UserAttributes: [
+      { Name: 'email', Value: input.email },
+      { Name: 'name', Value: input.name },
+      ...(input.phone ? [{ Name: 'phone_number', Value: input.phone }] : []),
+      { Name: 'custom:role', Value: 'user' },
+    ],
+  });
+  const response = await cognitoClient.send(command);
+  return { userSub: response.UserSub! };
+}
+
+async function confirmSignUp(email: string, code: string): Promise<void> {
+  const command = new ConfirmSignUpCommand({
+    ClientId: CLIENT_ID,
+    Username: email,
+    ConfirmationCode: code,
+  });
+  await cognitoClient.send(command);
+}
+
+async function resendConfirmationCode(email: string): Promise<void> {
+  const command = new ResendConfirmationCodeCommand({
+    ClientId: CLIENT_ID,
+    Username: email,
+  });
+  await cognitoClient.send(command);
+}
+
+async function signIn(input: { email: string; password: string }): Promise<{ user: any; tokens: any }> {
+  const command = new InitiateAuthCommand({
+    ClientId: CLIENT_ID,
+    AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+    AuthParameters: {
+      USERNAME: input.email,
+      PASSWORD: input.password,
+    },
+  });
+  const response = await cognitoClient.send(command);
+  const authResult = response.AuthenticationResult;
+
+  if (!authResult?.AccessToken || !authResult?.IdToken || !authResult?.RefreshToken) {
+    throw new Error('Authentication failed');
+  }
+
+  const user = await getUser(authResult.AccessToken);
+
+  return {
+    user: {
+      id: user.sub,
+      email: user.email,
+      name: user.name,
+      phone: user.phone,
+      role: user.role || 'user',
+    },
+    tokens: {
+      accessToken: authResult.AccessToken,
+      idToken: authResult.IdToken,
+      refreshToken: authResult.RefreshToken,
+      expiresIn: authResult.ExpiresIn || 3600,
+    },
+  };
+}
+
+async function refreshTokens(refreshToken: string): Promise<{ tokens: any }> {
+  const command = new InitiateAuthCommand({
+    ClientId: CLIENT_ID,
+    AuthFlow: AuthFlowType.REFRESH_TOKEN_AUTH,
+    AuthParameters: { REFRESH_TOKEN: refreshToken },
+  });
+  const response = await cognitoClient.send(command);
+  const authResult = response.AuthenticationResult;
+
+  if (!authResult?.AccessToken || !authResult?.IdToken) {
+    throw new Error('Token refresh failed');
+  }
+
+  return {
+    tokens: {
+      accessToken: authResult.AccessToken,
+      idToken: authResult.IdToken,
+      refreshToken: refreshToken,
+      expiresIn: authResult.ExpiresIn || 3600,
+    },
+  };
+}
+
+async function getUser(accessToken: string): Promise<any> {
+  const command = new GetUserCommand({ AccessToken: accessToken });
+  const response = await cognitoClient.send(command);
+
+  const attributes: Record<string, string> = {};
+  response.UserAttributes?.forEach((attr) => {
+    if (attr.Name && attr.Value) {
+      attributes[attr.Name] = attr.Value;
+    }
+  });
+
+  return {
+    sub: attributes.sub,
+    email: attributes.email,
+    name: attributes.name,
+    phone: attributes.phone_number,
+    role: attributes['custom:role'] || 'user',
+  };
+}
+
+async function signOut(accessToken: string): Promise<void> {
+  const command = new GlobalSignOutCommand({ AccessToken: accessToken });
+  await cognitoClient.send(command);
+}
+
+async function forgotPassword(email: string): Promise<void> {
+  const command = new ForgotPasswordCommand({
+    ClientId: CLIENT_ID,
+    Username: email,
+  });
+  await cognitoClient.send(command);
+}
+
+async function confirmForgotPassword(email: string, code: string, newPassword: string): Promise<void> {
+  const command = new ConfirmForgotPasswordCommand({
+    ClientId: CLIENT_ID,
+    Username: email,
+    ConfirmationCode: code,
+    Password: newPassword,
+  });
+  await cognitoClient.send(command);
+}
+
+async function adminCreateUser(email: string, name: string, tempPassword: string, role: string = 'user'): Promise<void> {
+  const command = new AdminCreateUserCommand({
+    UserPoolId: USER_POOL_ID,
+    Username: email,
+    UserAttributes: [
+      { Name: 'email', Value: email },
+      { Name: 'email_verified', Value: 'true' },
+      { Name: 'name', Value: name },
+      { Name: 'custom:role', Value: role },
+    ],
+    TemporaryPassword: tempPassword,
+    MessageAction: 'SUPPRESS',
+  });
+  await cognitoClient.send(command);
+
+  const setPasswordCommand = new (await import('@aws-sdk/client-cognito-identity-provider')).AdminSetUserPasswordCommand({
+    UserPoolId: USER_POOL_ID,
+    Username: email,
+    Password: tempPassword,
+    Permanent: true,
+  });
+  await cognitoClient.send(setPasswordCommand);
+}
+
+async function handleGoogleSignIn(googleUser: any, idToken: string): Promise<any> {
+  try {
+    return await signIn({
+      email: googleUser.email,
+      password: `google_${googleUser.sub}`,
+    });
+  } catch (error) {
+    const tempPassword = `google_${googleUser.sub}_${Date.now()}`;
+    await adminCreateUser(googleUser.email, googleUser.name, tempPassword, 'user');
+    return await signIn({ email: googleUser.email, password: tempPassword });
+  }
+}
+
+// ===== RATE LIMIT CONFIG =====
 
 // Rate limit configs
 const RATE_LIMITS = {
@@ -101,7 +296,7 @@ export const register = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
       };
     }
 
-    const result = await cognito.signUp({
+    const result = await signUp({
       email: sanitizedEmail,
       password,
       name: sanitizedName,
@@ -197,7 +392,7 @@ export const login = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
       };
     }
 
-    const result = await cognito.signIn({
+    const result = await signIn({
       email: sanitizedEmail,
       password,
     });
@@ -279,7 +474,7 @@ export const verifyEmail = async (event: APIGatewayProxyEvent): Promise<APIGatew
       };
     }
 
-    await cognito.confirmSignUp(sanitizedEmail, sanitizedCode);
+    await confirmSignUp(sanitizedEmail, sanitizedCode);
 
     return {
       statusCode: 200,
@@ -330,7 +525,7 @@ export const resendCode = async (event: APIGatewayProxyEvent): Promise<APIGatewa
     }
 
     const sanitizedEmail = sanitizeInput(email).toLowerCase();
-    await cognito.resendConfirmationCode(sanitizedEmail);
+    await resendConfirmationCode(sanitizedEmail);
 
     return {
       statusCode: 200,
@@ -371,7 +566,7 @@ export const refreshToken = async (event: APIGatewayProxyEvent): Promise<APIGate
       };
     }
 
-    const result = await cognito.refreshTokens(token);
+    const result = await refreshTokens(token);
 
     return {
       statusCode: 200,
@@ -403,7 +598,7 @@ export const logout = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
     const accessToken = authHeader?.replace('Bearer ', '');
 
     if (accessToken) {
-      await cognito.signOut(accessToken);
+      await signOut(accessToken);
     }
 
     logSecurityEvent('USER_LOGGED_OUT', { ip: getClientIP(event) }, 'low');
@@ -440,7 +635,7 @@ export const getMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
       };
     }
 
-    const user = await cognito.getUser(accessToken);
+    const user = await getUser(accessToken);
 
     return {
       statusCode: 200,
@@ -488,7 +683,7 @@ export const forgotPassword = async (event: APIGatewayProxyEvent): Promise<APIGa
     }
 
     const sanitizedEmail = sanitizeInput(email).toLowerCase();
-    await cognito.forgotPassword(sanitizedEmail);
+    await forgotPassword(sanitizedEmail);
 
     return {
       statusCode: 200,
@@ -543,7 +738,7 @@ export const resetPassword = async (event: APIGatewayProxyEvent): Promise<APIGat
     }
 
     const sanitizedEmail = sanitizeInput(email).toLowerCase();
-    await cognito.confirmForgotPassword(sanitizedEmail, code, newPassword);
+    await confirmForgotPassword(sanitizedEmail, code, newPassword);
 
     logSecurityEvent('PASSWORD_RESET', { email: sanitizedEmail }, 'medium');
 
@@ -596,7 +791,7 @@ export const googleLogin = async (event: APIGatewayProxyEvent): Promise<APIGatew
       };
     }
 
-    const result = await cognito.handleGoogleSignIn(
+    const result = await handleGoogleSignIn(
       {
         email: sanitizeInput(googleUser.email),
         name: sanitizeInput(googleUser.name),

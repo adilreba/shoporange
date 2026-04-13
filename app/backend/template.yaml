@@ -553,6 +553,9 @@ Resources:
     Properties:
       CodeUri: dist/handlers/products
       Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
       Events:
         ApiEvent:
           Type: Api
@@ -566,6 +569,9 @@ Resources:
     Properties:
       CodeUri: dist/handlers/products
       Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
       Events:
         ApiEvent:
           Type: Api
@@ -579,6 +585,9 @@ Resources:
     Properties:
       CodeUri: dist/handlers/products
       Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
       Events:
         ApiEvent:
           Type: Api
@@ -592,6 +601,17 @@ Resources:
     Properties:
       CodeUri: dist/handlers/users
       Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+              Resource: !GetAtt PIIEncryptionKey.Arn
       Events:
         ApiEvent:
           Type: Api
@@ -605,6 +625,15 @@ Resources:
     Properties:
       CodeUri: dist/handlers/users
       Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+              Resource: !GetAtt PIIEncryptionKey.Arn
       Events:
         ApiEvent:
           Type: Api
@@ -618,6 +647,18 @@ Resources:
     Properties:
       CodeUri: dist/handlers/users
       Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+              Resource: !GetAtt PIIEncryptionKey.Arn
       Events:
         ApiEvent:
           Type: Api
@@ -631,6 +672,18 @@ Resources:
     Properties:
       CodeUri: dist/handlers/users
       Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+              Resource: !GetAtt PIIEncryptionKey.Arn
       Events:
         ApiEvent:
           Type: Api
@@ -722,6 +775,9 @@ Resources:
     Properties:
       CodeUri: dist/handlers/cart
       Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CartTable
       Events:
         ApiEvent:
           Type: Api
@@ -735,6 +791,11 @@ Resources:
     Properties:
       CodeUri: dist/handlers/cart
       Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CartTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
       Events:
         ApiEvent:
           Type: Api
@@ -748,6 +809,9 @@ Resources:
     Properties:
       CodeUri: dist/handlers/cart
       Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CartTable
       Events:
         ApiEvent:
           Type: Api
@@ -761,6 +825,9 @@ Resources:
     Properties:
       CodeUri: dist/handlers/cart
       Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CartTable
       Events:
         ApiEvent:
           Type: Api
@@ -774,6 +841,9 @@ Resources:
     Properties:
       CodeUri: dist/handlers/cart
       Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CartTable
       Events:
         ApiEvent:
           Type: Api
