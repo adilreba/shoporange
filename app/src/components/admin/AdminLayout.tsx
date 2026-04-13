@@ -364,13 +364,15 @@ export default function AdminLayout() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        {/* Header - Sabit */}
-        <header className="flex-none h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 lg:px-6">
-          <div className="flex items-center gap-4">
+        {/* Header - Modern Responsive */}
+        <header className="flex-none h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 lg:px-8">
+          
+          {/* Sol: Breadcrumb */}
+          <div className="flex items-center gap-3 flex-shrink-0">
             <Button 
               variant="ghost" 
               size="icon" 
-              className="lg:hidden"
+              className="lg:hidden -ml-2"
               onClick={() => setMobileMenuOpen(true)}
             >
               <Menu className="w-5 h-5" />
@@ -378,11 +380,11 @@ export default function AdminLayout() {
             
             {/* Breadcrumb */}
             <nav className="hidden md:flex items-center text-sm text-gray-500">
-              <Link to="/admin" className="hover:text-orange-500">Admin</Link>
+              <Link to="/admin" className="hover:text-orange-500 transition-colors">Admin</Link>
               {location.pathname !== '/admin' && (
                 <>
-                  <span className="mx-2">/</span>
-                  <span className="text-gray-900 dark:text-white capitalize">
+                  <span className="mx-2 text-gray-300">/</span>
+                  <span className="text-gray-900 dark:text-white font-medium capitalize">
                     {location.pathname.split('/').pop()?.replace('-', ' ')}
                   </span>
                 </>
@@ -390,35 +392,39 @@ export default function AdminLayout() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Search */}
-            <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-1.5">
-              <Search className="w-4 h-4 text-gray-400" />
+          {/* Orta: Search */}
+          <div className="hidden sm:flex flex-1 max-w-md mx-4 lg:mx-8">
+            <div className="w-full flex items-center bg-gray-100 dark:bg-gray-700 rounded-xl px-4 py-2 focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:bg-white dark:focus-within:bg-gray-600 transition-all">
+              <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
               <input 
                 type="text" 
                 placeholder="Ara..."
-                className="bg-transparent border-none outline-none ml-2 text-sm w-48"
+                className="bg-transparent border-none outline-none ml-3 text-sm w-full text-gray-700 dark:text-gray-200 placeholder:text-gray-400"
               />
             </div>
+          </div>
 
+          {/* Sağ: Actions */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            
             {/* Theme Toggle */}
-            <Button variant="ghost" size="icon" onClick={toggleTheme}>
-              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            <Button variant="ghost" size="icon" className="w-9 h-9 sm:w-10 sm:h-10" onClick={toggleTheme}>
+              {isDark ? <Sun className="w-[18px] h-[18px] sm:w-5 sm:h-5" /> : <Moon className="w-[18px] h-[18px] sm:w-5 sm:h-5" />}
             </Button>
 
             {/* Notifications Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="w-5 h-5" />
+                <Button variant="ghost" size="icon" className="relative w-9 h-9 sm:w-10 sm:h-10 hidden sm:flex">
+                  <Bell className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
                   {notificationCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                    <span className="absolute top-1 right-1 w-4 h-4 sm:w-5 sm:h-5 bg-red-500 text-white text-[10px] sm:text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
                       {notificationCount > 9 ? '9+' : notificationCount}
                     </span>
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+              <DropdownMenuContent align="end" className="w-72 sm:w-80 max-h-96 overflow-y-auto">
                 <div className="flex items-center justify-between px-3 py-2 border-b">
                   <span className="font-semibold text-sm">Bildirimler</span>
                   {notificationCount > 0 && (
@@ -485,11 +491,12 @@ export default function AdminLayout() {
             {/* Admin'den Çıkış - Front-end'e git */}
             <Button 
               variant="ghost" 
-              size="icon" 
+              size="icon"
+              className="w-9 h-9 sm:w-10 sm:h-10"
               onClick={handleExitAdmin}
               title="Admin Panelinden Çık"
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
             </Button>
           </div>
         </header>

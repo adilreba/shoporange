@@ -18,6 +18,7 @@ export type AuditEventType =
   | 'USER_LOGOUT'
   | 'USER_REGISTER'
   | 'USER_UPDATE'
+  | 'UPDATE_PROFILE'
   | 'PASSWORD_CHANGE'
   | 'PASSWORD_RESET'
   | 'ORDER_CREATE'
@@ -291,6 +292,30 @@ export const audit = {
       resourceId: params.resourceId,
       userId: params.adminId,
       userEmail: params.adminEmail,
+      ipAddress: params.ipAddress,
+      success: true,
+      details: params.details || {},
+    });
+  },
+
+  // User self-service actions
+  userAction: async (params: {
+    userId: string;
+    userEmail: string;
+    ipAddress: string;
+    action: string;
+    resource: string;
+    resourceId?: string;
+    details?: Record<string, any>;
+  }) => {
+    await logAuditEvent({
+      eventType: 'USER_UPDATE',
+      severity: 'info',
+      action: params.action,
+      resource: params.resource,
+      resourceId: params.resourceId,
+      userId: params.userId,
+      userEmail: params.userEmail,
       ipAddress: params.ipAddress,
       success: true,
       details: params.details || {},

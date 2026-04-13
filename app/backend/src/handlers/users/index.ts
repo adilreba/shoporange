@@ -1,11 +1,17 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { encryptField, decryptField, maskSensitiveData, maskEmail, maskPhone } from '../../utils/encryption';
+import { audit } from '../../utils/auditLogger';
+import { getClientIP } from '../../utils/security';
 
 // DynamoDB client - SDK v3
 const client = new DynamoDBClient({});
 const dynamodb = DynamoDBDocumentClient.from(client);
 const USERS_TABLE = process.env.USERS_TABLE || '';
+
+// PII fields that need encryption
+const USER_PII_FIELDS = ['email', 'phone', 'address'] as const;
 
 // Kullanıcı ID'sini token'dan al
 const getUserId = (event: APIGatewayProxyEvent): string => {
@@ -47,7 +53,38 @@ export const getUser = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return createErrorResponse(404, 'User not found');
     }
 
-    return createSuccessResponse(result.Item);
+    // Decrypt PII fields
+    const decryptedUser = { ...result.Item };
+    const encryptionContext = { userId, service: 'users', purpose: 'pii-retrieval' };
+    
+    for (const field of USER_PII_FIELDS) {
+      if (result.Item[field] && typeof result.Item[field] === 'string') {
+        try {
+          decryptedUser[field] = await decryptField(result.Item[field], encryptionContext);
+        } catch (decryptError) {
+          console.error(`Failed to decrypt ${field}:`, decryptError);
+          // If decryption fails, keep the original value (might be unencrypted legacy data)
+          decryptedUser[field] = result.Item[field];
+        }
+      }
+    }
+
+    // Log admin access with masked data
+    const maskedForLog = maskSensitiveData(decryptedUser, ['email', 'phone']);
+    console.log('Admin user access:', { userId: maskedForLog.id, email: maskedForLog.email });
+
+    // Audit log for admin access
+    await audit.adminAction({
+      adminId: event.requestContext.authorizer?.claims?.sub || 'unknown',
+      adminEmail: event.requestContext.authorizer?.claims?.email || 'unknown',
+      ipAddress: getClientIP(event),
+      action: 'VIEW_USER',
+      resource: 'USER',
+      resourceId: userId,
+      details: { accessedFields: Object.keys(decryptedUser) },
+    });
+
+    return createSuccessResponse(decryptedUser);
   } catch (error) {
     console.error('Error:', error);
     return createErrorResponse(500, 'Internal server error');
@@ -62,6 +99,7 @@ export const updateUser = async (event: APIGatewayProxyEvent): Promise<APIGatewa
     }
 
     const updates = JSON.parse(event.body);
+    const encryptionContext = { userId, service: 'users', purpose: 'pii-storage' };
 
     // Dinamik update expression oluştur
     const updateExpressions: string[] = [];
@@ -73,17 +111,21 @@ export const updateUser = async (event: APIGatewayProxyEvent): Promise<APIGatewa
       expressionValues[':name'] = updates.name;
       expressionNames['#name'] = 'name';
     }
+    // Encrypt PII fields before storing
     if (updates.email) {
       updateExpressions.push('email = :email');
-      expressionValues[':email'] = updates.email;
+      expressionValues[':email'] = await encryptField(updates.email, encryptionContext);
     }
     if (updates.phone) {
       updateExpressions.push('phone = :phone');
-      expressionValues[':phone'] = updates.phone;
+      expressionValues[':phone'] = await encryptField(updates.phone, encryptionContext);
     }
     if (updates.address) {
       updateExpressions.push('address = :address');
-      expressionValues[':address'] = updates.address;
+      const addressData = typeof updates.address === 'string' 
+        ? updates.address 
+        : JSON.stringify(updates.address);
+      expressionValues[':address'] = await encryptField(addressData, encryptionContext);
     }
     // Rol güncelleme desteği
     if (updates.role) {
@@ -107,7 +149,36 @@ export const updateUser = async (event: APIGatewayProxyEvent): Promise<APIGatewa
       ReturnValues: 'ALL_NEW'
     }));
 
-    return createSuccessResponse(result.Attributes);
+    // Audit log for admin update
+    await audit.adminAction({
+      adminId: event.requestContext.authorizer?.claims?.sub || 'unknown',
+      adminEmail: event.requestContext.authorizer?.claims?.email || 'unknown',
+      ipAddress: getClientIP(event),
+      action: 'UPDATE_USER',
+      resource: 'USER',
+      resourceId: userId,
+      details: { 
+        updatedFields: Object.keys(updates).filter(k => !['password'].includes(k)),
+        hasEmailUpdate: !!updates.email,
+        hasPhoneUpdate: !!updates.phone,
+      },
+    });
+
+    // Decrypt PII fields for response
+    const decryptedResult = result.Attributes ? { ...result.Attributes } : null;
+    if (decryptedResult) {
+      for (const field of USER_PII_FIELDS) {
+        if (decryptedResult[field] && typeof decryptedResult[field] === 'string') {
+          try {
+            decryptedResult[field] = await decryptField(decryptedResult[field], encryptionContext);
+          } catch (e) {
+            // Keep as-is if decryption fails
+          }
+        }
+      }
+    }
+
+    return createSuccessResponse(decryptedResult);
   } catch (error) {
     console.error('Error:', error);
     return createErrorResponse(500, 'Internal server error');
@@ -127,7 +198,23 @@ export const getMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
       return createErrorResponse(404, 'User not found');
     }
 
-    return createSuccessResponse(result.Item);
+    // Decrypt PII fields for the user
+    const decryptedUser = { ...result.Item };
+    const encryptionContext = { userId, service: 'users', purpose: 'pii-retrieval' };
+    
+    for (const field of USER_PII_FIELDS) {
+      if (result.Item[field] && typeof result.Item[field] === 'string') {
+        try {
+          decryptedUser[field] = await decryptField(result.Item[field], encryptionContext);
+        } catch (decryptError) {
+          console.error(`Failed to decrypt ${field}:`, decryptError);
+          // If decryption fails, might be legacy unencrypted data
+          decryptedUser[field] = result.Item[field];
+        }
+      }
+    }
+
+    return createSuccessResponse(decryptedUser);
   } catch (error) {
     console.error('Error:', error);
     return createErrorResponse(500, 'Internal server error');
@@ -142,6 +229,7 @@ export const updateMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
     }
 
     const updates = JSON.parse(event.body);
+    const encryptionContext = { userId, service: 'users', purpose: 'pii-storage' };
 
     const updateExpressions: string[] = [];
     const expressionValues: Record<string, any> = { ':updatedAt': new Date().toISOString() };
@@ -152,17 +240,23 @@ export const updateMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
       expressionValues[':name'] = updates.name;
       expressionNames['#name'] = 'name';
     }
+    // Encrypt PII fields before storing
     if (updates.email) {
       updateExpressions.push('email = :email');
-      expressionValues[':email'] = updates.email;
+      expressionValues[':email'] = await encryptField(updates.email, encryptionContext);
     }
     if (updates.phone !== undefined) {
       updateExpressions.push('phone = :phone');
-      expressionValues[':phone'] = updates.phone;
+      expressionValues[':phone'] = updates.phone 
+        ? await encryptField(updates.phone, encryptionContext)
+        : null;
     }
     if (updates.address) {
       updateExpressions.push('address = :address');
-      expressionValues[':address'] = updates.address;
+      const addressData = typeof updates.address === 'string' 
+        ? updates.address 
+        : JSON.stringify(updates.address);
+      expressionValues[':address'] = await encryptField(addressData, encryptionContext);
     }
     updateExpressions.push('updatedAt = :updatedAt');
 
@@ -175,7 +269,34 @@ export const updateMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
       ReturnValues: 'ALL_NEW'
     }));
 
-    return createSuccessResponse(result.Attributes);
+    // Audit log for user self-update
+    await audit.userAction({
+      userId,
+      userEmail: updates.email ? maskEmail(updates.email) : 'unchanged',
+      ipAddress: getClientIP(event),
+      action: 'UPDATE_PROFILE',
+      resource: 'USER',
+      resourceId: userId,
+      details: { 
+        updatedFields: Object.keys(updates).filter(k => !['password'].includes(k)),
+      },
+    });
+
+    // Decrypt PII fields for response
+    const decryptedResult = result.Attributes ? { ...result.Attributes } : null;
+    if (decryptedResult) {
+      for (const field of USER_PII_FIELDS) {
+        if (decryptedResult[field] && typeof decryptedResult[field] === 'string') {
+          try {
+            decryptedResult[field] = await decryptField(decryptedResult[field], encryptionContext);
+          } catch (e) {
+            // Keep as-is if decryption fails
+          }
+        }
+      }
+    }
+
+    return createSuccessResponse(decryptedResult);
   } catch (error) {
     console.error('Error:', error);
     return createErrorResponse(500, 'Internal server error');
