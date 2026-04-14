@@ -31,7 +31,7 @@ export const MOCK_USERS = [
   {
     id: 'superadmin-1',
     email: 'superadmin@atushome.com',
-    password: 'superadmin123',
+    password: 'AtusHome2024!',
     name: 'Super Admin',
     role: 'super_admin',
     phone: '+90 555 999 0000',
@@ -42,7 +42,7 @@ export const MOCK_USERS = [
   {
     id: 'admin-1',
     email: 'admin@atushome.com',
-    password: 'admin123',
+    password: 'Admin1234',
     name: 'Admin Kullanıcı',
     role: 'admin',
     phone: '+90 555 999 8888',
@@ -53,7 +53,7 @@ export const MOCK_USERS = [
   {
     id: 'user-1',
     email: 'test@example.com',
-    password: 'password123',
+    password: 'User1234',
     name: 'Test Kullanıcı',
     role: 'user',
     phone: '+90 555 123 4567',
