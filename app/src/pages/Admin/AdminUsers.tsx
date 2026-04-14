@@ -184,14 +184,18 @@ export default function AdminUsers() {
         return;
       }
       
-      const [activeRes, deletedRes] = await Promise.all([
-        api.get('/admin/users'),
-        userApi.getDeletedUsers(),
-      ]);
-      
+      const activeRes = await api.get('/admin/users');
       const allUsers = activeRes.data || [];
       const activeUsers = allUsers.filter((u: User) => u.isActive !== false);
-      const deleted = deletedRes.data || [];
+      
+      let deleted: User[] = [];
+      try {
+        const deletedRes = await userApi.getDeletedUsers();
+        deleted = deletedRes.data || [];
+      } catch (deletedErr) {
+        console.log('[AdminUsers] Deleted users endpoint not available yet:', deletedErr);
+        deleted = [];
+      }
       
       setUsers(activeUsers);
       setDeletedUsers(deleted);
