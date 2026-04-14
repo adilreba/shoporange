@@ -274,6 +274,25 @@ export const getAllUsers = async (): Promise<APIGatewayProxyResult> => {
   }
 };
 
+export const getDeletedUsers = async (): Promise<APIGatewayProxyResult> => {
+  try {
+    // Şimdilik pasif kullanıcıları isActive flag'i ile filtreliyoruz
+    // Gelecekte ayrı bir tablo veya soft-delete mekanizması eklenebilir
+    const result = await dynamodb.send(new ScanCommand({
+      TableName: USERS_TABLE,
+      FilterExpression: 'isActive = :isActive',
+      ExpressionAttributeValues: {
+        ':isActive': false
+      }
+    }));
+
+    return createSuccessResponse(result.Items || []);
+  } catch (error) {
+    console.error('Error:', error);
+    return createErrorResponse(500, 'Failed to fetch deleted users');
+  }
+};
+
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION || 'eu-west-1' });
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || '';
 
@@ -470,6 +489,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   // Users
   if (path === '/admin/users' || path.endsWith('/admin/users')) {
     if (method === 'GET') return getAllUsers();
+  }
+
+  if (path === '/admin/users/deleted' || path.endsWith('/admin/users/deleted')) {
+    if (method === 'GET') return getDeletedUsers();
   }
 
   // Update User Role
