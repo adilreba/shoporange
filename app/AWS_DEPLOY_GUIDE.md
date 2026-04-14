@@ -105,7 +105,7 @@ aws sts get-caller-identity
 ### 1. Proje Dizinine Git
 
 ```bash
-ccd /mnt/okcomputer/output/app/aws
+cd aws
 ```
 
 ### 2. Deployment Script'ini Çalıştırın
@@ -121,10 +121,10 @@ chmod +x deploy.sh
 ### 3. Manuel Deployment (Alternatif)
 
 ```bash
-cd sam
+cd backend
 
-# SAM build
-sam build
+# TypeScript derle ve SAM build al
+npm run build
 
 # SAM deploy (ilk seferde guided mod)
 sam deploy --guided
@@ -221,7 +221,7 @@ aws dynamodb scan \
 ### 1. Environment Değişkenlerini Ayarla
 
 ```bash
-cd /mnt/okcomputer/output/app
+cd ..
 
 # .env dosyasını oluştur
 cat > .env << EOF

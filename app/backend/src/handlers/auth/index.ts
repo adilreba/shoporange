@@ -148,7 +148,7 @@ async function signOut(accessToken: string): Promise<void> {
   await cognitoClient.send(command);
 }
 
-async function forgotPassword(email: string): Promise<void> {
+async function sendForgotPasswordCode(email: string): Promise<void> {
   const command = new ForgotPasswordCommand({
     ClientId: CLIENT_ID,
     Username: email,
@@ -156,7 +156,7 @@ async function forgotPassword(email: string): Promise<void> {
   await cognitoClient.send(command);
 }
 
-async function confirmForgotPassword(email: string, code: string, newPassword: string): Promise<void> {
+async function confirmForgotPasswordCode(email: string, code: string, newPassword: string): Promise<void> {
   const command = new ConfirmForgotPasswordCommand({
     ClientId: CLIENT_ID,
     Username: email,
@@ -683,7 +683,7 @@ export const forgotPassword = async (event: APIGatewayProxyEvent): Promise<APIGa
     }
 
     const sanitizedEmail = sanitizeInput(email).toLowerCase();
-    await forgotPassword(sanitizedEmail);
+    await sendForgotPasswordCode(sanitizedEmail);
 
     return {
       statusCode: 200,
@@ -738,7 +738,7 @@ export const resetPassword = async (event: APIGatewayProxyEvent): Promise<APIGat
     }
 
     const sanitizedEmail = sanitizeInput(email).toLowerCase();
-    await confirmForgotPassword(sanitizedEmail, code, newPassword);
+    await confirmForgotPasswordCode(sanitizedEmail, code, newPassword);
 
     logSecurityEvent('PASSWORD_RESET', { email: sanitizedEmail }, 'medium');
 

@@ -4,7 +4,9 @@
   "description": "AtusHome E-Commerce Backend - AWS SDK v3",
   "main": "index.js",
   "scripts": {
-    "build": "sam build",
+    "compile": "tsc",
+    "copy-deps": "./scripts/copy-deps.sh",
+    "build": "tsc && ./scripts/copy-deps.sh && sam build",
     "deploy": "sam deploy --guided",
     "local": "sam local start-api",
     "lint": "tsc --noEmit"
@@ -13,10 +15,13 @@
     "@aws-sdk/client-apigatewaymanagementapi": "^3.1016.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.1021.0",
     "@aws-sdk/client-dynamodb": "^3.450.0",
+    "@aws-sdk/client-kms": "^3.450.0",
+    "@aws-sdk/client-s3": "^3.450.0",
     "@aws-sdk/client-secrets-manager": "^3.1025.0",
     "@aws-sdk/client-ses": "^3.450.0",
     "@aws-sdk/client-sns": "^3.450.0",
     "@aws-sdk/lib-dynamodb": "^3.450.0",
+    "@aws-sdk/s3-request-presigner": "^3.450.0",
     "bcrypt": "^6.0.0",
     "fast-xml-parser": "^5.5.10",
     "iyzipay": "^2.0.67"

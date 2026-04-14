@@ -10,6 +10,8 @@ Globals:
     Architectures:
       - x86_64
     Handler: index.handler
+    Layers:
+      - !Ref DependenciesLayer
     Environment:
       Variables:
         NODE_ENV: production
@@ -32,6 +34,7 @@ Globals:
         SMS_ORIGINATOR: 'AtusHome'
         COGNITO_USER_POOL_ID: !Ref UserPool
         COGNITO_CLIENT_ID: !Ref UserPoolClient
+        SUPER_ADMIN_EMAIL: !Ref SuperAdminEmail
 
 Parameters:
   StripeSecretKey:
@@ -45,6 +48,10 @@ Parameters:
   FromEmail:
     Type: String
     Default: 'noreply@atushome.com'
+  SuperAdminEmail:
+    Type: String
+    Default: ''
+    Description: 'Google email for automatic super_admin access (optional)'
 
 Resources:
   # DynamoDB Tables
@@ -482,6 +489,7 @@ Resources:
       UserPoolName: AtusHome-UserPool
       AutoVerifiedAttributes:
         - email
+
       Policies:
         PasswordPolicy:
           MinimumLength: 8
@@ -537,6 +545,7 @@ Resources:
             ProjectionType: ALL
 
   # API Gateway - CORS ENABLED
+  # NOTE: Cognito Auth is applied per-function, not globally
   ApiGateway:
     Type: AWS::Serverless::Api
     Properties:
@@ -546,6 +555,14 @@ Resources:
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         AllowOrigin: "'*'"
         MaxAge: "'600'"
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPool}'
+            Identity:
+              Header: Authorization
+              ValidationExpression: ^Bearer [-0-9a-zA-Z\._]*$
+              ReauthorizeEvery: 300
 
   # Lambda Functions
   GetProductsFunction:
@@ -885,16 +902,73 @@ Resources:
             Method: post
             RestApiId: !Ref ApiGateway
 
+  PostConfirmationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: postConfirmation.handler
+      Description: Cognito Post Confirmation trigger to add user to default group and create DynamoDB profile
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminAddUserToGroup
+                - cognito-idp:AdminUpdateUserAttributes
+              Resource: !GetAtt UserPool.Arn
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+
+  PostConfirmationLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PostConfirmationFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+
   SeedDataFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: dist/handlers/admin
-      Handler: index.handler
+      Handler: index.seedData
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
       Events:
         ApiEvent:
           Type: Api
           Properties:
             Path: /admin/seed
+            Method: post
+            RestApiId: !Ref ApiGateway
+
+  GetImageUploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/images
+      Handler: index.getUploadUrl
+      Description: Generate S3 presigned URL for image uploads
+      Environment:
+        Variables:
+          IMAGE_BUCKET: !Ref ProductImagesBucket
+          CDN_URL: !Sub 'https://${ImageDistribution.DomainName}'
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+              Resource: !Sub '${ProductImagesBucket.Arn}/*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/images/upload-url
             Method: post
             RestApiId: !Ref ApiGateway
 
@@ -969,6 +1043,9 @@ Resources:
     Properties:
       CodeUri: dist/handlers/admin
       Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
       Events:
         ApiEvent:
           Type: Api
@@ -983,6 +1060,9 @@ Resources:
     Properties:
       CodeUri: dist/handlers/admin
       Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
       Events:
         ApiEvent:
           Type: Api
@@ -1011,6 +1091,9 @@ Resources:
     Properties:
       CodeUri: dist/handlers/admin
       Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
       Events:
         ApiEvent:
           Type: Api
@@ -1025,6 +1108,9 @@ Resources:
     Properties:
       CodeUri: dist/handlers/admin
       Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
       Events:
         ApiEvent:
           Type: Api
@@ -1054,8 +1140,6 @@ Resources:
       CodeUri: dist/handlers/admin
       Handler: index.handler
       Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref UsersTable
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
         - Statement:
@@ -2769,6 +2853,101 @@ Resources:
       Domain: !Sub 'atushome-${AWS::StackName}'
       UserPoolId: !Ref UserPool
 
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub '${AWS::StackName}-dependencies'
+      Description: Common Node.js dependencies for AtusHome backend
+      ContentUri: layer/nodejs/
+      CompatibleRuntimes:
+        - nodejs20.x
+      RetentionPolicy: Retain
+    Metadata:
+      BuildMethod: nodejs20.x
+
+  # ============================================
+  # S3 & CloudFront for Product Images
+  # ============================================
+
+  ProductImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'atushome-product-images-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - HEAD
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3600
+
+  ProductImagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ProductImagesBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontGetObject
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${ProductImagesBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${ImageDistribution}'
+
+  ImageDistributionOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  ImageDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - Id: S3ProductImages
+            DomainName: !GetAtt ProductImagesBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+            OriginAccessControlId: !Ref ImageDistributionOriginAccessControl
+        DefaultCacheBehavior:
+          TargetOriginId: S3ProductImages
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: false
+          MinTTL: 86400
+          DefaultTTL: 604800
+          MaxTTL: 31536000
+          Compress: true
+        PriceClass: PriceClass_100
+        Enabled: true
+        DefaultRootObject: index.html
+        Comment: !Sub '${AWS::StackName} Product Images CDN'
+
 # ============================================
 # Outputs
 # ============================================
@@ -2788,7 +2967,11 @@ Outputs:
   
   CognitoDomain:
     Description: Cognito Domain
-    Value: !Sub '${UserPool}.auth.${AWS::Region}.amazoncognito.com'
+    Value: !Sub '${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com'
+  
+  SeedDataFunction:
+    Description: Seed Data Lambda Function Name
+    Value: !Ref SeedDataFunction
   
   ChatWebSocketEndpoint:
     Description: WebSocket API Endpoint for Live Chat
@@ -2801,3 +2984,11 @@ Outputs:
   AuditLogsTableName:
     Description: Audit Logs Table Name
     Value: !Ref AuditLogsTable
+
+  CdnUrl:
+    Description: CloudFront Distribution URL for product images
+    Value: !Sub 'https://${ImageDistribution.DomainName}'
+
+  ImageBucketName:
+    Description: S3 Bucket Name for product images
+    Value: !Ref ProductImagesBucket

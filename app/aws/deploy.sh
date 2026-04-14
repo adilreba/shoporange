@@ -68,8 +68,8 @@ fi
 # Build the SAM application
 echo ""
 echo -e "${YELLOW}Building SAM application...${NC}"
-cd sam
-sam build
+cd backend
+npm run build
 
 # Deploy the SAM application
 echo ""
@@ -79,7 +79,6 @@ sam deploy \
     --s3-bucket "$S3_BUCKET" \
     --region "$REGION" \
     --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
-    --parameter-overrides "JwtSecret=$(openssl rand -base64 32)" \
     --no-confirm-changeset
 
 # Get the API Gateway URL

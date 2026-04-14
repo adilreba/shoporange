@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-// import { api } from '@/services/api';
+import { api } from '@/services/api';
+import { toast } from 'sonner';
 import { 
   LineChart, 
   Line, 
@@ -71,33 +72,25 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      // MOCK DATA - Backend hazır olana kadar
-      const mockProducts = [
-        { id: '1', name: 'Koltuk' },
-        { id: '2', name: 'Masa' },
-        { id: '3', name: 'Sandalye' },
-      ];
-      const mockOrders = [
-        { id: 'ORD-001', userId: 'user1', total: 15000, status: 'delivered', createdAt: new Date().toISOString() },
-        { id: 'ORD-002', userId: 'user2', total: 8500, status: 'processing', createdAt: new Date().toISOString() },
-      ];
-      const mockUsers = [
-        { id: 'user1', name: 'Ahmet' },
-        { id: 'user2', name: 'Mehmet' },
-      ];
+      
+      const [productsRes, ordersRes, usersRes] = await Promise.all([
+        api.get('/admin/products').catch(() => ({ data: [] })),
+        api.get('/admin/orders').catch(() => ({ data: [] })),
+        api.get('/admin/users').catch(() => ({ data: [] })),
+      ]);
 
-      const products = mockProducts;
-      const orders = mockOrders;
-      const users = mockUsers;
+      const products = Array.isArray(productsRes) ? productsRes : productsRes.data || [];
+      const orders = Array.isArray(ordersRes) ? ordersRes : ordersRes.data || [];
+      const users = Array.isArray(usersRes) ? usersRes : usersRes.data || [];
 
       const revenue = orders.reduce((sum: number, order: any) => sum + (order.total || 0), 0);
 
-      const recent = orders.map((order: any) => ({
+      const recent = orders.slice(0, 5).map((order: any) => ({
         id: order.id,
-        customer: order.userId?.substring(0, 8) || 'Misafir',
+        customer: order.userId?.substring(0, 8) || order.customerName || 'Misafir',
         total: order.total,
         status: order.status,
-        date: new Date(order.createdAt).toLocaleDateString('tr-TR')
+        date: order.createdAt ? new Date(order.createdAt).toLocaleDateString('tr-TR') : '-'
       }));
 
       setStats(prev => ({
@@ -110,6 +103,7 @@ export default function AdminDashboard() {
       setRecentOrders(recent);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast.error('Dashboard verileri yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }

@@ -206,18 +206,24 @@ export const useAuthStore = create<AuthState>()(
         if (currentState.isAuthenticated && currentState.user) {
           const currentUser = currentState.user;
           
-          // MOCK_USERS'tan güncel kullanıcıyı bul
-          const mockUser = MOCK_USERS.find(u => u.id === currentUser.id) || 
-                          MOCK_USERS.find(u => u.email === currentUser.email);
-          
-          console.log('[initAuth] Found in MOCK_USERS:', mockUser ? { id: mockUser.id, role: mockUser.role } : 'NOT FOUND');
-          
-          if (mockUser && mockUser.role !== currentUser.role) {
-            console.log('[initAuth] UPDATING role:', currentUser.role, '->', mockUser.role);
-            set({ 
-              user: { ...currentUser, role: mockUser.role as any },
-              isLoading: false
-            });
+          // Mock mode'da Cognito'ya bağlanma, sadece MOCK_USERS'tan senkronize et
+          if (isMockMode()) {
+            const mockUser = MOCK_USERS.find(u => u.id === currentUser.id) || 
+                            MOCK_USERS.find(u => u.email === currentUser.email);
+            
+            console.log('[initAuth] Found in MOCK_USERS:', mockUser ? { id: mockUser.id, role: mockUser.role } : 'NOT FOUND');
+            
+            if (mockUser && mockUser.role !== currentUser.role) {
+              console.log('[initAuth] UPDATING role:', currentUser.role, '->', mockUser.role);
+              set({ 
+                user: { ...currentUser, role: mockUser.role as any },
+                isLoading: false
+              });
+              return;
+            }
+            
+            set({ isLoading: false });
+            console.log('[initAuth] Finished - mock mode');
             return;
           }
         }

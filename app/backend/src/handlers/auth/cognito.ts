@@ -325,7 +325,14 @@ export async function adminGetUser(email: string): Promise<any> {
 
 /**
  * Handle Google sign in - create or get existing user
+ * FIRST ADMIN: Add your email to SUPER_ADMIN_EMAILS for automatic super_admin role
  */
+const SUPER_ADMIN_EMAILS = [
+  // Add your Google email here for automatic super_admin access
+  // Example: 'yourname@gmail.com'
+  process.env.SUPER_ADMIN_EMAIL || '',
+].filter(Boolean);
+
 export async function handleGoogleSignIn(
   googleUser: {
     email: string;
@@ -339,17 +346,23 @@ export async function handleGoogleSignIn(
     // First try to sign in (user might already exist)
     return await signIn({
       email: googleUser.email,
-      password: `google_${googleUser.sub}`, // Not used for actual auth
+      password: `google_${googleUser.sub}`,
     });
   } catch (error) {
     // User doesn't exist, create them
     const tempPassword = `google_${googleUser.sub}_${Date.now()}`;
     
+    // Check if this email should be super_admin
+    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(googleUser.email.toLowerCase());
+    const role = isSuperAdmin ? 'super_admin' : 'user';
+    
+    console.log(`[Google SignIn] Creating user: ${googleUser.email}, Role: ${role}`);
+    
     await adminCreateUser(
       googleUser.email,
       googleUser.name,
       tempPassword,
-      'user'
+      role
     );
 
     // Now sign in

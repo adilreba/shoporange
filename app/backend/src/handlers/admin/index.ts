@@ -2,8 +2,10 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand, PutSecretValueCommand, CreateSecretCommand } from '@aws-sdk/client-secrets-manager';
+import { CognitoIdentityProviderClient, AdminAddUserToGroupCommand, AdminRemoveUserFromGroupCommand, AdminUpdateUserAttributesCommand, AdminListGroupsForUserCommand } from '@aws-sdk/client-cognito-identity-provider';
 import * as parasut from '../../services/parasut';
 import * as cognito from '../../services/cognito';
+import { checkAdminAccess, isSuperAdmin } from '../../utils/authorization';
 
 // DynamoDB client - SDK v3
 const client = new DynamoDBClient({});
@@ -272,6 +274,9 @@ export const getAllUsers = async (): Promise<APIGatewayProxyResult> => {
   }
 };
 
+const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION || 'eu-west-1' });
+const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || '';
+
 export const updateUserRole = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     const userId = event.pathParameters?.id;
@@ -290,6 +295,11 @@ export const updateUserRole = async (event: APIGatewayProxyEvent): Promise<APIGa
       return createErrorResponse(400, 'Invalid role');
     }
 
+    // Only super_admin can assign super_admin role
+    if (role === 'super_admin' && !isSuperAdmin(event)) {
+      return createErrorResponse(403, 'Only super_admin can assign super_admin role');
+    }
+
     // Get user from DynamoDB to find email
     const userResult = await dynamodb.send(new GetCommand({
       TableName: USERS_TABLE,
@@ -305,10 +315,39 @@ export const updateUserRole = async (event: APIGatewayProxyEvent): Promise<APIGa
       return createErrorResponse(400, 'User email not found');
     }
 
-    // Update role in Cognito
-    await cognito.adminUpdateUserRole(userEmail, role);
+    // 1. Remove user from all existing Cognito groups
+    const groupsResponse = await cognitoClient.send(new AdminListGroupsForUserCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: userEmail,
+    }));
 
-    // Update role in DynamoDB
+    for (const group of groupsResponse.Groups || []) {
+      if (group.GroupName) {
+        await cognitoClient.send(new AdminRemoveUserFromGroupCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: userEmail,
+          GroupName: group.GroupName,
+        }));
+      }
+    }
+
+    // 2. Add user to new Cognito group
+    await cognitoClient.send(new AdminAddUserToGroupCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: userEmail,
+      GroupName: role,
+    }));
+
+    // 3. Update custom:role attribute for backward compatibility
+    await cognitoClient.send(new AdminUpdateUserAttributesCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: userEmail,
+      UserAttributes: [
+        { Name: 'custom:role', Value: role },
+      ],
+    }));
+
+    // 4. Update role in DynamoDB
     await dynamodb.send(new UpdateCommand({
       TableName: USERS_TABLE,
       Key: { id: userId },
@@ -388,6 +427,12 @@ export const seedData = async (): Promise<APIGatewayProxyResult> => {
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
+  }
+
+  // Authorization check for all admin routes
+  const authCheck = checkAdminAccess(event);
+  if (!authCheck.allowed) {
+    return createErrorResponse(403, authCheck.reason || 'Forbidden');
   }
 
   const path = event.path;

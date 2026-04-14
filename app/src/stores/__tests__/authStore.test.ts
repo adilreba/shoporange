@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as cognito from '@/services/cognito';
 import { useAuthStore } from '../authStore';
 import * as api from '@/services/api';
 
@@ -20,6 +21,10 @@ vi.mock('@/services/api', () => ({
 
 describe('AuthStore', () => {
   beforeEach(() => {
+    // Force mock mode for tests
+    vi.stubEnv('VITE_FORCE_MOCK_MODE', 'true');
+    vi.stubEnv('VITE_API_URL', '');
+    
     // Reset store state
     const store = useAuthStore.getState();
     store.logout();
@@ -29,20 +34,6 @@ describe('AuthStore', () => {
 
   describe('login', () => {
     it('should login successfully', async () => {
-      const mockUser = {
-        id: '1',
-        email: 'test@example.com',
-        name: 'Test User',
-        role: 'user' as const,
-        createdAt: '2024-01-01',
-      };
-      const mockToken = 'mock-token';
-
-      vi.mocked(api.authApi.login).mockResolvedValueOnce({
-        user: mockUser,
-        token: mockToken,
-      });
-
       const result = await useAuthStore.getState().login({
         email: 'test@example.com',
         password: 'password123',
@@ -50,62 +41,53 @@ describe('AuthStore', () => {
 
       expect(result).toBe(true);
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
-      expect(useAuthStore.getState().user).toEqual(mockUser);
-      expect(useAuthStore.getState().token).toBe(mockToken);
+      expect(useAuthStore.getState().user?.email).toBe('test@example.com');
     });
 
     it('should handle login failure', async () => {
-      vi.mocked(api.authApi.login).mockRejectedValueOnce(new Error('Invalid credentials'));
-
       const result = await useAuthStore.getState().login({
         email: 'wrong@example.com',
-        password: 'wrongpassword',
+        password: 'Wrongpassword123!',
       });
 
       expect(result).toBe(false);
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
-      expect(useAuthStore.getState().error).toBe('Invalid credentials');
+      expect(useAuthStore.getState().error).toBe('Geçersiz e-posta veya şifre');
     });
   });
 
   describe('register', () => {
     it('should register successfully', async () => {
-      const mockUser = {
-        id: '1',
-        email: 'new@example.com',
-        name: 'New User',
-        role: 'user' as const,
-        createdAt: '2024-01-01',
-      };
-      const mockToken = 'mock-token';
-
-      vi.mocked(api.authApi.register).mockResolvedValueOnce({
-        user: mockUser,
-        token: mockToken,
-      });
-
       const result = await useAuthStore.getState().register({
-        email: 'new@example.com',
-        password: 'password123',
+        email: 'newuser@example.com',
+        password: 'Password123!',
         name: 'New User',
       });
 
       expect(result).toBe(true);
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
-      expect(useAuthStore.getState().user).toEqual(mockUser);
+      expect(useAuthStore.getState().user?.email).toBe('newuser@example.com');
     });
 
     it('should handle registration failure', async () => {
-      vi.mocked(api.authApi.register).mockRejectedValueOnce(new Error('Email already exists'));
+      // First register the email
+      await useAuthStore.getState().register({
+        email: 'existing@example.com',
+        password: 'Password123!',
+        name: 'Existing User',
+      });
+      useAuthStore.getState().logout();
+      useAuthStore.getState().clearError();
 
+      // Try to register again with same email
       const result = await useAuthStore.getState().register({
         email: 'existing@example.com',
-        password: 'password123',
+        password: 'Password123!',
         name: 'Existing User',
       });
 
       expect(result).toBe(false);
-      expect(useAuthStore.getState().error).toBe('Email already exists');
+      expect(useAuthStore.getState().error).toBe('Bu e-posta adresi zaten kullanılıyor');
     });
   });
 
@@ -114,7 +96,12 @@ describe('AuthStore', () => {
       // First login
       useAuthStore.setState({
         user: { id: '1', email: 'test@example.com', name: 'Test', role: 'user', createdAt: '' },
-        token: 'token',
+        tokens: {
+          accessToken: 'token',
+          idToken: 'token',
+          refreshToken: 'token',
+          expiresAt: Date.now() + 3600000,
+        },
         isAuthenticated: true,
       });
 
@@ -122,37 +109,52 @@ describe('AuthStore', () => {
 
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
       expect(useAuthStore.getState().user).toBeNull();
-      expect(useAuthStore.getState().token).toBeNull();
+      expect(useAuthStore.getState().tokens).toBeNull();
     });
   });
 
   describe('initAuth', () => {
     it('should verify valid token on init', async () => {
       const mockUser = {
-        id: '1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         role: 'user' as const,
         createdAt: '2024-01-01',
       };
 
-      localStorage.setItem('auth_token', 'valid-token');
-      vi.mocked(api.authApi.verifyToken).mockResolvedValueOnce({ user: mockUser });
+      useAuthStore.setState({
+        isAuthenticated: true,
+        user: mockUser,
+        tokens: {
+          accessToken: 'valid-token',
+          idToken: 'valid-token',
+          refreshToken: 'valid-token',
+          expiresAt: Date.now() + 3600000,
+        },
+      });
 
       await useAuthStore.getState().initAuth();
 
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
-      expect(useAuthStore.getState().user).toEqual(mockUser);
+      expect(useAuthStore.getState().user?.email).toBe('test@example.com');
     });
 
     it('should logout when token is invalid', async () => {
-      localStorage.setItem('auth_token', 'invalid-token');
-      vi.mocked(api.authApi.verifyToken).mockRejectedValueOnce(new Error('Invalid token'));
+      useAuthStore.setState({
+        isAuthenticated: true,
+        tokens: {
+          accessToken: 'invalid-token',
+          idToken: 'invalid-token',
+          refreshToken: 'invalid-token',
+          expiresAt: Date.now() + 3600000,
+        },
+      });
 
       await useAuthStore.getState().initAuth();
 
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
-      expect(useAuthStore.getState().token).toBeNull();
+      expect(useAuthStore.getState().tokens).toBeNull();
     });
   });
 

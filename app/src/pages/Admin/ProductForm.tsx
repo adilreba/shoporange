@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Save, 
@@ -14,12 +14,13 @@ import {
   Check,
   Wand2
 } from 'lucide-react';
-import { products } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { adminProductsApi, type AdminProduct } from '@/services/adminProductsApi';
+import { productsApi } from '@/services/api';
 import { 
   PRODUCT_CATEGORIES, 
   getCategoryAttributes, 
@@ -58,10 +59,12 @@ export default function ProductForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEditMode = Boolean(id);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [activeTab, setActiveTab] = useState<TabType>('basic');
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  const [allProducts, setAllProducts] = useState<AdminProduct[]>([]);
   
   // Basic form data
   const [formData, setFormData] = useState({
@@ -89,6 +92,17 @@ export default function ProductForm() {
   
   const [tagInput, setTagInput] = useState('');
 
+  // Load existing product in edit mode
+  useEffect(() => {
+    if (isEditMode && id) {
+      loadProduct(id);
+    }
+    // Load all products for SKU/barcode generation
+    adminProductsApi.getAll()
+      .then((res: any) => setAllProducts(Array.isArray(res) ? res : res.data || []))
+      .catch(() => setAllProducts([]));
+  }, [isEditMode, id]);
+
   // Load category attributes when category changes
   useEffect(() => {
     if (formData.category) {
@@ -102,6 +116,30 @@ export default function ProductForm() {
       loadExistingVariations(id);
     }
   }, [isEditMode, id]);
+
+  const loadProduct = async (productId: string) => {
+    try {
+      const product = await productsApi.getById(productId);
+      setFormData({
+        name: product.name || '',
+        description: product.description || '',
+        basePrice: product.price?.toString() || '',
+        category: product.category || '',
+        brand: product.brand || '',
+        sku: product.sku || '',
+        barcode: product.barcode || '',
+        stockCode: product.stockCode || '',
+        supplierCode: product.supplierCode || '',
+        tags: product.tags || [],
+        featured: product.isFeatured || false,
+        active: product.active !== false,
+      });
+      setImages(product.images || []);
+    } catch (error) {
+      toast.error('Ürün yüklenirken hata oluştu');
+      console.error(error);
+    }
+  };
 
   const loadCategoryAttributes = async (categoryId: string) => {
     try {
@@ -121,15 +159,42 @@ export default function ProductForm() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setLoading(true);
     
-    setTimeout(() => {
-      setLoading(false);
-      toast.success(isEditMode ? 'Ürün güncellendi' : 'Ürün eklendi');
+    try {
+      const payload: AdminProduct = {
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.basePrice) || 0,
+        category: formData.category,
+        brand: formData.brand,
+        sku: formData.sku,
+        barcode: formData.barcode,
+        stockCode: formData.stockCode,
+        supplierCode: formData.supplierCode,
+        tags: formData.tags,
+        isFeatured: formData.featured,
+        active: formData.active,
+        stock: 0,
+        images,
+      };
+
+      if (isEditMode && id) {
+        await adminProductsApi.update(id, payload);
+        toast.success('Ürün güncellendi');
+      } else {
+        await adminProductsApi.create(payload);
+        toast.success('Ürün eklendi');
+      }
       navigate('/admin/products');
-    }, 1000);
+    } catch (error: any) {
+      toast.error(error.message || 'Ürün kaydedilirken hata oluştu');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddTag = () => {
@@ -143,10 +208,23 @@ export default function ProductForm() {
     setFormData({ ...formData, tags: formData.tags.filter(t => t !== tag) });
   };
 
-  const handleImageUpload = () => {
-    const newImage = `https://via.placeholder.com/400x300?text=Image+${images.length + 1}`;
-    setImages([...images, newImage]);
-    toast.success('Resim yüklendi');
+  const handleImageUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const imageUrl = await adminProductsApi.uploadImage(file);
+      setImages([...images, imageUrl]);
+      toast.success('Resim yüklendi');
+    } catch (error: any) {
+      toast.error(error.message || 'Resim yüklenirken hata oluştu');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleRemoveImage = (index: number) => {
@@ -189,8 +267,7 @@ export default function ProductForm() {
     const categoryCode = getCategoryCode(formData.category);
     const brandCode = getBrandCode(formData.brand);
     
-    // Mevcut ürünleri kontrol et ve son numarayı bul
-    const existingSKUs = products
+    const existingSKUs = allProducts
       .filter(p => p.sku?.startsWith(`${categoryCode}-${brandCode}`))
       .map(p => {
         const match = p.sku?.match(/-(\d+)$/);
@@ -218,18 +295,15 @@ export default function ProductForm() {
 
   // Benzersiz EAN-13 barkod üret (868 ile başlayan Türkiye kodu)
   const generateBarcode = () => {
-    // 868: Türkiye ülke kodu
     const countryCode = '868';
     
-    // Mevcut barkodları kontrol et
-    const existingBarcodes = products
+    const existingBarcodes = allProducts
       .filter(p => p.barcode?.startsWith(countryCode))
       .map(p => parseInt(p.barcode?.slice(3, 12) || '0'));
     
     const maxNum = existingBarcodes.length > 0 ? Math.max(...existingBarcodes) : 10000000;
     const nextNum = String(maxNum + 1).padStart(9, '0');
     
-    // 12 haneli kod + kontrol rakamı
     const barcodeWithoutCheck = countryCode + nextNum;
     const checkDigit = calculateEANCheckDigit(barcodeWithoutCheck);
     const barcode = barcodeWithoutCheck + checkDigit;
@@ -294,7 +368,6 @@ export default function ProductForm() {
   const deleteVariation = async (variationId: string) => {
     if (!id) return;
     try {
-      // API call would go here
       setVariations(prev => prev.filter(v => v.variationId !== variationId));
       toast.success('Varyasyon silindi');
     } catch (error) {
@@ -356,6 +429,14 @@ export default function ProductForm() {
 
   return (
     <div className="space-y-6">
+      <input
+        type="file"
+        accept="image/*"
+        ref={fileInputRef}
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -421,7 +502,7 @@ export default function ProductForm() {
 
       {/* Basic Info Tab */}
       {activeTab === 'basic' && (
-        <form className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <form className="grid grid-cols-1 lg:grid-cols-3 gap-6" onSubmit={handleSubmit}>
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Basic Information */}
@@ -620,7 +701,7 @@ export default function ProductForm() {
                   ))}
                   <button
                     type="button"
-                    onClick={handleImageUpload}
+                    onClick={handleImageUploadClick}
                     className="aspect-square rounded-lg border-2 border-dashed border-gray-300 hover:border-orange-500 flex flex-col items-center justify-center gap-2 transition-colors"
                   >
                     <Upload className="w-8 h-8 text-gray-400" />

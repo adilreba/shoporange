@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -17,17 +17,63 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/authStore';
-import { products, categories } from '@/data/mockData';
+import { adminProductsApi } from '@/services/adminProductsApi';
+import { categoriesApi } from '@/services/api';
 import { toast } from 'sonner';
+
+interface Product {
+  id: string;
+  name: string;
+  brand?: string;
+  sku?: string;
+  barcode?: string;
+  category: string;
+  price: number;
+  originalPrice?: number;
+  stock: number;
+  images: string[];
+  isNew?: boolean;
+  isFeatured?: boolean;
+  discount?: number;
+}
+
+interface Category {
+  id: string;
+  name: string;
+}
 
 export function AdminProducts() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [productsRes, categoriesRes] = await Promise.all([
+        adminProductsApi.getAll(),
+        categoriesApi.getAll().catch(() => []),
+      ]);
+      setProducts(Array.isArray(productsRes) ? productsRes : productsRes.data || []);
+      setCategories(Array.isArray(categoriesRes) ? categoriesRes : categoriesRes.data || []);
+    } catch (error) {
+      toast.error('Veriler yüklenirken hata oluştu');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Check if user is admin
   if (user?.role !== 'admin') {
@@ -38,8 +84,8 @@ export function AdminProducts() {
 
   // Filter products
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.barcode?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
@@ -53,8 +99,16 @@ export function AdminProducts() {
     currentPage * itemsPerPage
   );
 
-  const handleDelete = (_productId: string) => {
-    toast.success('Ürün başarıyla silindi');
+  const handleDelete = async (productId: string) => {
+    if (!confirm('Bu ürünü silmek istediğinize emin misiniz?')) return;
+    try {
+      await adminProductsApi.delete(productId);
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      toast.success('Ürün başarıyla silindi');
+    } catch (error) {
+      toast.error('Ürün silinirken hata oluştu');
+      console.error(error);
+    }
   };
 
   const formatPrice = (price: number) => {
@@ -143,7 +197,7 @@ export function AdminProducts() {
                       className="border rounded-lg px-3 py-2"
                     >
                       <option value="all">Tüm Kategoriler</option>
-                      {categories.map(cat => (
+                      {categories.map((cat: Category) => (
                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
                     </select>
@@ -176,93 +230,108 @@ export function AdminProducts() {
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedProducts.map((product) => (
-                        <tr key={product.id} className="border-b hover:bg-muted">
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <img
-                                src={product.images[0]}
-                                alt={product.name}
-                                className="w-12 h-12 rounded-lg object-cover"
-                              />
-                              <div>
-                                <p className="font-medium">{product.name}</p>
-                                <p className="text-sm text-muted-foreground">{product.brand}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="space-y-1">
-                              {product.sku && (
-                                <p className="text-xs">
-                                  <span className="text-muted-foreground">SKU:</span>
-                                  <span className="font-mono font-medium ml-1">{product.sku}</span>
-                                </p>
-                              )}
-                              {product.barcode && (
-                                <p className="text-xs">
-                                  <span className="text-muted-foreground">Barkod:</span>
-                                  <span className="font-mono ml-1">{product.barcode}</span>
-                                </p>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            {categories.find(c => c.id === product.category)?.name}
-                          </td>
-                          <td className="p-4">
-                            <span className="font-medium">{formatPrice(product.price)}</span>
-                            {product.originalPrice && (
-                              <span className="text-sm text-muted-foreground line-through ml-2">
-                                {formatPrice(product.originalPrice)}
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            <span className={product.stock < 10 ? 'text-red-600' : ''}>
-                              {product.stock}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex gap-1">
-                              {product.isNew && (
-                                <Badge className="bg-green-500">Yeni</Badge>
-                              )}
-                              {product.isFeatured && (
-                                <Badge className="bg-orange-500">Öne Çıkan</Badge>
-                              )}
-                              {product.discount && product.discount > 0 && (
-                                <Badge className="bg-red-500">%{product.discount}</Badge>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => navigate(`/admin/products/edit/${product.id}`)}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-red-500 hover:text-red-600"
-                                onClick={() => handleDelete(product.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                      {loading ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                            Yükleniyor...
                           </td>
                         </tr>
-                      ))}
+                      ) : paginatedProducts.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                            Ürün bulunamadı
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedProducts.map((product) => (
+                          <tr key={product.id} className="border-b hover:bg-muted">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={product.images?.[0] || '/placeholder-product.jpg'}
+                                  alt={product.name}
+                                  className="w-12 h-12 rounded-lg object-cover"
+                                  onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-product.jpg'; }}
+                                />
+                                <div>
+                                  <p className="font-medium">{product.name}</p>
+                                  <p className="text-sm text-muted-foreground">{product.brand}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="space-y-1">
+                                {product.sku && (
+                                  <p className="text-xs">
+                                    <span className="text-muted-foreground">SKU:</span>
+                                    <span className="font-mono font-medium ml-1">{product.sku}</span>
+                                  </p>
+                                )}
+                                {product.barcode && (
+                                  <p className="text-xs">
+                                    <span className="text-muted-foreground">Barkod:</span>
+                                    <span className="font-mono ml-1">{product.barcode}</span>
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              {categories.find(c => c.id === product.category)?.name || product.category}
+                            </td>
+                            <td className="p-4">
+                              <span className="font-medium">{formatPrice(product.price)}</span>
+                              {product.originalPrice && (
+                                <span className="text-sm text-muted-foreground line-through ml-2">
+                                  {formatPrice(product.originalPrice)}
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <span className={product.stock < 10 ? 'text-red-600' : ''}>
+                                {product.stock}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex gap-1">
+                                {product.isNew && (
+                                  <Badge className="bg-green-500">Yeni</Badge>
+                                )}
+                                {product.isFeatured && (
+                                  <Badge className="bg-orange-500">Öne Çıkan</Badge>
+                                )}
+                                {product.discount && product.discount > 0 && (
+                                  <Badge className="bg-red-500">%{product.discount}</Badge>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => navigate(`/admin/products/edit/${product.id}`)}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-red-500 hover:text-red-600"
+                                  onClick={() => handleDelete(product.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
+                {!loading && totalPages > 1 && (
                   <div className="flex items-center justify-between p-4 border-t">
                     <p className="text-sm text-muted-foreground">
                       {filteredProducts.length} üründen {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)} arası gösteriliyor

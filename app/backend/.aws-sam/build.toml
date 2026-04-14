@@ -115,7 +115,7 @@ architecture = "x86_64"
 handler = "index.register"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["AuthRegisterFunction", "AuthVerifyEmailFunction", "AuthResendCodeFunction", "AuthLoginFunction", "AuthRefreshFunction", "AuthLogoutFunction", "AuthMeFunction", "AuthForgotPasswordFunction", "AuthResetPasswordFunction", "AuthGoogleFunction"]
+functions = ["PostConfirmationFunction", "AuthRegisterFunction", "AuthVerifyEmailFunction", "AuthResendCodeFunction", "AuthLoginFunction", "AuthRefreshFunction", "AuthLogoutFunction", "AuthMeFunction", "AuthForgotPasswordFunction", "AuthResetPasswordFunction", "AuthGoogleFunction"]
 
 [function_build_definitions.127ef21c-cced-490f-a2c4-df9c66ff02ec]
 codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/legal-pages"
@@ -162,4 +162,20 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["CategoriesFunction"]
 
-[layer_build_definitions]
+[function_build_definitions.45a35473-2bf8-4605-859d-36772f57503f]
+codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/images"
+runtime = "nodejs20.x"
+architecture = "x86_64"
+handler = "index.getUploadUrl"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["GetImageUploadUrlFunction"]
+
+[layer_build_definitions.87c73c8b-6000-4f4d-b6d2-52bef9d2c691]
+layer_name = "DependenciesLayer"
+codeuri = "/Users/elora/GitHub/app/backend/layer/nodejs"
+build_method = "nodejs20.x"
+compatible_runtimes = ["nodejs20.x"]
+architecture = "x86_64"
+manifest_hash = ""
+layer = "DependenciesLayer"

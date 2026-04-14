@@ -514,6 +514,7 @@ export const updateOrderStatus = async (event: APIGatewayProxyEvent): Promise<AP
             resourceId: orderId,
             userId: order.userId,
             userEmail: user.email || order.email,
+            ipAddress: getClientIP(event),
             success: true,
             details: {
               notificationPreference,

@@ -165,12 +165,18 @@ function parseUserData(_cognitoUser: CognitoUser, session: CognitoUserSession): 
   const idToken = session.getIdToken();
   const payload = idToken.payload;
 
+  // Prefer cognito:groups over custom:role for RBAC
+  const groups = payload['cognito:groups'];
+  const role = Array.isArray(groups) && groups.length > 0
+    ? groups[0]
+    : (payload['custom:role'] || 'user');
+
   return {
     id: payload.sub,
     email: payload.email,
     name: payload.name,
     phone: payload.phone_number,
-    role: payload['custom:role'] || 'user',
+    role,
     createdAt: payload['custom:created_at'] || new Date().toISOString(),
   };
 }

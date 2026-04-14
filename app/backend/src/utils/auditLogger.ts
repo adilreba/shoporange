@@ -31,7 +31,8 @@ export type AuditEventType =
   | 'DATA_EXPORT'
   | 'DATA_DELETE'
   | 'ADMIN_ACTION'
-  | 'SECURITY_ALERT';
+  | 'SECURITY_ALERT'
+  | 'NOTIFICATION_SENT';
 
 // Severity levels
 export type SeverityLevel = 'info' | 'warning' | 'error' | 'critical';

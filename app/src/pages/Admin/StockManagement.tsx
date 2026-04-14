@@ -45,7 +45,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { stockApi } from '@/services/stockApi';
-import { products as mockProducts } from '@/data/mockData';
+import { adminProductsApi } from '@/services/adminProductsApi';
 
 interface StockItem {
   id: string;
@@ -90,25 +90,35 @@ export default function StockManagement() {
 
   // Load products
   useEffect(() => {
-    // In production, this would fetch from the API
-    // For now, we'll use mock data enhanced with stock info
-    const enhancedProducts: StockItem[] = mockProducts.map(p => ({
-      id: p.id,
-      name: p.name,
-      sku: p.sku || `SKU-${p.id}`,
-      stock: p.stock,
-      reservedStock: 0, // Would come from API
-      actualAvailable: p.stock,
-      category: p.category,
-      brand: p.brand,
-      price: p.price,
-      reorderPoint: 10,
-      lastUpdated: p.updatedAt || new Date().toISOString(),
-    }));
-
-    setProducts(enhancedProducts);
-    setLoading(false);
+    loadProducts();
   }, []);
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      const res = await adminProductsApi.getAll();
+      const fetchedProducts = Array.isArray(res) ? res : res.data || [];
+      const enhancedProducts: StockItem[] = fetchedProducts.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku || `SKU-${p.id}`,
+        stock: p.stock || 0,
+        reservedStock: 0,
+        actualAvailable: p.stock || 0,
+        category: p.category,
+        brand: p.brand || '',
+        price: p.price || 0,
+        reorderPoint: 10,
+        lastUpdated: p.updatedAt || new Date().toISOString(),
+      }));
+      setProducts(enhancedProducts);
+    } catch (error) {
+      toast.error('Ürünler yüklenirken hata oluştu');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter and sort products
   const filteredProducts = products

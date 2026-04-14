@@ -61,7 +61,7 @@ import { KVKKPage, PrivacyPolicyPage, TermsOfServicePage, ReturnPolicyPage, PreI
 // Admin Layout & Pages
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminDashboard from '@/pages/Admin/Dashboard';
-import AdminProducts from '@/pages/Admin/AdminProducts';
+import { AdminProducts } from '@/pages/Admin/Products';
 import AdminOrders from '@/pages/Admin/AdminOrders';
 import AdminUsers from '@/pages/Admin/AdminUsers';
 import AdminSettings from '@/pages/Admin/Settings';

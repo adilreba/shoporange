@@ -46,7 +46,7 @@ describe('Button Component', () => {
     expect(screen.getByText('Large')).toHaveClass('h-10');
 
     rerender(<Button size="icon">Icon</Button>);
-    expect(screen.getByText('Icon')).toHaveClass('h-9 w-9');
+    expect(screen.getByText('Icon')).toHaveClass('size-9');
   });
 
   it('renders as child when asChild is true', () => {

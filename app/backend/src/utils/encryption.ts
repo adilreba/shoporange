@@ -78,7 +78,7 @@ export async function encryptObjectFields<T extends Record<string, any>>(
   fieldsToEncrypt: string[],
   context: Record<string, string> = { service: 'orders', purpose: 'pii-protection' }
 ): Promise<T> {
-  const encrypted = { ...obj };
+  const encrypted: Record<string, any> = { ...obj };
 
   for (const field of fieldsToEncrypt) {
     if (obj[field]) {
@@ -95,7 +95,7 @@ export async function encryptObjectFields<T extends Record<string, any>>(
     }
   }
 
-  return encrypted;
+  return encrypted as T;
 }
 
 /**
@@ -106,7 +106,7 @@ export async function decryptObjectFields<T extends Record<string, any>>(
   fieldsToDecrypt: string[],
   context: Record<string, string> = { service: 'orders', purpose: 'pii-protection' }
 ): Promise<T> {
-  const decrypted = { ...obj };
+  const decrypted: Record<string, any> = { ...obj };
 
   for (const field of fieldsToDecrypt) {
     if (obj[field]) {
@@ -123,7 +123,7 @@ export async function decryptObjectFields<T extends Record<string, any>>(
     }
   }
 
-  return decrypted;
+  return decrypted as T;
 }
 
 /**
@@ -163,7 +163,7 @@ export function maskSensitiveData<T extends Record<string, any>>(
   obj: T,
   fieldsToMask: string[]
 ): T {
-  const masked = { ...obj };
+  const masked: Record<string, any> = { ...obj };
 
   for (const field of fieldsToMask) {
     if (obj[field]) {
@@ -181,7 +181,7 @@ export function maskSensitiveData<T extends Record<string, any>>(
     }
   }
 
-  return masked;
+  return masked as T;
 }
 
 /**

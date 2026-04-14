@@ -38,24 +38,34 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { usePermissions } from '@/hooks/usePermissions';
+import type { Permission } from '@/types';
 
-const menuItems = [
+interface MenuItem {
+  path: string;
+  icon: React.ElementType;
+  label: string;
+  exact?: boolean;
+  requiredPermission?: Permission;
+}
+
+const allMenuItems: MenuItem[] = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
-  { path: '/admin/products', icon: Package, label: 'Ürünler' },
-  { path: '/admin/stock', icon: Warehouse, label: 'Stok Yönetimi' },
-  { path: '/admin/orders', icon: ShoppingCart, label: 'Siparişler' },
-  { path: '/admin/invoices', icon: FileText, label: 'Faturalar' },
-  { path: '/admin/coupons', icon: Percent, label: 'Kuponlar' },
-  { path: '/admin/campaigns', icon: Tag, label: 'Kampanyalar' },
-  { path: '/admin/users', icon: Users, label: 'Kullanıcılar' },
-  { path: '/admin/shipping', icon: Truck, label: 'Kargo' },
-  { path: '/admin/support', icon: Headphones, label: 'Canlı Destek' },
-  { path: '/admin/legal-pages', icon: FileText, label: 'Yasal Sayfalar' },
-  { path: '/admin/payment-methods', icon: CreditCard, label: 'Ödeme Yöntemleri' },
-  { path: '/admin/categories', icon: Tag, label: 'Kategoriler' },
-  { path: '/admin/settings', icon: Settings, label: 'Ayarlar' },
-  { path: '/admin/audit-logs', icon: Shield, label: 'Denetim Kayıtları' },
-  { path: '/admin/parasut', icon: FileText, label: 'e-Fatura (Paraşüt)' },
+  { path: '/admin/products', icon: Package, label: 'Ürünler', requiredPermission: 'products:view' },
+  { path: '/admin/stock', icon: Warehouse, label: 'Stok Yönetimi', requiredPermission: 'products:edit' },
+  { path: '/admin/orders', icon: ShoppingCart, label: 'Siparişler', requiredPermission: 'orders:view' },
+  { path: '/admin/invoices', icon: FileText, label: 'Faturalar', requiredPermission: 'payments:view' },
+  { path: '/admin/coupons', icon: Percent, label: 'Kuponlar', requiredPermission: 'settings:edit' },
+  { path: '/admin/campaigns', icon: Tag, label: 'Kampanyalar', requiredPermission: 'content:edit' },
+  { path: '/admin/users', icon: Users, label: 'Kullanıcılar', requiredPermission: 'users:view' },
+  { path: '/admin/shipping', icon: Truck, label: 'Kargo', requiredPermission: 'settings:edit' },
+  { path: '/admin/support', icon: Headphones, label: 'Canlı Destek', requiredPermission: 'chat:view' },
+  { path: '/admin/legal-pages', icon: FileText, label: 'Yasal Sayfalar', requiredPermission: 'content:edit' },
+  { path: '/admin/payment-methods', icon: CreditCard, label: 'Ödeme Yöntemleri', requiredPermission: 'settings:edit' },
+  { path: '/admin/categories', icon: Tag, label: 'Kategoriler', requiredPermission: 'content:edit' },
+  { path: '/admin/settings', icon: Settings, label: 'Ayarlar', requiredPermission: 'settings:view' },
+  { path: '/admin/audit-logs', icon: Shield, label: 'Denetim Kayıtları', requiredPermission: 'audit:view' },
+  { path: '/admin/parasut', icon: FileText, label: 'e-Fatura (Paraşüt)', requiredPermission: 'settings:edit' },
 ];
 
 export default function AdminLayout() {
@@ -79,7 +89,15 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useThemeStore();
   const { user } = useAuthStore();
+  const { can, isSuperAdmin } = usePermissions();
   const { agentRequests, connect, isConnected, connectionStatus, fetchWaitingSessions } = useLiveChatStore();
+
+  // Filter menu items based on user permissions
+  const menuItems = allMenuItems.filter(item => {
+    if (isSuperAdmin) return true;
+    if (!item.requiredPermission) return true;
+    return can(item.requiredPermission);
+  });
   const isSupportPage = location.pathname === '/admin/support';
 
   // Admin panel açıldığında WebSocket bağlantısı kur ve bekleyen session'ları çek

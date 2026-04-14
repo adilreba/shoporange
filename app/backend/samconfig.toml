@@ -2,13 +2,14 @@ version = 0.1
 
 [default.deploy.parameters]
 stack_name = "atushome-backend"
-resolve_s3 = false
+resolve_s3 = true
 s3_prefix = "atushome-backend"
 region = "eu-west-1"
 confirm_changeset = true
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
 parameter_overrides = "FromEmail=\"noreply@atushome.com\""
 image_repositories = []
+disable_rollback = false
 
 [default.global.parameters]
 region = "eu-west-1"
