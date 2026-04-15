@@ -36,7 +36,8 @@ import {
   SheetContent,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { useAuthStore, MOCK_USERS } from '@/stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
+import { MOCK_USERS } from '@/data/mockUsers';
 import { useCartStore } from '@/stores/cartStore';
 import { useWishlistStore } from '@/stores/wishlistStore';
 import { useCompareStore } from '@/stores/compareStore';

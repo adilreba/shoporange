@@ -3,78 +3,12 @@ import { persist } from 'zustand/middleware';
 import type { User, LoginCredentials, RegisterData } from '@/types';
 import * as googleAuth from '@/services/googleAuth';
 import { authApi } from '@/services/api';
+import { MOCK_USERS } from '@/data/mockUsers';
 import { checkPasswordStrength, isValidEmail, ClientRateLimiter } from '@/utils/security';
 
 // Rate limiters for auth operations
 const loginRateLimiter = new ClientRateLimiter();
 const registerRateLimiter = new ClientRateLimiter();
-
-// Google kullanıcılarını localStorage'dan MOCK_USERS'a yükle
-const loadGoogleUsersFromStorage = () => {
-  try {
-    const saved = localStorage.getItem('google-users');
-    if (saved) {
-      const googleUsers = JSON.parse(saved);
-      console.log('[loadGoogleUsers] Loaded from localStorage:', googleUsers.length, 'users');
-      return googleUsers;
-    }
-  } catch (e) {
-    console.log('[loadGoogleUsers] Error loading:', e);
-  }
-  return [];
-};
-
-// Mock kullanıcılar (demo için)
-// Export for admin panel to access all mock users
-export const MOCK_USERS = [
-  ...loadGoogleUsersFromStorage(),
-  {
-    id: 'superadmin-1',
-    email: 'superadmin@atushome.com',
-    password: 'AtusHome2024!',
-    name: 'Super Admin',
-    role: 'super_admin',
-    phone: '+90 555 999 0000',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-    address: [],
-    createdAt: '2024-01-01'
-  },
-  {
-    id: 'admin-1',
-    email: 'admin@atushome.com',
-    password: 'Admin1234',
-    name: 'Admin Kullanıcı',
-    role: 'admin',
-    phone: '+90 555 999 8888',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-    address: [],
-    createdAt: '2024-01-01'
-  },
-  {
-    id: 'user-1',
-    email: 'test@example.com',
-    password: 'User1234',
-    name: 'Test Kullanıcı',
-    role: 'user',
-    phone: '+90 555 123 4567',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-    address: [
-      {
-        id: 'addr-1',
-        title: 'Ev',
-        fullName: 'Test Kullanıcı',
-        phone: '+90 555 123 4567',
-        city: 'İstanbul',
-        district: 'Kadıköy',
-        neighborhood: 'Moda',
-        addressLine: 'Moda Caddesi No:123 D:5',
-        zipCode: '34710',
-        isDefault: true
-      }
-    ],
-    createdAt: '2024-01-01'
-  }
-];
 
 // Mock mode kontrolü
 const FORCE_MOCK_MODE = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';

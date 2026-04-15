@@ -1,4 +1,4 @@
-import { getIdToken, useAuthStore, MOCK_USERS as AuthStoreMockUsers } from '@/stores/authStore';
+import { MOCK_USERS } from '@/data/mockUsers';
 import { hashPassword, verifyPassword } from '@/utils/security';
 
 // API Configuration
@@ -6,7 +6,7 @@ const DEFAULT_API_URL = 'https://your-api-gateway-url.execute-api.eu-west-1.amaz
 const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 
 // Mock kullanıcılar - authStore.ts'den al, böylece her yerde aynı dizi olur
-const MOCK_USERS = AuthStoreMockUsers as any[];
+
 
 // Mock kullanıcıları initialize et (bcrypt hash ile)
 // NOT: MOCK_USERS authStore.ts'den geliyor, orada zaten tanımlı
@@ -50,6 +50,19 @@ export const isMockMode = () => {
   return false;
 };
 
+// Get ID token from persisted auth storage
+async function getIdToken(): Promise<string | null> {
+  if (isMockMode()) return 'mock_token';
+  try {
+    const persisted = localStorage.getItem('auth-storage');
+    if (persisted) {
+      const parsed = JSON.parse(persisted);
+      return parsed.state?.tokens?.idToken || null;
+    }
+  } catch (e) {}
+  return null;
+}
+
 // Helper function for API calls with automatic token refresh
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   // Eğer mock mode aktifse, gerçek API çağrısı yapma
@@ -58,7 +71,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   }
   
   const makeRequest = async (isRetry = false): Promise<any> => {
-    // Get Cognito ID token for authorization
+    // Get ID token for authorization
     const token = await getIdToken();
     
     const headers: Record<string, string> = {
@@ -80,9 +93,29 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
       if (response.status === 401 && !isRetry) {
         // Try to refresh the token and retry the request once
         try {
-          const refreshed = await useAuthStore.getState().refreshToken();
-          if (refreshed) {
-            return makeRequest(true);
+          const persisted = localStorage.getItem('auth-storage');
+          if (persisted) {
+            const parsed = JSON.parse(persisted);
+            const refreshToken = parsed.state?.tokens?.refreshToken;
+            if (refreshToken) {
+              const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken }),
+              });
+              if (refreshResponse.ok) {
+                const result = await refreshResponse.json();
+                // Update localStorage with new tokens
+                parsed.state.tokens = {
+                  accessToken: result.accessToken,
+                  idToken: result.token,
+                  refreshToken: result.refreshToken,
+                  expiresAt: Date.now() + (result.expiresIn * 1000),
+                };
+                localStorage.setItem('auth-storage', JSON.stringify(parsed));
+                return makeRequest(true);
+              }
+            }
           }
         } catch (refreshError) {
           console.error('Token refresh failed:', refreshError);

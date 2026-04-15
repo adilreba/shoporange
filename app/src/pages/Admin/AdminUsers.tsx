@@ -5,7 +5,8 @@ import {
   AlertTriangle, UserX, UserCheck, Shield, Edit2
 } from 'lucide-react';
 import { api, userApi, isMockMode } from '@/services/api';
-import { MOCK_USERS, useAuthStore } from '@/stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
+import { MOCK_USERS } from '@/data/mockUsers';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
