@@ -668,23 +668,6 @@ Resources:
             Path: /auth/facebook
             Method: POST
 
-  VerifyTokenFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ../lambda/
-      Handler: auth.verifyToken
-      Description: Verify JWT token
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref UsersTable
-      Events:
-        VerifyToken:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /auth/verify
-            Method: POST
-
   ForgotPasswordFunction:
     Type: AWS::Serverless::Function
     Properties:

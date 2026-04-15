@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { User, LoginCredentials, RegisterData } from '@/types';
 import * as cognito from '@/services/cognito';
 import * as googleAuth from '@/services/googleAuth';
+import { authApi } from '@/services/api';
 import { checkPasswordStrength, isValidEmail, ClientRateLimiter } from '@/utils/security';
 
 // Rate limiters for auth operations
@@ -364,7 +365,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          await cognito.confirmSignUp(pendingVerificationEmail, code);
+          await authApi.verifyEmail(pendingVerificationEmail, code);
           set({ needsVerification: false, pendingVerificationEmail: null, isLoading: false });
           return true;
         } catch (error: any) {
@@ -388,7 +389,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          await cognito.resendConfirmationCode(pendingVerificationEmail);
+          await authApi.resendVerificationCode(pendingVerificationEmail);
           set({ isLoading: false });
           return true;
         } catch (error: any) {

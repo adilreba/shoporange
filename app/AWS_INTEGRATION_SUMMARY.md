@@ -71,7 +71,9 @@
 | POST | `/auth/register` | Kayıt ol |
 | POST | `/auth/google` | Google ile giriş |
 | POST | `/auth/facebook` | Facebook ile giriş |
-| POST | `/auth/verify` | Token doğrula |
+| POST | `/auth/verify` | E-posta doğrulama kodunu onayla |
+| POST | `/auth/resend-code` | Doğrulama kodunu tekrar gönder |
+| GET | `/auth/me` | Mevcut kullanıcı bilgilerini getir |
 
 ### Kategoriler
 | Method | Endpoint | Açıklama |

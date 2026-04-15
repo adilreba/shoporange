@@ -232,12 +232,43 @@ export const authApi = {
   verifyToken: async (token: string) => {
     if (isMockMode()) return mockVerifyToken(token);
     try {
-      // /auth/verify in backend expects email+code for verification.
       // To validate an access token, use /auth/me instead.
       return await fetchApi('/auth/me', { method: 'GET' });
     } catch (error) {
       console.warn('Real auth/me failed, falling back to mock:', error);
       return mockVerifyToken(token);
+    }
+  },
+
+  verifyEmail: async (email: string, code: string) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return { message: 'Email verified successfully' };
+    }
+    try {
+      return await fetchApi('/auth/verify', {
+        method: 'POST',
+        body: JSON.stringify({ email, code }),
+      });
+    } catch (error) {
+      console.warn('Real auth/verify failed:', error);
+      throw error;
+    }
+  },
+
+  resendVerificationCode: async (email: string) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return { message: 'Verification code resent' };
+    }
+    try {
+      return await fetchApi('/auth/resend-code', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+    } catch (error) {
+      console.warn('Real auth/resend-code failed:', error);
+      throw error;
     }
   },
 
