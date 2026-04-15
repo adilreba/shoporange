@@ -289,7 +289,7 @@ export const authApi = {
     }
   },
 
-  resetPassword: async (token: string, password: string) => {
+  resetPassword: async (email: string, code: string, password: string) => {
     if (isMockMode()) {
       await new Promise(resolve => setTimeout(resolve, 500));
       return { message: 'Şifreniz başarıyla güncellendi.' };
@@ -297,10 +297,47 @@ export const authApi = {
     try {
       return await fetchApi('/auth/reset-password', {
         method: 'POST',
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ email, code, newPassword: password }),
       });
     } catch (error) {
       return { message: 'Şifreniz başarıyla güncellendi.' };
+    }
+  },
+
+  refreshToken: async (refreshToken: string) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      return {
+        accessToken: 'mock_access_token',
+        idToken: 'mock_id_token',
+        refreshToken,
+        expiresIn: 3600,
+      };
+    }
+    try {
+      return await fetchApi('/auth/refresh', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken }),
+      });
+    } catch (error) {
+      console.warn('Real auth/refresh failed:', error);
+      throw error;
+    }
+  },
+
+  changePassword: async (oldPassword: string, newPassword: string) => {
+    if (isMockMode()) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return { message: 'Şifreniz başarıyla güncellendi.' };
+    }
+    try {
+      return await fetchApi('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ oldPassword, newPassword }),
+      });
+    } catch (error) {
+      console.warn('Real auth/change-password failed:', error);
+      throw error;
     }
   },
 

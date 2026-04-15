@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, LoginCredentials, RegisterData } from '@/types';
-import * as cognito from '@/services/cognito';
 import * as googleAuth from '@/services/googleAuth';
 import { authApi } from '@/services/api';
 import { checkPasswordStrength, isValidEmail, ClientRateLimiter } from '@/utils/security';
@@ -154,8 +153,6 @@ export const useAuthStore = create<AuthState>()(
       initAuth: async () => {
         console.log('[initAuth] Starting...');
         
-        // Zustand persist middleware state'i zaten yükledi
-        // Şimdi MOCK_USERS'tan güncel rolü senkronize edelim
         const currentState = get();
         console.log('[initAuth] Current state:', currentState.isAuthenticated, currentState.user?.email, 'role:', currentState.user?.role);
         
@@ -184,41 +181,34 @@ export const useAuthStore = create<AuthState>()(
           }
         }
         
-        set({ isLoading: false });
-        console.log('[initAuth] Finished');
-
-        // Gerçek Cognito auth
+        // Gerçek modda backend API üzerinden session doğrula
+        const { tokens } = get();
+        if (!tokens?.accessToken) {
+          set({ user: null, tokens: null, isAuthenticated: false, isLoading: false });
+          console.log('[initAuth] Finished - no tokens');
+          return;
+        }
+        
         try {
           set({ isLoading: true });
-          const session = await cognito.getCurrentSession();
-          
-          if (session) {
-            if (cognito.needsTokenRefresh(session.tokens)) {
-              try {
-                const newTokens = await cognito.refreshSession(session.tokens.refreshToken);
-                set({ 
-                  user: session.user as User, 
-                  tokens: { ...session.tokens, ...newTokens },
-                  isAuthenticated: true,
-                  isLoading: false 
-                });
-              } catch (refreshError) {
-                await cognito.signOut();
-                set({ user: null, tokens: null, isAuthenticated: false, isLoading: false });
-              }
-            } else {
-              set({ 
-                user: session.user as User, 
-                tokens: session.tokens,
-                isAuthenticated: true,
-                isLoading: false 
-              });
+          const userData = await authApi.verifyToken(tokens.idToken);
+          set({ 
+            user: userData.user as User, 
+            isAuthenticated: true,
+            isLoading: false 
+          });
+          console.log('[initAuth] Finished - session valid');
+        } catch (error: any) {
+          if (error.status === 401 || error.message === 'UNAUTHORIZED') {
+            // Token expired, try refresh
+            const refreshed = await get().refreshToken();
+            if (!refreshed) {
+              set({ user: null, tokens: null, isAuthenticated: false, isLoading: false });
             }
           } else {
             set({ user: null, tokens: null, isAuthenticated: false, isLoading: false });
           }
-        } catch (error) {
-          set({ user: null, tokens: null, isAuthenticated: false, isLoading: false });
+          console.log('[initAuth] Finished - session invalid');
         }
       },
 
@@ -241,21 +231,18 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null, needsVerification: false });
         
         try {
-          let result;
+          const result = await authApi.login(credentials.email, credentials.password);
           
-          if (isMockMode()) {
-            const { authApi } = await import('@/services/api');
-            result = await authApi.login(credentials.email, credentials.password);
-          } else {
-            result = await cognito.signIn({
-              email: credentials.email,
-              password: credentials.password,
-            });
-          }
+          const tokens = {
+            accessToken: result.accessToken,
+            idToken: result.token,
+            refreshToken: result.refreshToken,
+            expiresAt: Date.now() + (result.expiresIn * 1000),
+          };
           
           set({ 
             user: result.user as User, 
-            tokens: result.tokens,
+            tokens,
             isAuthenticated: true, 
             isLoading: false 
           });
@@ -396,7 +383,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         if (!isMockMode()) {
           try {
-            await cognito.globalSignOut();
+            await authApi.logout();
           } catch (error) {
             console.error('Logout error:', error);
           }
@@ -418,8 +405,15 @@ export const useAuthStore = create<AuthState>()(
         if (!tokens?.refreshToken) return false;
         
         try {
-          const newTokens = await cognito.refreshSession(tokens.refreshToken);
-          set({ tokens: { ...tokens, ...newTokens } });
+          const result = await authApi.refreshToken(tokens.refreshToken);
+          set({ 
+            tokens: {
+              accessToken: result.accessToken,
+              idToken: result.token,
+              refreshToken: result.refreshToken,
+              expiresAt: Date.now() + (result.expiresIn * 1000),
+            }
+          });
           return true;
         } catch (error) {
           set({ user: null, tokens: null, isAuthenticated: false });
@@ -636,7 +630,7 @@ export const useAuthStore = create<AuthState>()(
         }
         
         try {
-          await cognito.forgotPassword(email);
+          await authApi.forgotPassword(email);
           set({ isLoading: false });
           return true;
         } catch (error: any) {
@@ -654,7 +648,7 @@ export const useAuthStore = create<AuthState>()(
         }
         
         try {
-          await cognito.confirmForgotPassword(email, code, password);
+          await authApi.resetPassword(email, code, password);
           set({ isLoading: false });
           return true;
         } catch (error: any) {
@@ -672,7 +666,7 @@ export const useAuthStore = create<AuthState>()(
         }
         
         try {
-          await cognito.changePassword(oldPassword, newPassword);
+          await authApi.changePassword(oldPassword, newPassword);
           set({ isLoading: false });
           return true;
         } catch (error: any) {
@@ -805,11 +799,11 @@ export const refreshUserFromMock = () => {
 // Get access token for API calls
 export const getAccessToken = async (): Promise<string | null> => {
   if (isMockMode()) return 'mock_token';
-  return cognito.getAccessToken();
+  return useAuthStore.getState().tokens?.accessToken || null;
 };
 
 // Get ID token for API calls
 export const getIdToken = async (): Promise<string | null> => {
   if (isMockMode()) return 'mock_token';
-  return cognito.getIdToken();
+  return useAuthStore.getState().tokens?.idToken || null;
 };

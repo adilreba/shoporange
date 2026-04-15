@@ -2131,6 +2131,28 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  AuthChangePasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.changePassword
+      Description: Change user password
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ChangePassword
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/change-password
+            Method: post
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: CognitoAuthorizer
+
   AuthGoogleFunction:
     Type: AWS::Serverless::Function
     Properties:

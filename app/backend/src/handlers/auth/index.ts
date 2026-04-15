@@ -11,6 +11,7 @@ import {
   ConfirmSignUpCommand,
   AdminCreateUserCommand,
   AdminSetUserPasswordCommand,
+  ChangePasswordCommand,
   AuthFlowType,
 } from '@aws-sdk/client-cognito-identity-provider';
 import {
@@ -842,6 +843,86 @@ export const googleLogin = async (event: APIGatewayProxyEvent): Promise<APIGatew
       statusCode: 500,
       headers: securityHeaders,
       body: JSON.stringify({ error: 'Google login failed' }),
+    };
+  }
+};
+
+/**
+ * POST /auth/change-password
+ * Change user password with old password verification
+ */
+export const changePassword = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const authHeader = event.headers.Authorization || event.headers.authorization;
+    const accessToken = authHeader?.replace('Bearer ', '');
+
+    if (!accessToken) {
+      return {
+        statusCode: 401,
+        headers: securityHeaders,
+        body: JSON.stringify({ error: 'Authorization header required' }),
+      };
+    }
+
+    if (!event.body) {
+      return {
+        statusCode: 400,
+        headers: securityHeaders,
+        body: JSON.stringify({ error: 'Request body is required' }),
+      };
+    }
+
+    const { oldPassword, newPassword } = JSON.parse(event.body);
+
+    if (!oldPassword || !newPassword) {
+      return {
+        statusCode: 400,
+        headers: securityHeaders,
+        body: JSON.stringify({ error: 'Old password and new password are required' }),
+      };
+    }
+
+    const passwordCheck = validatePasswordStrength(newPassword);
+    if (!passwordCheck.valid) {
+      return {
+        statusCode: 400,
+        headers: securityHeaders,
+        body: JSON.stringify({
+          error: 'New password does not meet security requirements',
+          details: passwordCheck.errors,
+        }),
+      };
+    }
+
+    const command = new ChangePasswordCommand({
+      AccessToken: accessToken,
+      PreviousPassword: oldPassword,
+      ProposedPassword: newPassword,
+    });
+    await cognitoClient.send(command);
+
+    logSecurityEvent('PASSWORD_CHANGED', { ip: getClientIP(event) }, 'medium');
+
+    return {
+      statusCode: 200,
+      headers: securityHeaders,
+      body: JSON.stringify({ message: 'Password changed successfully' }),
+    };
+  } catch (error: any) {
+    console.error('Change password error:', error);
+
+    if (error.name === 'NotAuthorizedException' || error.name === 'InvalidPasswordException') {
+      return {
+        statusCode: 400,
+        headers: securityHeaders,
+        body: JSON.stringify({ error: 'Invalid old password or new password is too weak' }),
+      };
+    }
+
+    return {
+      statusCode: 500,
+      headers: securityHeaders,
+      body: JSON.stringify({ error: 'Password change failed' }),
     };
   }
 };
