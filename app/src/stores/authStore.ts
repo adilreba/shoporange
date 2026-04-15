@@ -137,52 +137,7 @@ interface AuthState {
   refreshUserFromMock: () => void;
 }
 
-// Mock login fonksiyonu
-const mockLogin = async (email: string, password: string) => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const user = MOCK_USERS.find(u => u.email === email && u.password === password);
-  if (!user) {
-    throw new Error('Geçersiz e-posta veya şifre');
-  }
-  const { password: _, ...userWithoutPassword } = user;
-  return {
-    user: userWithoutPassword,
-    tokens: {
-      accessToken: `mock_token_${user.id}`,
-      idToken: `mock_id_token_${user.id}`,
-      refreshToken: `mock_refresh_${user.id}`,
-      expiresAt: Date.now() + 3600000,
-    }
-  };
-};
 
-// Mock register fonksiyonu
-const mockRegister = async (data: { email: string; password: string; name: string; phone?: string }) => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  if (MOCK_USERS.some(u => u.email === data.email)) {
-    throw new Error('Bu e-posta adresi zaten kullanılıyor');
-  }
-  const newUser = {
-    id: `user-${Date.now()}`,
-    email: data.email,
-    name: data.name,
-    role: 'user',
-    phone: data.phone || '',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-    address: [],
-    createdAt: new Date().toISOString()
-  };
-  MOCK_USERS.push({ ...newUser, password: data.password } as any);
-  return {
-    user: newUser,
-    tokens: {
-      accessToken: `mock_token_${newUser.id}`,
-      idToken: `mock_id_token_${newUser.id}`,
-      refreshToken: `mock_refresh_${newUser.id}`,
-      expiresAt: Date.now() + 3600000,
-    }
-  };
-};
 
 export const useAuthStore = create<AuthState>()(
   persist(

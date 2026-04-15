@@ -1,4 +1,4 @@
-import { getIdToken, refreshToken, MOCK_USERS as AuthStoreMockUsers } from '@/stores/authStore';
+import { getIdToken, useAuthStore, MOCK_USERS as AuthStoreMockUsers } from '@/stores/authStore';
 import { hashPassword, verifyPassword } from '@/utils/security';
 
 // API Configuration
@@ -80,7 +80,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
       if (response.status === 401 && !isRetry) {
         // Try to refresh the token and retry the request once
         try {
-          const refreshed = await refreshToken();
+          const refreshed = await useAuthStore.getState().refreshToken();
           if (refreshed) {
             return makeRequest(true);
           }

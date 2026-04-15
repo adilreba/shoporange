@@ -39,7 +39,6 @@ export function Checkout() {
     confirmReservation, 
     isReservationValid,
     getReservationExpiry,
-    releaseReservation,
     refreshReservation
   } = useStockStore();
   
