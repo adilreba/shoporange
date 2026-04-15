@@ -288,7 +288,8 @@ export const useAuthStore = create<AuthState>()(
           let result;
           
           if (isMockMode()) {
-            result = await mockLogin(credentials.email, credentials.password);
+            const { authApi } = await import('@/services/api');
+            result = await authApi.login(credentials.email, credentials.password);
           } else {
             result = await cognito.signIn({
               email: credentials.email,
@@ -360,7 +361,8 @@ export const useAuthStore = create<AuthState>()(
           let result;
           
           if (isMockMode()) {
-            result = await mockRegister(data);
+            const { authApi } = await import('@/services/api');
+            result = await authApi.register(data);
           } else {
             await cognito.signUp({
               email: data.email,

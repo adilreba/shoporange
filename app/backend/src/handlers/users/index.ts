@@ -4,6 +4,7 @@ import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-
 import { encryptField, decryptField, maskSensitiveData, maskEmail, maskPhone } from '../../utils/encryption';
 import { audit } from '../../utils/auditLogger';
 import { getClientIP } from '../../utils/security';
+import { getUserId, getUserFromToken, requireAuth, requireAdmin } from '../../utils/authorization';
 
 // DynamoDB client - SDK v3
 const client = new DynamoDBClient({});
@@ -13,10 +14,7 @@ const USERS_TABLE = process.env.USERS_TABLE || '';
 // PII fields that need encryption
 const USER_PII_FIELDS = ['email', 'phone', 'address'] as const;
 
-// Kullanıcı ID'sini token'dan al
-const getUserId = (event: APIGatewayProxyEvent): string => {
-  return event.requestContext.authorizer?.claims?.sub || 'guest';
-};
+// getUserId is now imported from '../../utils/authorization'
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -39,14 +37,28 @@ const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResu
 
 export const getUser = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    const userId = event.pathParameters?.id;
-    if (!userId) {
+    const targetUserId = event.pathParameters?.id;
+    if (!targetUserId) {
       return createErrorResponse(400, 'User ID required');
+    }
+
+    // Authorization: users can only view their own profile, admins can view any
+    const authUser = getUserFromToken(event);
+    if (authUser && authUser.userId !== targetUserId) {
+      try {
+        requireAdmin(event);
+      } catch {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ error: 'You do not have permission to view this user' }),
+        };
+      }
     }
 
     const result = await dynamodb.send(new GetCommand({
       TableName: USERS_TABLE,
-      Key: { id: userId }
+      Key: { id: targetUserId }
     }));
 
     if (!result.Item) {
@@ -55,7 +67,7 @@ export const getUser = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Decrypt PII fields
     const decryptedUser = { ...result.Item };
-    const encryptionContext = { userId, service: 'users', purpose: 'pii-retrieval' };
+    const encryptionContext = { userId: targetUserId, service: 'users', purpose: 'pii-retrieval' };
     
     for (const field of USER_PII_FIELDS) {
       if (result.Item[field] && typeof result.Item[field] === 'string') {
@@ -75,12 +87,12 @@ export const getUser = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Audit log for admin access
     await audit.adminAction({
-      adminId: event.requestContext.authorizer?.claims?.sub || 'unknown',
-      adminEmail: event.requestContext.authorizer?.claims?.email || 'unknown',
+      adminId: authUser?.userId || 'unknown',
+      adminEmail: authUser?.email || 'unknown',
       ipAddress: getClientIP(event),
       action: 'VIEW_USER',
       resource: 'USER',
-      resourceId: userId,
+      resourceId: targetUserId,
       details: { accessedFields: Object.keys(decryptedUser) },
     });
 
@@ -93,13 +105,27 @@ export const getUser = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
 export const updateUser = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    const userId = event.pathParameters?.id;
-    if (!userId || !event.body) {
+    const targetUserId = event.pathParameters?.id;
+    if (!targetUserId || !event.body) {
       return createErrorResponse(400, 'User ID and body required');
     }
 
+    // Authorization: users can update their own profile, admins can update any
+    const authUser = getUserFromToken(event);
+    if (authUser && authUser.userId !== targetUserId) {
+      try {
+        requireAdmin(event);
+      } catch {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ error: 'You do not have permission to update this user' }),
+        };
+      }
+    }
+
     const updates = JSON.parse(event.body);
-    const encryptionContext = { userId, service: 'users', purpose: 'pii-storage' };
+    const encryptionContext = { userId: targetUserId, service: 'users', purpose: 'pii-storage' };
 
     // Dinamik update expression oluştur
     const updateExpressions: string[] = [];
@@ -142,7 +168,7 @@ export const updateUser = async (event: APIGatewayProxyEvent): Promise<APIGatewa
 
     const result = await dynamodb.send(new UpdateCommand({
       TableName: USERS_TABLE,
-      Key: { id: userId },
+      Key: { id: targetUserId },
       UpdateExpression: `SET ${updateExpressions.join(', ')}`,
       ExpressionAttributeNames: Object.keys(expressionNames).length > 0 ? expressionNames : undefined,
       ExpressionAttributeValues: expressionValues,
@@ -151,12 +177,12 @@ export const updateUser = async (event: APIGatewayProxyEvent): Promise<APIGatewa
 
     // Audit log for admin update
     await audit.adminAction({
-      adminId: event.requestContext.authorizer?.claims?.sub || 'unknown',
-      adminEmail: event.requestContext.authorizer?.claims?.email || 'unknown',
+      adminId: authUser?.userId || 'unknown',
+      adminEmail: authUser?.email || 'unknown',
       ipAddress: getClientIP(event),
       action: 'UPDATE_USER',
       resource: 'USER',
-      resourceId: userId,
+      resourceId: targetUserId,
       details: { 
         updatedFields: Object.keys(updates).filter(k => !['password'].includes(k)),
         hasEmailUpdate: !!updates.email,

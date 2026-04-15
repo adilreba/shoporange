@@ -11,6 +11,7 @@ import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { encryptObjectFields, decryptObjectFields, maskSensitiveData } from '../../utils/encryption';
 import { audit } from '../../utils/auditLogger';
 import { getClientIP, securityHeaders } from '../../utils/security';
+import { getUserFromToken, requireAuth, requireStaff } from '../../utils/authorization';
 
 // DynamoDB client - SDK v3
 const client = new DynamoDBClient({});
@@ -45,15 +46,14 @@ const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResu
   body: JSON.stringify(data),
 });
 
-// Get user info from token/context
-const getUserInfo = (event: APIGatewayProxyEvent): { userId?: string; email?: string } => {
-  // Extract from JWT token or context
-  const authHeader = event.headers?.Authorization || event.headers?.authorization;
-  if (authHeader) {
-    // In real implementation, decode JWT
-    return { userId: 'user_id_from_token', email: 'user@example.com' };
+// Get user info from Cognito Authorizer claims
+const getUserInfo = (event: APIGatewayProxyEvent): { userId: string; email: string } => {
+  const user = getUserFromToken(event);
+  if (user) {
+    return { userId: user.userId, email: user.email };
   }
-  return {};
+  // Fallback for backward compatibility / local testing
+  return { userId: 'unknown', email: 'unknown' };
 };
 
 // ============== NOTIFICATION HELPERS ==============
@@ -230,23 +230,38 @@ async function returnStock(items: Array<{ productId: string; quantity: number }>
 
 export const getOrders = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    const userId = event.queryStringParameters?.userId;
-    const { email } = getUserInfo(event);
+    const queryUserId = event.queryStringParameters?.userId;
+    const authUser = getUserFromToken(event);
 
     let result;
-    if (userId) {
+    if (queryUserId) {
       // UserId index'i varsa Query kullan
+      // Non-admin users can only view their own orders
+      if (authUser && authUser.userId !== queryUserId) {
+        requireStaff(event);
+      }
       result = await dynamodb.send(new QueryCommand({
         TableName: ORDERS_TABLE,
         IndexName: 'UserIdIndex',
         KeyConditionExpression: 'userId = :userId',
-        ExpressionAttributeValues: { ':userId': userId }
+        ExpressionAttributeValues: { ':userId': queryUserId }
       }));
     } else {
       // Admin yetkisi kontrolü gerekli
+      const adminUser = requireStaff(event);
       result = await dynamodb.send(new ScanCommand({
         TableName: ORDERS_TABLE
       }));
+      
+      // Log admin access
+      await audit.adminAction({
+        adminId: adminUser.userId,
+        adminEmail: adminUser.email,
+        ipAddress: getClientIP(event),
+        action: 'VIEW_ALL_ORDERS',
+        resource: 'ORDER',
+        details: { count: result.Items?.length || 0 },
+      });
     }
 
     // Decrypt PII fields for response
@@ -255,18 +270,6 @@ export const getOrders = async (event: APIGatewayProxyEvent): Promise<APIGateway
         return await decryptObjectFields(item, ORDER_PII_FIELDS);
       })
     );
-
-    // Log admin access
-    if (!userId && email) {
-      await audit.adminAction({
-        adminId: 'admin_id',
-        adminEmail: email,
-        ipAddress: getClientIP(event),
-        action: 'VIEW_ALL_ORDERS',
-        resource: 'ORDER',
-        details: { count: decryptedItems.length },
-      });
-    }
 
     return createSuccessResponse(decryptedItems);
   } catch (error) {
@@ -291,6 +294,20 @@ export const getOrder = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
       return createErrorResponse(404, 'Order not found');
     }
 
+    // Authorization: users can only view their own orders, staff can view all
+    const authUser = getUserFromToken(event);
+    if (authUser && authUser.userId !== result.Item.userId) {
+      try {
+        requireStaff(event);
+      } catch {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ error: 'You do not have permission to view this order' }),
+        };
+      }
+    }
+
     // Decrypt PII fields
     const decryptedOrder = await decryptObjectFields(result.Item, ORDER_PII_FIELDS);
 
@@ -307,8 +324,22 @@ export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatew
       return createErrorResponse(400, 'Request body required');
     }
 
+    // Authenticate user from JWT token
+    let authUser;
+    try {
+      authUser = requireAuth(event);
+    } catch {
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ error: 'Authentication required' }),
+      };
+    }
+
     const orderData = JSON.parse(event.body);
-    const { items, userId, email, shippingAddress, billingAddress } = orderData;
+    const { items, shippingAddress, billingAddress } = orderData;
+    const userId = authUser.userId;
+    const email = authUser.email;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return createErrorResponse(400, 'Order items required');
@@ -319,8 +350,8 @@ export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatew
     if (!stockCheck.available) {
       // Audit log for failed order
       await audit.orderCreate({
-        userId: userId || 'unknown',
-        email: email || 'unknown',
+        userId,
+        email,
         ipAddress: getClientIP(event),
         orderId: 'FAILED',
         amount: orderData.totalAmount || 0,
@@ -334,10 +365,12 @@ export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatew
 
     const orderId = `ORD-${Date.now()}`;
 
-    // Prepare order with encrypted PII
+    // Prepare order with encrypted PII - override userId/email with token values
     const order = {
       id: orderId,
       ...orderData,
+      userId,
+      email,
       status: 'pending',
       paymentStatus: 'pending',
       createdAt: new Date().toISOString(),

@@ -1,4 +1,4 @@
-import { getIdToken, MOCK_USERS as AuthStoreMockUsers } from '@/stores/authStore';
+import { getIdToken, refreshToken, MOCK_USERS as AuthStoreMockUsers } from '@/stores/authStore';
 import { hashPassword, verifyPassword } from '@/utils/security';
 
 // API Configuration
@@ -50,44 +50,58 @@ export const isMockMode = () => {
   return false;
 };
 
-// Helper function for API calls
+// Helper function for API calls with automatic token refresh
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   // Eğer mock mode aktifse, gerçek API çağrısı yapma
   if (isMockMode()) {
     throw new Error('Mock mode aktif - fetchApi kullanılamaz');
   }
   
-  // Get Cognito ID token for authorization
-  const token = await getIdToken();
-  
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...options.headers as Record<string, string>,
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    // Handle 401 Unauthorized - token might be expired
-    if (response.status === 401) {
-      // Trigger auth refresh by throwing specific error
-      const error = new Error('UNAUTHORIZED');
-      (error as any).status = 401;
-      throw error;
-    }
+  const makeRequest = async (isRetry = false): Promise<any> => {
+    // Get Cognito ID token for authorization
+    const token = await getIdToken();
     
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
-  }
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}) as Record<string, string>,
+    };
 
-  return response.json();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      // Handle 401 Unauthorized - token might be expired
+      if (response.status === 401 && !isRetry) {
+        // Try to refresh the token and retry the request once
+        try {
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            return makeRequest(true);
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+        }
+        
+        // Trigger auth refresh by throwing specific error
+        const error = new Error('UNAUTHORIZED');
+        (error as any).status = 401;
+        throw error;
+      }
+      
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  };
+  
+  return makeRequest();
 }
 
 // ====================
@@ -115,7 +129,16 @@ const mockLogin = async (email: string, password: string) => {
   }
   
   const { password: _, ...userWithoutPassword } = user;
-  return { token: `mock_token_${user.id}_${Date.now()}`, user: userWithoutPassword };
+  const mockToken = `mock_token_${user.id}_${Date.now()}`;
+  return {
+    tokens: {
+      accessToken: mockToken,
+      idToken: mockToken,
+      refreshToken: mockToken,
+      expiresAt: Date.now() + 3600000
+    },
+    user: userWithoutPassword
+  };
 };
 
 const mockRegister = async (data: { email: string; password: string; name: string; phone?: string }) => {
@@ -144,7 +167,16 @@ const mockRegister = async (data: { email: string; password: string; name: strin
   };
   MOCK_USERS.push(newUser);
   const { password: _, ...userWithoutPassword } = newUser;
-  return { token: `mock_token_${newUser.id}_${Date.now()}`, user: userWithoutPassword };
+  const mockToken = `mock_token_${newUser.id}_${Date.now()}`;
+  return {
+    tokens: {
+      accessToken: mockToken,
+      idToken: mockToken,
+      refreshToken: mockToken,
+      expiresAt: Date.now() + 3600000
+    },
+    user: userWithoutPassword
+  };
 };
 
 const mockVerifyToken = async (token: string) => {
@@ -200,12 +232,11 @@ export const authApi = {
   verifyToken: async (token: string) => {
     if (isMockMode()) return mockVerifyToken(token);
     try {
-      return await fetchApi('/auth/verify', {
-        method: 'POST',
-        body: JSON.stringify({ token }),
-      });
+      // /auth/verify in backend expects email+code for verification.
+      // To validate an access token, use /auth/me instead.
+      return await fetchApi('/auth/me', { method: 'GET' });
     } catch (error) {
-      console.warn('Real auth/verify failed, falling back to mock:', error);
+      console.warn('Real auth/me failed, falling back to mock:', error);
       return mockVerifyToken(token);
     }
   },

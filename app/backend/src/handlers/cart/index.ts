@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, GetCommand, PutCommand, UpdateCommand, DeleteCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { getUserId } from '../../utils/authorization';
 
 // DynamoDB client - SDK v3
 const client = new DynamoDBClient({});
@@ -26,10 +27,7 @@ const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResu
   body: JSON.stringify(data),
 });
 
-// Kullanıcı ID'sini token'dan al
-const getUserId = (event: APIGatewayProxyEvent): string => {
-  return event.requestContext.authorizer?.claims?.sub || 'guest';
-};
+// getUserId is now imported from '../../utils/authorization'
 
 // Sepeti getir
 export const getCart = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {

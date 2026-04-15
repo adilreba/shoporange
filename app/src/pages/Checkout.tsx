@@ -84,7 +84,7 @@ export function Checkout() {
       
       if (left <= 0) {
         toast.error('Stok rezervasyonunuz sona erdi!');
-        releaseReservation();
+        useStockStore.getState().releaseReservation();
         navigate('/cart');
       }
     };
@@ -93,7 +93,7 @@ export function Checkout() {
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [reservationId, isReservationValid, getReservationExpiry, navigate, releaseReservation]);
+  }, [reservationId, isReservationValid, getReservationExpiry, navigate]);
 
   // Refresh reservation every 20 minutes
   useEffect(() => {
