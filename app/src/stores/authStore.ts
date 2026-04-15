@@ -314,30 +314,21 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null, needsVerification: false });
         
         try {
-          let result;
-          
           if (isMockMode()) {
-            const { authApi } = await import('@/services/api');
-            result = await authApi.register(data);
-          } else {
-            await cognito.signUp({
-              email: data.email,
-              password: data.password,
-              name: data.name,
-              phone: data.phone,
-            });
+            const result = await authApi.register(data);
             set({ 
-              needsVerification: true,
-              pendingVerificationEmail: data.email,
+              user: result.user as User, 
+              tokens: result.tokens,
+              isAuthenticated: true, 
               isLoading: false 
             });
             return true;
           }
-          
+
+          await authApi.register(data);
           set({ 
-            user: result.user as User, 
-            tokens: result.tokens,
-            isAuthenticated: true, 
+            needsVerification: true,
+            pendingVerificationEmail: data.email,
             isLoading: false 
           });
           return true;

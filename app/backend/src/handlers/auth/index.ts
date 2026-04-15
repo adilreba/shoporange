@@ -444,6 +444,17 @@ export const login = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
  */
 export const verifyEmail = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
+    // Rate limiting
+    const rateCheck = checkAuthRateLimit(event, 'login');
+    if (!rateCheck.allowed) {
+      logSecurityEvent('RATE_LIMIT_EXCEEDED', { endpoint: 'verifyEmail', ip: getClientIP(event) }, 'medium');
+      return {
+        statusCode: 429,
+        headers: securityHeaders,
+        body: JSON.stringify({ error: 'Too many verification attempts. Please try again later.' }),
+      };
+    }
+
     if (!event.body) {
       return {
         statusCode: 400,
@@ -506,6 +517,17 @@ export const verifyEmail = async (event: APIGatewayProxyEvent): Promise<APIGatew
  */
 export const resendCode = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
+    // Rate limiting
+    const rateCheck = checkAuthRateLimit(event, 'login');
+    if (!rateCheck.allowed) {
+      logSecurityEvent('RATE_LIMIT_EXCEEDED', { endpoint: 'resendCode', ip: getClientIP(event) }, 'medium');
+      return {
+        statusCode: 429,
+        headers: securityHeaders,
+        body: JSON.stringify({ error: 'Too many resend attempts. Please try again later.' }),
+      };
+    }
+
     if (!event.body) {
       return {
         statusCode: 400,
