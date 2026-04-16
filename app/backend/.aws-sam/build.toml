@@ -88,7 +88,7 @@ architecture = "x86_64"
 handler = "index.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["CreateShipmentFunction", "GetShipmentFunction", "TrackShipmentFunction", "CancelShipmentFunction", "ShippingWebhookFunction", "GetShippingRatesFunction", "GetShippingProvidersFunction", "GetShipmentsByOrderFunction", "CreateBarcodeFunction", "TestShippingConnectionFunction"]
+functions = ["GetShipmentFunction", "ShippingWebhookFunction", "GetShippingRatesFunction", "GetShippingProvidersFunction", "CreateShipmentFunction", "TrackShipmentFunction", "CancelShipmentFunction", "GetShipmentsByOrderFunction", "CreateBarcodeFunction", "TestShippingConnectionFunction"]
 
 [function_build_definitions.703ff245-6c77-44e5-b7ba-fa990502353e]
 codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/notifications"
@@ -115,7 +115,7 @@ architecture = "x86_64"
 handler = "index.register"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["PostConfirmationFunction", "AuthRegisterFunction", "AuthVerifyEmailFunction", "AuthResendCodeFunction", "AuthLoginFunction", "AuthRefreshFunction", "AuthLogoutFunction", "AuthMeFunction", "AuthForgotPasswordFunction", "AuthResetPasswordFunction", "AuthGoogleFunction"]
+functions = ["PostConfirmationFunction", "AuthRegisterFunction", "AuthVerifyEmailFunction", "AuthResendCodeFunction", "AuthLoginFunction", "AuthRefreshFunction", "AuthLogoutFunction", "AuthMeFunction", "AuthForgotPasswordFunction", "AuthResetPasswordFunction", "AuthChangePasswordFunction", "AuthGoogleFunction"]
 
 [function_build_definitions.127ef21c-cced-490f-a2c4-df9c66ff02ec]
 codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/legal-pages"

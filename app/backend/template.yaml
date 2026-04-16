@@ -47,7 +47,7 @@ Parameters:
     Default: 'whsec_test_placeholder'
   FromEmail:
     Type: String
-    Default: 'noreply@atushome.com'
+    Default: 'adminatush@gmail.com'
   SuperAdminEmail:
     Type: String
     Default: ''
@@ -489,7 +489,11 @@ Resources:
       UserPoolName: AtusHome-UserPool
       AutoVerifiedAttributes:
         - email
-
+      EmailConfiguration:
+        EmailSendingAccount: DEVELOPER
+        SourceArn: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${FromEmail}'
+        From: !Ref FromEmail
+        ReplyToEmailAddress: !Ref FromEmail
       Policies:
         PasswordPolicy:
           MinimumLength: 8
@@ -516,11 +520,6 @@ Resources:
         - ALLOW_USER_SRP_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
         - ALLOW_USER_PASSWORD_AUTH
-
-  SESIdentity:
-    Type: AWS::SES::EmailIdentity
-    Properties:
-      EmailIdentity: !Ref FromEmail
 
   # Legal Pages Table (Yasal Sayfalar)
   LegalPagesTable:
