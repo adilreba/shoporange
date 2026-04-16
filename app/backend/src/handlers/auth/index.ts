@@ -33,13 +33,33 @@ const cognitoClient = new CognitoIdentityProviderClient({
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || '';
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID || '';
 
+// ===== PHONE VALIDATION =====
+function validateTurkishPhone(phone: string): { valid: boolean; e164?: string; message?: string } {
+  const cleaned = phone.replace(/\s+/g, '').replace(/[()-]/g, '');
+  const e164 = cleaned.startsWith('+')
+    ? cleaned
+    : cleaned.startsWith('0')
+    ? `+9${cleaned}`
+    : `+90${cleaned}`;
+
+  if (!e164.startsWith('+90')) {
+    return { valid: false, message: 'Sadece Türkiye cep telefon numaraları kabul edilmektedir.' };
+  }
+
+  const national = e164.replace('+90', '');
+  if (!/^5[0-9]{9}$/.test(national)) {
+    return { valid: false, message: 'Geçerli bir Türkiye cep telefon numarası giriniz. Örn: 05XX XXX XX XX' };
+  }
+
+  return { valid: true, e164 };
+}
+
 // ===== COGNITO FUNCTIONS =====
 async function signUp(input: { email: string; password: string; name: string; phone?: string }): Promise<{ userSub: string }> {
-  // E.164 format: +905551234567 (no spaces, parentheses, or dashes)
-  let e164Phone = input.phone ? input.phone.replace(/\s+/g, '').replace(/[()-]/g, '') : undefined;
-  // Eğer + ile başlamıyorsa ve 0 ile başlıyorsa, varsayılan olarak +90 ekle (Türkiye)
-  if (e164Phone && !e164Phone.startsWith('+')) {
-    e164Phone = e164Phone.startsWith('0') ? `+9${e164Phone}` : `+${e164Phone}`;
+  const phoneCheck = validateTurkishPhone(input.phone || '');
+  const e164Phone = phoneCheck.valid ? phoneCheck.e164 : undefined;
+  if (input.phone && !phoneCheck.valid) {
+    throw new Error(phoneCheck.message);
   }
 
   const command = new SignUpCommand({
@@ -303,6 +323,18 @@ export const register = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
           details: passwordCheck.errors,
         }),
       };
+    }
+
+    // Validate Turkish phone number
+    if (sanitizedPhone) {
+      const phoneCheck = validateTurkishPhone(sanitizedPhone);
+      if (!phoneCheck.valid) {
+        return {
+          statusCode: 400,
+          headers: securityHeaders,
+          body: JSON.stringify({ error: phoneCheck.message }),
+        };
+      }
     }
 
     const result = await signUp({

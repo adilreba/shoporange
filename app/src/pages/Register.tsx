@@ -53,8 +53,19 @@ export function Register() {
       toast.error('Telefon numarası girin');
       return;
     }
-    if (formData.phone.replace(/\D/g, '').length < 10) {
-      toast.error('Geçerli bir telefon numarası girin');
+    const cleanedPhone = formData.phone.replace(/\s+/g, '').replace(/[()-]/g, '');
+    const e164Phone = cleanedPhone.startsWith('+')
+      ? cleanedPhone
+      : cleanedPhone.startsWith('0')
+      ? `+9${cleanedPhone}`
+      : `+90${cleanedPhone}`;
+    if (!e164Phone.startsWith('+90')) {
+      toast.error('Sadece Türkiye cep telefon numaraları kabul edilmektedir.');
+      return;
+    }
+    const national = e164Phone.replace('+90', '');
+    if (!/^5[0-9]{9}$/.test(national)) {
+      toast.error('Geçerli bir Türkiye cep telefon numarası giriniz. Örn: 05XX XXX XX XX');
       return;
     }
     
