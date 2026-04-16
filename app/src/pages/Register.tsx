@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 
 export function Register() {
   const navigate = useNavigate();
-  const { register, socialLogin, isLoading, error, clearError } = useAuthStore();
+  const { register, socialLogin, isLoading, error, clearError, needsVerification } = useAuthStore();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -85,8 +85,13 @@ export function Register() {
     });
     
     if (success) {
-      toast.success('Kayıt başarılı! Hoş geldiniz.');
-      navigate('/');
+      if (needsVerification) {
+        toast.success('Kayıt başarılı! Lütfen e-postanıza gönderilen doğrulama kodunu girin.');
+        navigate('/verify-email');
+      } else {
+        toast.success('Kayıt başarılı! Hoş geldiniz.');
+        navigate('/');
+      }
     } else {
       toast.error(error || 'Kayıt başarısız. Lütfen tekrar deneyin.');
     }

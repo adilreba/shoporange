@@ -200,6 +200,18 @@ export const useAuthStore = create<AuthState>()(
           return true;
         } catch (error: any) {
           console.error('Login error:', error);
+          
+          // E-posta doğrulanmamışsa doğrulama sayfasına yönlendir
+          if (error.message === 'Email not verified. Please check your email.' || error.status === 403) {
+            set({ 
+              needsVerification: true, 
+              pendingVerificationEmail: credentials.email,
+              error: 'E-posta adresiniz doğrulanmamış. Lütfen e-postanıza gönderilen kodu girin.',
+              isLoading: false 
+            });
+            return false;
+          }
+          
           const errorMessage = error.message || 'Giriş yapılırken bir hata oluştu';
           set({ error: errorMessage, isLoading: false });
           return false;

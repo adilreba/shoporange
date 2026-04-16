@@ -226,28 +226,18 @@ const mockVerifyToken = async (token: string) => {
 export const authApi = {
   login: async (email: string, password: string) => {
     if (isMockMode()) return mockLogin(email, password);
-    try {
-      return await fetchApi('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
-    } catch (error) {
-      console.warn('Real auth/login failed, falling back to mock:', error);
-      return mockLogin(email, password);
-    }
+    return await fetchApi('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
   },
 
   register: async (data: { email: string; password: string; name: string; phone?: string }) => {
     if (isMockMode()) return mockRegister(data);
-    try {
-      return await fetchApi('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    } catch (error) {
-      console.warn('Real auth/register failed, falling back to mock:', error);
-      return mockRegister(data);
-    }
+    return await fetchApi('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   logout: async () => {
