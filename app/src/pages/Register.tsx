@@ -87,7 +87,7 @@ export function Register() {
     if (success) {
       if (needsVerification) {
         toast.success('Kayıt başarılı! Lütfen e-postanıza gönderilen doğrulama kodunu girin.');
-        navigate('/verify-email');
+        navigate('/verify-email', { state: { email: formData.email } });
       } else {
         toast.success('Kayıt başarılı! Hoş geldiniz.');
         navigate('/');

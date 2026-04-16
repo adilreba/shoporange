@@ -35,6 +35,7 @@ import { Cart } from '@/pages/Cart';
 import { Checkout } from '@/pages/Checkout';
 import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
+import { VerifyEmail } from '@/pages/VerifyEmail';
 import { Wishlist } from '@/pages/Wishlist';
 import { Compare } from '@/pages/Compare';
 import { Profile } from '@/pages/Profile';
@@ -168,6 +169,7 @@ function App() {
         <Route path="/cart" element={<Cart />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/track-order" element={<OrderTracking />} />
         <Route path="/about" element={<About />} />
         <Route path="/campaigns" element={<Campaigns />} />
