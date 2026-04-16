@@ -75,10 +75,10 @@ export function VerifyEmail() {
               <p className="text-muted-foreground text-sm">
                 {email ? (
                   <>
-                    <span className="font-medium text-foreground">{email}</span> adresine gönderilen 6 haneli kodu girin.
+                    <span className="font-medium text-foreground">{email}</span> adresine kayıtlı telefon numaranıza gönderilen 6 haneli kodu girin.
                   </>
                 ) : (
-                  'E-posta adresinize gönderilen 6 haneli kodu girin.'
+                  'Telefon numaranıza gönderilen 6 haneli kodu girin.'
                 )}
               </p>
             </div>

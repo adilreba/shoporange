@@ -318,7 +318,7 @@ export const register = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
       statusCode: 201,
       headers: securityHeaders,
       body: JSON.stringify({
-        message: 'User registered successfully. Please check your email for verification code.',
+        message: 'User registered successfully. Please check your SMS for verification code.',
         userId: result.userSub,
       }),
     };
@@ -334,7 +334,7 @@ export const register = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
           statusCode: 200,
           headers: securityHeaders,
           body: JSON.stringify({
-            message: 'Verification code resent. Please check your email.',
+            message: 'Verification code resent. Please check your SMS.',
             needsVerification: true,
           }),
         };

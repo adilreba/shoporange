@@ -281,6 +281,10 @@ export function Register() {
                 </span>
               </label>
 
+              <p className="text-xs text-muted-foreground">
+                Doğrulama kodu telefon numaranıza SMS olarak gönderilecektir.
+              </p>
+
               <Button 
                 type="submit" 
                 className="w-full gradient-orange h-11"

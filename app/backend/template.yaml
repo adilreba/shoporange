@@ -52,6 +52,9 @@ Parameters:
     Type: String
     Default: ''
     Description: 'Google email for automatic super_admin access (optional)'
+  CognitoSMSExternalId:
+    Type: String
+    Default: 'atushome-cognito-sms-external-id'
 
 Resources:
   # DynamoDB Tables
@@ -483,17 +486,44 @@ Resources:
         SSEType: KMS
 
   # Cognito
+  CognitoSMSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-CognitoSMSRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cognito-idp.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref CognitoSMSExternalId
+      Policies:
+        - PolicyName: CognitoSMSPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: '*'
+
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: AtusHome-UserPool
       AutoVerifiedAttributes:
-        - email
+        - phone_number
       EmailConfiguration:
         EmailSendingAccount: DEVELOPER
         SourceArn: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${FromEmail}'
         From: !Ref FromEmail
         ReplyToEmailAddress: !Ref FromEmail
+      SmsConfiguration:
+        SnsCallerArn: !GetAtt CognitoSMSRole.Arn
+        ExternalId: !Ref CognitoSMSExternalId
       Policies:
         PasswordPolicy:
           MinimumLength: 8

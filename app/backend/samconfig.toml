@@ -6,7 +6,7 @@ resolve_s3 = true
 s3_prefix = "atushome-backend-v2"
 region = "eu-west-1"
 confirm_changeset = true
-capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM"
 parameter_overrides = "FromEmail=\"adminatush@gmail.com\""
 image_repositories = []
 disable_rollback = false
