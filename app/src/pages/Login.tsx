@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Facebook } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,12 +14,18 @@ import { toast } from 'sonner';
 
 export function Login() {
   const navigate = useNavigate();
-  const { login, socialLogin, isLoading, error, clearError } = useAuthStore();
+  const { login, socialLogin, isLoading, error, clearError, needsVerification } = useAuthStore();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    if (needsVerification) {
+      navigate('/verify-email');
+    }
+  }, [needsVerification, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,6 +106,12 @@ export function Login() {
                 <span className="bg-card px-2 text-muted-foreground">veya e-posta ile</span>
               </div>
             </div>
+
+            {error && (
+              <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm mb-4">
+                {error}
+              </div>
+            )}
 
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">

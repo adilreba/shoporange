@@ -150,6 +150,22 @@ export function Register() {
               </div>
             </div>
 
+            {error && (
+              <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
+                {error.includes('zaten kayıtlı') ? (
+                  <div className="space-y-1">
+                    <p>Bu e-posta adresi zaten kayıtlı.</p>
+                    <div className="flex gap-3 text-xs">
+                      <Link to="/login" className="underline hover:text-red-900 font-medium">Giriş yap</Link>
+                      <Link to="/forgot-password" className="underline hover:text-red-900 font-medium">Şifremi unuttum</Link>
+                    </div>
+                  </div>
+                ) : (
+                  error
+                )}
+              </div>
+            )}
+
             {/* Register Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>

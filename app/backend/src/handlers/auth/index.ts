@@ -11,6 +11,7 @@ import {
   ConfirmSignUpCommand,
   AdminCreateUserCommand,
   AdminSetUserPasswordCommand,
+  AdminGetUserCommand,
   ChangePasswordCommand,
   AuthFlowType,
 } from '@aws-sdk/client-cognito-identity-provider';
@@ -35,7 +36,11 @@ const CLIENT_ID = process.env.COGNITO_CLIENT_ID || '';
 // ===== COGNITO FUNCTIONS =====
 async function signUp(input: { email: string; password: string; name: string; phone?: string }): Promise<{ userSub: string }> {
   // E.164 format: +905551234567 (no spaces, parentheses, or dashes)
-  const e164Phone = input.phone ? input.phone.replace(/\s+/g, '').replace(/[()-]/g, '') : undefined;
+  let e164Phone = input.phone ? input.phone.replace(/\s+/g, '').replace(/[()-]/g, '') : undefined;
+  // Eğer + ile başlamıyorsa ve 0 ile başlıyorsa, varsayılan olarak +90 ekle (Türkiye)
+  if (e164Phone && !e164Phone.startsWith('+')) {
+    e164Phone = e164Phone.startsWith('0') ? `+9${e164Phone}` : `+${e164Phone}`;
+  }
 
   const command = new SignUpCommand({
     ClientId: CLIENT_ID,
@@ -321,11 +326,26 @@ export const register = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
     console.error('Register error:', error);
 
     if (error.name === 'UsernameExistsException') {
-      return {
-        statusCode: 409,
-        headers: securityHeaders,
-        body: JSON.stringify({ error: 'Email already exists' }),
-      };
+      try {
+        // Kullanıcı zaten kayıtlıysa, doğrulama kodunu tekrar göndermeyi dene
+        // (Eğer kullanıcı zaten confirmed ise bu da hata verir, o zaman 'already exists' döneriz)
+        await resendConfirmationCode(JSON.parse(event.body || '{}').email || '');
+        return {
+          statusCode: 200,
+          headers: securityHeaders,
+          body: JSON.stringify({
+            message: 'Verification code resent. Please check your email.',
+            needsVerification: true,
+          }),
+        };
+      } catch (resendError: any) {
+        // Kod tekrar gönderilemezse (örn. zaten confirmed), kayıtlı olduğunu söyle
+        return {
+          statusCode: 409,
+          headers: securityHeaders,
+          body: JSON.stringify({ error: 'Bu e-posta adresi zaten kayıtlı. Lütfen giriş yapın veya şifrenizi sıfırlayın.' }),
+        };
+      }
     }
 
     if (error.name === 'InvalidPasswordException') {

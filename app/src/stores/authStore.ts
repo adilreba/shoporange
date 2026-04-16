@@ -268,7 +268,11 @@ export const useAuthStore = create<AuthState>()(
         } catch (error: any) {
           console.error('Register error:', error);
           const errorMessage = error.message || 'Kayıt olurken bir hata oluştu';
-          set({ error: errorMessage, isLoading: false });
+          if (errorMessage.includes('already exists') || errorMessage.includes('zaten kayıtlı')) {
+            set({ error: 'Bu e-posta adresi zaten kayıtlı. Lütfen giriş yapın veya şifrenizi sıfırlayın.', isLoading: false });
+          } else {
+            set({ error: errorMessage, isLoading: false });
+          }
           return false;
         }
       },
