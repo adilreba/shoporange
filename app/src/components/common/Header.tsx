@@ -62,36 +62,29 @@ export function Header() {
   const userRole = user?.role;
   const isStaffUser = userRole === 'admin' || userRole === 'super_admin' || userRole === 'editor' || userRole === 'support';
   
-  // Debug: Kullanıcı rolünü kontrol et
+  // Debug: Sadece mock modda MOCK_USERS'tan rol senkronizasyonu yap
   useEffect(() => {
     if (isAuthenticated && user) {
-      console.log('[Header] USER id:', user.id, 'email:', user.email, 'ROLE:', userRole);
-      console.log('[Header] MOCK_USERS count:', MOCK_USERS.length);
+      const forceMock = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
+      const envUrl = import.meta.env.VITE_API_URL;
+      const isMock = forceMock || !envUrl || envUrl.includes('your-api-gateway-url');
       
-      // ID ile dene
+      if (!isMock) {
+        // Gerçek modda MOCK_USERS kontrolüne gerek yok
+        return;
+      }
+      
+      console.log('[Header] MOCK mode - syncing role from MOCK_USERS');
       const mockUserById = MOCK_USERS.find(u => u.id === user.id);
-      console.log('[Header] Found by ID:', mockUserById ? {id: mockUserById.id, role: mockUserById.role} : 'NOT FOUND');
-      
-      // Email ile dene
       const mockUserByEmail = MOCK_USERS.find(u => u.email === user.email);
-      console.log('[Header] Found by EMAIL:', mockUserByEmail ? {id: mockUserByEmail.id, role: mockUserByEmail.role} : 'NOT FOUND');
-      
-      // Her durumda MOCK_USERS'tan güncel rolü al
       const mockUser = mockUserById || mockUserByEmail;
       
-      if (mockUser) {
-        if (mockUser.role !== user.role) {
-          console.log('[Header] UPDATING role:', user.role, '->', mockUser.role);
-          useAuthStore.setState({ user: { ...user, role: mockUser.role as any } });
-        } else {
-          console.log('[Header] Role already correct:', user.role);
-        }
-      } else {
-        console.log('[Header] ERROR: User not found in MOCK_USERS!');
-        console.log('[Header] Available IDs:', MOCK_USERS.map(u => u.id));
+      if (mockUser && mockUser.role !== user.role) {
+        console.log('[Header] UPDATING role:', user.role, '->', mockUser.role);
+        useAuthStore.setState({ user: { ...user, role: mockUser.role as any } });
       }
     }
-  }, [isAuthenticated, user, userRole, isStaffUser]);
+  }, [isAuthenticated, user]);
   const { totalItems } = useCartStore();
   const { getWishlistCount } = useWishlistStore();
   const { getCompareCount } = useCompareStore();
