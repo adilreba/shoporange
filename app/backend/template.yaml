@@ -2927,13 +2927,15 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: !Sub '${AWS::StackName}-dependencies'
-      Description: Common Node.js dependencies for AtusHome backend
+      Description: Common Node.js dependencies for AtusHome backend - updated with aws-sdk v2
       ContentUri: layer/nodejs/
       CompatibleRuntimes:
         - nodejs20.x
       RetentionPolicy: Retain
     Metadata:
       BuildMethod: nodejs20.x
+      BuildProperties:
+        UseContainer: false
 
   # ============================================
   # S3 & CloudFront for Product Images
