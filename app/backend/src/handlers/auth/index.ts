@@ -34,6 +34,9 @@ const CLIENT_ID = process.env.COGNITO_CLIENT_ID || '';
 
 // ===== COGNITO FUNCTIONS =====
 async function signUp(input: { email: string; password: string; name: string; phone?: string }): Promise<{ userSub: string }> {
+  // E.164 format: +905551234567 (no spaces, parentheses, or dashes)
+  const e164Phone = input.phone ? input.phone.replace(/\s+/g, '').replace(/[()-]/g, '') : undefined;
+
   const command = new SignUpCommand({
     ClientId: CLIENT_ID,
     Username: input.email,
@@ -41,7 +44,7 @@ async function signUp(input: { email: string; password: string; name: string; ph
     UserAttributes: [
       { Name: 'email', Value: input.email },
       { Name: 'name', Value: input.name },
-      ...(input.phone ? [{ Name: 'phone_number', Value: input.phone }] : []),
+      ...(e164Phone ? [{ Name: 'phone_number', Value: e164Phone }] : []),
       { Name: 'custom:role', Value: 'user' },
     ],
   });
