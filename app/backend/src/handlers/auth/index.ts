@@ -211,8 +211,8 @@ async function handleGoogleSignIn(googleUser: any, idToken: string): Promise<any
 
 // Rate limit configs
 const RATE_LIMITS = {
-  login: { max: 5, window: 300000 }, // 5 deneme, 5 dakika
-  register: { max: 3, window: 3600000 }, // 3 deneme, 1 saat
+  login: { max: 10, window: 300000 }, // 10 deneme, 5 dakika
+  register: { max: 10, window: 3600000 }, // 10 deneme, 1 saat
   default: { max: 100, window: 60000 }, // 100 istek, 1 dakika
 };
 
