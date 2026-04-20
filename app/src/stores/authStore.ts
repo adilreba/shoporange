@@ -2,23 +2,13 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, LoginCredentials, RegisterData } from '@/types';
 import * as googleAuth from '@/services/googleAuth';
-import { authApi } from '@/services/api';
+import { authApi, isMockMode } from '@/services/api';
 import { MOCK_USERS } from '@/data/mockUsers';
 import { checkPasswordStrength, isValidEmail, ClientRateLimiter } from '@/utils/security';
 
 // Rate limiters for auth operations
 const loginRateLimiter = new ClientRateLimiter();
 const registerRateLimiter = new ClientRateLimiter();
-
-// Mock mode kontrolü
-const FORCE_MOCK_MODE = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
-const isMockMode = () => {
-  if (FORCE_MOCK_MODE) return true;
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (!envUrl || envUrl === '') return true;
-  if (envUrl.includes('your-api-gateway-url')) return true;
-  return false;
-};
 
 interface Address {
   id: string;

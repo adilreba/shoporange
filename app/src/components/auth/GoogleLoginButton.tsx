@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
-import { isGoogleAuthConfigured, getGoogleClientId, isMockMode } from '@/services/googleAuth';
+import { isGoogleAuthConfigured, getGoogleClientId, isGoogleAuthMockMode } from '@/services/googleAuth';
 import { Button } from '@/components/ui/button';
 import { Chrome } from 'lucide-react';
 
@@ -108,7 +108,7 @@ export function GoogleLoginButton({ onSuccess, className = '' }: GoogleLoginButt
   // Fallback button when Google Auth is not configured
   if (!isGoogleAuthConfigured()) {
     // Mock mode'da demo kullanıcı ile giriş simülasyonu
-    if (isMockMode()) {
+    if (isGoogleAuthMockMode()) {
       return (
         <Button
           variant="outline"

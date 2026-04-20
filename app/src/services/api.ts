@@ -387,24 +387,12 @@ export const authApi = {
       };
       return { token: `mock_token_${mockSocialUser.id}_${Date.now()}`, user: mockSocialUser };
     }
-    try {
-      return await fetchApi(`/auth/${provider}`, {
-        method: 'POST',
-        body: JSON.stringify({ token }),
-      });
-    } catch (error) {
-      const mockSocialUser = {
-        id: `social-${provider}-${Date.now()}`,
-        email: `demo@${provider}.com`,
-        name: `${provider} Kullanıcı`,
-        role: 'user',
-        phone: '',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-        address: [],
-        createdAt: new Date().toISOString()
-      };
-      return { token: `mock_token_${mockSocialUser.id}_${Date.now()}`, user: mockSocialUser };
-    }
+    // GUVENLIK: Backend hatasi olursa mock fallback KALDIRILDI.
+    // Gercek hatalar kullaniciya gosterilmeli, sahte kullanici olusturulmamali.
+    return await fetchApi(`/auth/${provider}`, {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
   },
 };
 
@@ -540,12 +528,8 @@ export const userApi = {
       await new Promise(resolve => setTimeout(resolve, 200));
       return { name: 'Test Kullanıcı', email: 'test@example.com', phone: '+90 555 123 4567', address: [] };
     }
-    try {
-      return await fetchApi('/users/me');
-    } catch (error) {
-      console.warn('Real users/me GET failed, falling back to mock:', error);
-      return { name: 'Test Kullanıcı', email: 'test@example.com', phone: '+90 555 123 4567', address: [] };
-    }
+    // GUVENLIK: Backend hatasi olursa mock fallback KALDIRILDI.
+    return await fetchApi('/users/me');
   },
 
   updateProfile: async (data: { name?: string; phone?: string; address?: any }) => {
@@ -553,15 +537,11 @@ export const userApi = {
       await new Promise(resolve => setTimeout(resolve, 200));
       return { ...data, updatedAt: new Date().toISOString() };
     }
-    try {
-      return await fetchApi('/users/me', {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
-    } catch (error) {
-      console.warn('Real users/me PUT failed, falling back to mock:', error);
-      return { ...data, updatedAt: new Date().toISOString() };
-    }
+    // GUVENLIK: Backend hatasi olursa mock fallback KALDIRILDI.
+    return await fetchApi('/users/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   },
 
   // Soft delete - kullanıcıyı pasif yapar (veriyi silmez)
@@ -699,7 +679,7 @@ export const userApi = {
 // ====================
 export const paymentApi = {
   createIntent: (amount: number, currency: string = 'try') =>
-    fetchApi('/payments/create-intent', {
+    fetchApi('/payments/intent', {
       method: 'POST',
       body: JSON.stringify({ amount, currency }),
     }),

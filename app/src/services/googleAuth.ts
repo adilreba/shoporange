@@ -142,9 +142,11 @@ export function isGoogleAuthConfigured(): boolean {
 }
 
 /**
- * Check if running in mock mode
+ * Check if Google Auth should run in mock mode
+ * This only checks Google Client ID configuration, NOT the API URL.
+ * For global mock mode, use isMockMode() from '@/services/api'
  */
-export function isMockMode(): boolean {
+export function isGoogleAuthMockMode(): boolean {
   return import.meta.env.VITE_FORCE_MOCK_MODE === 'true' || 
          !GOOGLE_CLIENT_ID || 
          GOOGLE_CLIENT_ID === 'your-google-client-id.apps.googleusercontent.com';

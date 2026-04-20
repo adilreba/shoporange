@@ -23,7 +23,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useLiveChatStore } from '@/stores/liveChatStore';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { isMockMode } from '@/services/liveChatApi';
+import { isChatMockMode } from '@/services/liveChatApi';
 
 interface ChatSession {
   sessionId: string;
@@ -238,7 +238,7 @@ export default function AgentDashboard() {
 
   // Periyodik olarak bekleyen session'ları kontrol et (mock mode'da polling)
   useEffect(() => {
-    if (isMockMode) {
+    if (isChatMockMode) {
       const interval = setInterval(() => {
         fetchWaitingSessions();
       }, 5000);
@@ -388,7 +388,7 @@ export default function AgentDashboard() {
                   </span>
                   {isConnected ? 'Çevrimiçi' : 'Bağlantı Yok'}
                 </span>
-                {isMockMode && (
+                {isChatMockMode && (
                   <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
                     Mock Mode
                   </span>

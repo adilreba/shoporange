@@ -149,7 +149,7 @@ export function unauthorizedResponse(message = 'Authentication required'): APIGa
     statusCode: 401,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '',
     },
     body: JSON.stringify({ error: message, timestamp: new Date().toISOString() }),
   };
@@ -200,7 +200,7 @@ export function forbiddenResponse(message = 'Insufficient permissions'): APIGate
     statusCode: 403,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '',
     },
     body: JSON.stringify({ error: message, timestamp: new Date().toISOString() }),
   };

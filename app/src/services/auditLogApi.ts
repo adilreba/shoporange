@@ -169,12 +169,7 @@ const MOCK_AUDIT_LOGS: AuditLogEntry[] = [
   },
 ];
 
-// Mock mode kontrolü
-const isMockMode = () => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (!envUrl || envUrl === '' || envUrl.includes('your-api-gateway-url')) return true;
-  return false;
-};
+import { isMockMode } from './api';
 
 export const auditLogApi = {
   // Tüm audit loglarını getir (sayfalama ile)

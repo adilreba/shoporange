@@ -3,14 +3,7 @@
  * e-Fatura / e-Arşiv yönetimi
  */
 
-import { fetchApi } from './api';
-
-// Mock mode kontrolü
-const isMockMode = () => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (!envUrl || envUrl === '' || envUrl.includes('your-api-gateway-url')) return true;
-  return false;
-};
+import { fetchApi, isMockMode } from './api';
 
 export interface ParasutConfig {
   clientId: string;

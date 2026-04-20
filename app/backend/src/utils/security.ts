@@ -121,8 +121,8 @@ export const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'",
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
-  // GUVENLIK: Production'da '*' yerine spesifik origin kullan
-  'Access-Control-Allow-Origin': CORS_ORIGIN || '*',
+  // GUVENLIK: CORS_ORIGIN env var'i bos ise istek reddedilmeli
+  'Access-Control-Allow-Origin': CORS_ORIGIN || '',
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
 };
@@ -155,8 +155,12 @@ export function sanitizeInput(input: string): string {
 }
 
 /**
- * Rate limiting helper (simple in-memory implementation)
- * For production, use Redis or DynamoDB
+ * ⚠️ DEPRECATED: This in-memory rate limiter does NOT work in AWS Lambda.
+ * Lambda is stateless - each invocation gets a fresh process.
+ * Use API Gateway throttling (already configured: Burst 100, Rate 50)
+ * or implement DynamoDB/Redis-based rate limiting for Lambda-level protection.
+ * 
+ * For brute-force protection on auth endpoints, use WAF or Cognito native rate limiting.
  */
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
@@ -165,11 +169,12 @@ export function checkRateLimit(
   maxRequests: number = 100,
   windowMs: number = 60000
 ): { allowed: boolean; remaining: number; resetTime: number } {
+  console.warn('[DEPRECATED] checkRateLimit() uses in-memory store and is ineffective in Lambda. Use API Gateway throttling or DynamoDB-based rate limiting.');
+  
   const now = Date.now();
   const record = rateLimitStore.get(identifier);
 
   if (!record || now > record.resetTime) {
-    // New window
     rateLimitStore.set(identifier, {
       count: 1,
       resetTime: now + windowMs,
@@ -190,15 +195,13 @@ export function checkRateLimit(
 }
 
 /**
- * Generate secure random token
+ * Generate cryptographically secure random token
+ * Uses crypto.randomBytes for security (NOT Math.random)
  */
+import { randomBytes } from 'crypto';
+
 export function generateSecureToken(length: number = 32): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let token = '';
-  for (let i = 0; i < length; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
+  return randomBytes(length).toString('base64url');
 }
 
 // Bcrypt configuration

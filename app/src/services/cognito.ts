@@ -7,15 +7,7 @@ import {
   CognitoRefreshToken,
 } from 'amazon-cognito-identity-js';
 
-// Mock mode kontrolü
-const FORCE_MOCK_MODE = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
-const isMockMode = () => {
-  if (FORCE_MOCK_MODE) return true;
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (!envUrl || envUrl === '') return true;
-  if (envUrl.includes('your-api-gateway-url')) return true;
-  return false;
-};
+import { isMockMode } from './api';
 
 // Cognito configuration - sadece mock mode değilse initialize et
 const poolData = {

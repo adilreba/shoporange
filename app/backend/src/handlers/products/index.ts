@@ -1,18 +1,15 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { securityHeaders } from '../../utils/security';
 
 // DynamoDB client - SDK v3 (daha hızlı, daha küçük)
 const client = new DynamoDBClient({});
 const dynamodb = DynamoDBDocumentClient.from(client);
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE || '';
 
-// CORS headers - merkezi
-const headers = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-};
+// CORS headers - merkezi security.ts'den
+const headers = securityHeaders;
 
 // Hata yanıtı helper'ı
 const createErrorResponse = (statusCode: number, message: string): APIGatewayProxyResult => ({

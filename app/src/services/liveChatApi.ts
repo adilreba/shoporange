@@ -7,12 +7,12 @@
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '';
 const CHAT_WS_URL = import.meta.env.VITE_CHAT_WS_URL || '';
 
-// Mock mode detection
-const isMockMode = !CHAT_API_URL || CHAT_API_URL.includes('your-api') || !CHAT_WS_URL || CHAT_WS_URL.includes('your-api');
+// Chat-specific mock mode detection (checks chat API URLs, not main API)
+const isChatMockMode = !CHAT_API_URL || CHAT_API_URL.includes('your-api') || !CHAT_WS_URL || CHAT_WS_URL.includes('your-api');
 
 console.log('[LiveChat] API URL:', CHAT_API_URL || '(mock mode)');
 console.log('[LiveChat] WS URL:', CHAT_WS_URL || '(mock mode)');
-console.log('[LiveChat] Mock Mode:', isMockMode);
+console.log('[LiveChat] Mock Mode:', isChatMockMode);
 
 // Types
 export interface ChatMessage {
@@ -218,7 +218,7 @@ export function connectWebSocket(
     return wsInstance;
   }
   
-  if (isMockMode) {
+  if (isChatMockMode) {
     console.log('[LiveChat] Mock WebSocket mode - userType:', userType);
     simulateWebSocket(userId, userType, sessionId);
     return null;
@@ -404,7 +404,7 @@ export function sendWebSocketMessage(action: string, data: any = {}) {
     return true;
   }
   
-  if (isMockMode) {
+  if (isChatMockMode) {
     handleMockMessage(action, data);
     return true;
   }
@@ -563,7 +563,7 @@ function handleMockMessage(action: string, data: any) {
  */
 export async function getWaitingSessions(): Promise<{ success: boolean; data?: ChatSession[]; error?: string }> {
   console.log('[LiveChat] getWaitingSessions called, mock sessions:', getMockSessions().size);
-  if (isMockMode) {
+  if (isChatMockMode) {
     const waiting = Array.from(getMockSessions().values())
       .filter(s => s.status === 'waiting')
       .map(s => ({
@@ -589,7 +589,7 @@ export async function getWaitingSessions(): Promise<{ success: boolean; data?: C
  * HTTP API: Agent ata
  */
 export async function assignAgent(sessionId: string, agentId: string): Promise<{ success: boolean; error?: string }> {
-  if (isMockMode) {
+  if (isChatMockMode) {
     const session = getMockSessions().get(sessionId);
     if (session) {
       session.status = 'active';
@@ -617,7 +617,7 @@ export async function assignAgent(sessionId: string, agentId: string): Promise<{
  * HTTP API: Session mesajlarını getir
  */
 export async function getSessionMessages(sessionId: string): Promise<{ success: boolean; data?: ChatMessage[]; error?: string }> {
-  if (isMockMode) {
+  if (isChatMockMode) {
     const session = getMockSessions().get(sessionId);
     return { success: true, data: session?.messages || [] };
   }
@@ -636,7 +636,7 @@ export async function getSessionMessages(sessionId: string): Promise<{ success: 
  * HTTP API: Session'ı kapat
  */
 export async function closeSessionAPI(sessionId: string): Promise<{ success: boolean; error?: string }> {
-  if (isMockMode) {
+  if (isChatMockMode) {
     const session = getMockSessions().get(sessionId);
     if (session) {
       session.status = 'closed';
@@ -658,4 +658,4 @@ export async function closeSessionAPI(sessionId: string): Promise<{ success: boo
 }
 
 // Export configuration
-export { isMockMode, CHAT_API_URL, CHAT_WS_URL };
+export { isChatMockMode, CHAT_API_URL, CHAT_WS_URL };
