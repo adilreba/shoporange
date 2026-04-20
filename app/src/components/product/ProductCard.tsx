@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ShoppingCart, Heart, Check, Star, Scale, Eye, Package, AlertCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShoppingCart, Heart, Check, Star, Scale, Eye, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { LazyImage } from '@/components/common/LazyImage';
 import { useCartStore } from '@/stores/cartStore';
 import { useWishlistStore } from '@/stores/wishlistStore';
 import { useCompareStore } from '@/stores/compareStore';
@@ -15,11 +16,11 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, variant = 'default' }: ProductCardProps) {
+  const navigate = useNavigate();
   const { addToCart } = useCartStore();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlistStore();
   const { isInCompare, addToCompare, removeFromCompare } = useCompareStore();
   const [isAdded, setIsAdded] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
   
   const isWishlisted = isInWishlist(product.id);
   const isCompared = isInCompare(product.id);
@@ -79,19 +80,14 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
         to={`/product/${product.id}`}
         className="group flex flex-col bg-card rounded-[clamp(0.75rem,2vw,1.25rem)] border border-border overflow-hidden hover:shadow-xl transition-all duration-300 h-full"
       >
-        {/* Image Container - Fluid aspect ratio */}
-        <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: '1 / 1' }}>
-          {!imageLoaded && (
-            <div className="absolute inset-0 bg-muted animate-pulse" />
-          )}
-          <img
+        {/* Image Container - LazyImage ile akıllı yükleme */}
+        <div className="relative aspect-square overflow-hidden bg-muted">
+          <LazyImage
             src={product.images[0]}
             alt={product.name}
-            className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
-            onLoad={() => setImageLoaded(true)}
-            loading="lazy"
+            aspectRatio="1/1"
+            className="transition-transform duration-500 group-hover:scale-110"
+            placeholderColor="#f3f4f6"
           />
           
           {/* Badges */}
@@ -135,12 +131,16 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
             </button>
             
             {/* Quick View Button */}
-            <Link
-              to={`/product/${product.id}`}
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                navigate(`/product/${product.id}`);
+              }}
               className="w-[clamp(1.5rem,3.5vw,1.75rem)] h-[clamp(1.5rem,3.5vw,1.75rem)] rounded-full flex items-center justify-center bg-white/90 text-gray-600 hover:text-orange-500 hover:bg-orange-50 opacity-0 group-hover:opacity-100 transition-all duration-200"
             >
               <Eye className="w-[clamp(0.625rem,1.5vw,0.875rem)] h-[clamp(0.625rem,1.5vw,0.875rem)] transition-colors group-hover:text-orange-500" />
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -191,19 +191,14 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
         to={`/product/${product.id}`}
         className="group flex bg-card rounded-[clamp(0.75rem,2vw,1.25rem)] border border-border overflow-hidden hover:shadow-xl transition-all duration-300"
       >
-        {/* Image */}
+        {/* Image - LazyImage ile akıllı yükleme */}
         <div className="relative w-[clamp(5rem,15vw,8rem)] flex-shrink-0 overflow-hidden bg-muted">
-          {!imageLoaded && (
-            <div className="absolute inset-0 bg-muted animate-pulse" />
-          )}
-          <img
+          <LazyImage
             src={product.images[0]}
             alt={product.name}
-            className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
-            onLoad={() => setImageLoaded(true)}
-            loading="lazy"
+            aspectRatio="1/1"
+            className="transition-transform duration-500 group-hover:scale-110"
+            placeholderColor="#f3f4f6"
           />
           {discount > 0 && (
             <Badge className="absolute top-2 left-2 bg-red-500 text-white text-[clamp(0.625rem,1vw,0.75rem)]">
@@ -242,12 +237,16 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
               >
                 <Scale className={`w-4 h-4 transition-colors ${isCompared ? 'text-white' : 'hover:text-orange-500'}`} />
               </button>
-              <Link
-                to={`/product/${product.id}`}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate(`/product/${product.id}`);
+                }}
                 className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 text-gray-600 hover:text-orange-500 hover:bg-orange-50 transition-all flex-shrink-0"
               >
                 <Eye className="w-4 h-4 transition-colors hover:text-orange-500" />
-              </Link>
+              </button>
             </div>
           </div>
 
@@ -351,34 +350,26 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
         </button>
         
         {/* Quick View Button */}
-        <Link
-          to={`/product/${product.id}`}
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            navigate(`/product/${product.id}`);
+          }}
           className="w-7 h-7 rounded-full flex items-center justify-center bg-white/90 text-gray-600 hover:text-orange-500 hover:bg-orange-50 opacity-0 group-hover:opacity-100 shadow-sm transition-all duration-200"
         >
           <Eye className="w-3.5 h-3.5" />
-        </Link>
+        </button>
       </div>
 
-      {/* Image Container - Square for mobile, 4:3 for desktop */}
-      <div className="relative overflow-hidden bg-gray-100 aspect-square sm:aspect-[4/3]">
-        {!imageLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-            <Package className="w-8 h-8 text-gray-300" />
-          </div>
-        )}
-        <img
-          src={product.images[0]}
-          alt={product.name}
-          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${
-            imageLoaded ? 'opacity-100' : 'opacity-0'
-          }`}
-          onLoad={() => setImageLoaded(true)}
-          loading="lazy"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" font-family="Arial" font-size="12" fill="%239ca3af" text-anchor="middle" dy=".3em"%3EÜrün%3C/text%3E%3C/svg%3E';
-          }}
-        />
-      </div>
+      {/* Image Container - LazyImage ile akıllı yükleme */}
+      <LazyImage
+        src={product.images[0]}
+        alt={product.name}
+        aspectRatio="1/1"
+        className="sm:aspect-[4/3] transition-transform duration-500 group-hover:scale-110"
+        placeholderColor="#f3f4f6"
+      />
 
       {/* Content */}
       <div className="p-2 sm:p-3 flex flex-col flex-1">

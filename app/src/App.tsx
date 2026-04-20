@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
 import type { Permission } from '@/types';
 import { ROLE_NAMES, ROLE_PERMISSIONS } from '@/types';
 import { HelmetProvider } from 'react-helmet-async';
@@ -27,61 +28,63 @@ function CookieBannerWrapper() {
   return <CookieBanner />;
 }
 
-// Pages
+// Pages - Public (eager loaded for fastest initial render)
 import { Home } from '@/pages/Home';
 import { Products } from '@/pages/Products';
 import { ProductDetail } from '@/pages/ProductDetail';
-import { Cart } from '@/pages/Cart';
-import { Checkout } from '@/pages/Checkout';
 import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
-import { VerifyEmail } from '@/pages/VerifyEmail';
-import { ForgotPassword } from '@/pages/ForgotPassword';
-import { ResetPassword } from '@/pages/ResetPassword';
-import { Wishlist } from '@/pages/Wishlist';
-import { Compare } from '@/pages/Compare';
-import { Profile } from '@/pages/Profile';
-import { Orders } from '@/pages/Orders';
-import { Settings } from '@/pages/Settings';
-import OrderTracking from '@/pages/OrderTracking';
 import { About } from '@/pages/About';
 import { Campaigns } from '@/pages/Campaigns';
 import { NewArrivals } from '@/pages/NewArrivals';
 import { Bestsellers } from '@/pages/Bestsellers';
 import { Help } from '@/pages/Help';
-import { Returns } from '@/pages/Returns';
 import { FAQ } from '@/pages/FAQ';
 import { Contact } from '@/pages/Contact';
 import { NotFound } from '@/pages/NotFound';
-import { Support } from '@/pages/Support';
-import { Reviews } from '@/pages/Reviews';
-import { Lists } from '@/pages/Lists';
-import { Coupons } from '@/pages/Coupons';
 
-// Legal Pages
+// Legal Pages (eager loaded - small)
 import { KVKKPage, PrivacyPolicyPage, TermsOfServicePage, ReturnPolicyPage, PreInformationPage } from '@/pages/legal';
 
-// Admin Layout & Pages
-import AdminLayout from '@/components/admin/AdminLayout';
-import AdminDashboard from '@/pages/Admin/Dashboard';
-import { AdminProducts } from '@/pages/Admin/Products';
-import AdminOrders from '@/pages/Admin/AdminOrders';
-import AdminUsers from '@/pages/Admin/AdminUsers';
-import AdminSettings from '@/pages/Admin/Settings';
-import CategoryManagement from '@/pages/Admin/CategoryManagement';
-import ProductForm from '@/pages/Admin/ProductForm';
-import AdminCoupons from '@/pages/Admin/Coupons';
-import AdminCampaigns from '@/pages/Admin/Campaigns';
-import { AdminLegalPages } from '@/pages/Admin/LegalPages';
-import { LegalPagesEditor } from '@/pages/Admin/LegalPagesEditor';
-import { LegalPageView } from '@/pages/LegalPage';
-import { AdminPaymentMethods } from '@/pages/Admin/PaymentMethods';
-import StockManagement from '@/pages/Admin/StockManagement';
-import AgentDashboard from '@/pages/Admin/AgentDashboard';
-import ShippingSettings from '@/pages/Admin/ShippingSettings';
-import InvoiceManagement from '@/pages/Admin/InvoiceManagement';
-import AuditLogs from '@/pages/Admin/AuditLogs';
-import ParasutSettings from '@/pages/Admin/ParasutSettings';
+// Lazy loaded pages - improves initial bundle size
+const Cart = lazy(() => import('@/pages/Cart').then(m => ({ default: m.Cart })));
+const Checkout = lazy(() => import('@/pages/Checkout').then(m => ({ default: m.Checkout })));
+const VerifyEmail = lazy(() => import('@/pages/VerifyEmail').then(m => ({ default: m.VerifyEmail })));
+const ForgotPassword = lazy(() => import('@/pages/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
+const ResetPassword = lazy(() => import('@/pages/ResetPassword').then(m => ({ default: m.ResetPassword })));
+const Wishlist = lazy(() => import('@/pages/Wishlist').then(m => ({ default: m.Wishlist })));
+const Compare = lazy(() => import('@/pages/Compare').then(m => ({ default: m.Compare })));
+const Profile = lazy(() => import('@/pages/Profile').then(m => ({ default: m.Profile })));
+const Orders = lazy(() => import('@/pages/Orders').then(m => ({ default: m.Orders })));
+const Settings = lazy(() => import('@/pages/Settings').then(m => ({ default: m.Settings })));
+const OrderTracking = lazy(() => import('@/pages/OrderTracking').then(m => ({ default: m.default })));
+const Returns = lazy(() => import('@/pages/Returns').then(m => ({ default: m.Returns })));
+const Support = lazy(() => import('@/pages/Support').then(m => ({ default: m.Support })));
+const Reviews = lazy(() => import('@/pages/Reviews').then(m => ({ default: m.Reviews })));
+const Lists = lazy(() => import('@/pages/Lists').then(m => ({ default: m.Lists })));
+const Coupons = lazy(() => import('@/pages/Coupons').then(m => ({ default: m.Coupons })));
+const LegalPageView = lazy(() => import('@/pages/LegalPage').then(m => ({ default: m.LegalPageView })));
+
+// Admin Layout & Pages - Lazy loaded (only needed for admin users)
+const AdminLayout = lazy(() => import('@/components/admin/AdminLayout').then(m => ({ default: m.default })));
+const AdminDashboard = lazy(() => import('@/pages/Admin/Dashboard').then(m => ({ default: m.default })));
+const AdminProducts = lazy(() => import('@/pages/Admin/Products').then(m => ({ default: m.AdminProducts })));
+const AdminOrders = lazy(() => import('@/pages/Admin/AdminOrders').then(m => ({ default: m.default })));
+const AdminUsers = lazy(() => import('@/pages/Admin/AdminUsers').then(m => ({ default: m.default })));
+const AdminSettings = lazy(() => import('@/pages/Admin/Settings').then(m => ({ default: m.default })));
+const CategoryManagement = lazy(() => import('@/pages/Admin/CategoryManagement').then(m => ({ default: m.default })));
+const ProductForm = lazy(() => import('@/pages/Admin/ProductForm').then(m => ({ default: m.default })));
+const AdminCoupons = lazy(() => import('@/pages/Admin/Coupons').then(m => ({ default: m.default })));
+const AdminCampaigns = lazy(() => import('@/pages/Admin/Campaigns').then(m => ({ default: m.default })));
+const AdminLegalPages = lazy(() => import('@/pages/Admin/LegalPages').then(m => ({ default: m.AdminLegalPages })));
+const LegalPagesEditor = lazy(() => import('@/pages/Admin/LegalPagesEditor').then(m => ({ default: m.LegalPagesEditor })));
+const AdminPaymentMethods = lazy(() => import('@/pages/Admin/PaymentMethods').then(m => ({ default: m.AdminPaymentMethods })));
+const StockManagement = lazy(() => import('@/pages/Admin/StockManagement').then(m => ({ default: m.default })));
+const AgentDashboard = lazy(() => import('@/pages/Admin/AgentDashboard').then(m => ({ default: m.default })));
+const ShippingSettings = lazy(() => import('@/pages/Admin/ShippingSettings').then(m => ({ default: m.default })));
+const InvoiceManagement = lazy(() => import('@/pages/Admin/InvoiceManagement').then(m => ({ default: m.default })));
+const AuditLogs = lazy(() => import('@/pages/Admin/AuditLogs').then(m => ({ default: m.default })));
+const ParasutSettings = lazy(() => import('@/pages/Admin/ParasutSettings').then(m => ({ default: m.default })));
 
 // Protected Route Component
 function ProtectedRoute({ 
@@ -163,6 +166,11 @@ function App() {
         }}
       />
       <ScrollToTop />
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500" />
+        </div>
+      }>
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
@@ -329,6 +337,7 @@ function App() {
         {/* 404 Page */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
       
       {/* Chat Widget - Admin panelinde gizli */}
       <ChatWidgetWrapper />

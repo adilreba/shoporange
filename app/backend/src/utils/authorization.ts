@@ -69,9 +69,13 @@ export function getUserId(event: APIGatewayProxyEvent): string {
   }
 
   // Local test fallback - ONLY for development without authorizer
-  const mockUserId = event.headers['x-mock-user-id'] || event.queryStringParameters?.userId;
-  if (mockUserId) {
-    return mockUserId;
+  // NEVER enable in production - security risk
+  const isLocalDev = process.env.NODE_ENV === 'development' || process.env.AWS_SAM_LOCAL === 'true';
+  if (isLocalDev) {
+    const mockUserId = event.headers['x-mock-user-id'] || event.queryStringParameters?.userId;
+    if (mockUserId) {
+      return mockUserId;
+    }
   }
 
   return 'guest';
@@ -84,19 +88,21 @@ export function requireAuth(event: APIGatewayProxyEvent): AuthUser {
   const user = getUserFromToken(event);
   
   if (!user) {
-    // This should not happen if Cognito Authorizer is properly configured,
-    // but we handle it gracefully for local testing
-    const mockUserId = event.headers['x-mock-user-id'];
-    const mockEmail = event.headers['x-mock-user-email'];
-    
-    if (mockUserId && mockEmail) {
-      return {
-        userId: mockUserId,
-        email: mockEmail,
-        name: event.headers['x-mock-user-name'] || mockEmail,
-        role: event.headers['x-mock-user-role'] || 'user',
-        groups: [],
-      };
+    // NEVER allow mock headers in production - major security risk
+    const isLocalDev = process.env.NODE_ENV === 'development' || process.env.AWS_SAM_LOCAL === 'true';
+    if (isLocalDev) {
+      const mockUserId = event.headers['x-mock-user-id'];
+      const mockEmail = event.headers['x-mock-user-email'];
+      
+      if (mockUserId && mockEmail) {
+        return {
+          userId: mockUserId,
+          email: mockEmail,
+          name: event.headers['x-mock-user-name'] || mockEmail,
+          role: event.headers['x-mock-user-role'] || 'user',
+          groups: [],
+        };
+      }
     }
     
     throw new Error('UNAUTHORIZED');

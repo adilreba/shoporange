@@ -594,6 +594,15 @@ Resources:
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         AllowOrigin: "'*'"
         MaxAge: "'600'"
+      # Rate Limiting: Brute force ve DDoS korumasi
+      MethodSettings:
+        - ResourcePath: /*
+          HttpMethod: '*'
+          ThrottlingBurstLimit: 100
+          ThrottlingRateLimit: 50
+          LoggingLevel: INFO
+          MetricsEnabled: true
+          DataTraceEnabled: false
 
   # API Gateway CORS responses for auth errors (401/403) and 5xx errors
   ApiGateway401Response:

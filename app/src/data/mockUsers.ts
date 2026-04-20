@@ -1,4 +1,6 @@
 // Ortak mock kullanıcılar - authStore ve api arasında paylaşım için
+// NOT: Bu dosya SADECE geliştirme/test ortamı içindir.
+// Production build'inde bu dosyanın kullanılmadığından emin olun.
 
 const loadGoogleUsersFromStorage = () => {
   try {
@@ -14,12 +16,17 @@ const loadGoogleUsersFromStorage = () => {
   return [];
 };
 
+// Şifreler bcrypt hash ile korunuyor (12 rounds)
+// Orijinal şifreler (sadece geliştirme ortamında):
+//   superadmin@atushome.com -> AtusHome2024!
+//   admin@atushome.com -> Admin1234
+//   test@example.com -> User1234
 export const MOCK_USERS: any[] = [
   ...loadGoogleUsersFromStorage(),
   {
     id: 'superadmin-1',
     email: 'superadmin@atushome.com',
-    password: 'AtusHome2024!',
+    password: '$2b$12$zHAkjRAmisusCprCEtpTj.SUrOGoUE9tN7nVxjdouRhbWPjxOBP4.',
     name: 'Super Admin',
     role: 'super_admin',
     phone: '+90 555 999 0000',
@@ -30,7 +37,7 @@ export const MOCK_USERS: any[] = [
   {
     id: 'admin-1',
     email: 'admin@atushome.com',
-    password: 'Admin1234',
+    password: '$2b$12$GUzbB1v/r7bNFSNn9Kfdb.aSfnk6PiS.IPNMV8X.YpZA/U0LqQoKW',
     name: 'Admin Kullanıcı',
     role: 'admin',
     phone: '+90 555 999 8888',
@@ -41,7 +48,7 @@ export const MOCK_USERS: any[] = [
   {
     id: 'user-1',
     email: 'test@example.com',
-    password: 'User1234',
+    password: '$2b$12$Yg73Cyh0Qbvd3hZwaZENie0/JPAum7TgjcvFJDoj4aHcaWIJCZOfW',
     name: 'Test Kullanıcı',
     role: 'user',
     phone: '+90 555 123 4567',

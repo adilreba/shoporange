@@ -38,14 +38,26 @@ async function initializeMockUsers() {
 const FORCE_MOCK_MODE = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
 
 // Check if using mock API (no real backend configured)
+// GUVENLIK: Production'da VITE_FORCE_MOCK_MODE=true kullanilmamalidir!
 export const isMockMode = () => {
-  // Force mock mode aktifse her zaman true döndür
-  if (FORCE_MOCK_MODE) return true;
+  // Sadece explicit olarak aktif edilirse mock moda gec
+  if (FORCE_MOCK_MODE) {
+    console.warn('[SECURITY] Mock mode explicitly enabled via VITE_FORCE_MOCK_MODE');
+    return true;
+  }
   
   const envUrl = import.meta.env.VITE_API_URL;
-  if (!envUrl || envUrl === '' || envUrl === DEFAULT_API_URL) return true;
-  // Placeholder URL iceriyorsa mock mode
-  if (envUrl.includes('your-api-gateway-url')) return true;
+  
+  // Eger API URL tamamen bos veya placeholder ise,
+  // BU bir yapilandirma hatasidir - guvenlik icin mock moda DUSME!
+  // Bunun yerine hata firlatmaliyiz, ama mevcut davranisi bozmamak icin
+  // sadece console.error loglayip false donuyoruz.
+  if (!envUrl || envUrl === '' || envUrl === DEFAULT_API_URL || envUrl.includes('your-api-gateway-url')) {
+    console.error('[CONFIG ERROR] VITE_API_URL is not configured properly! Mock mode is DISABLED for security.');
+    // GUVENLIK: Artik otomatik mock moda gecmiyoruz.
+    // Cagrilar fetchApi tarafinda hata verecek.
+    return false;
+  }
   
   return false;
 };
@@ -254,13 +266,9 @@ export const authApi = {
 
   verifyToken: async (token: string) => {
     if (isMockMode()) return mockVerifyToken(token);
-    try {
-      // To validate an access token, use /auth/me instead.
-      return await fetchApi('/auth/me', { method: 'GET' });
-    } catch (error) {
-      console.warn('Real auth/me failed, falling back to mock:', error);
-      return mockVerifyToken(token);
-    }
+    // GUVENLIK: Real mode'da hata olursa mock'a dusmek veri tutarsizligina yol acar.
+    // Hata varsa hata vermeli, mock fallback kaldırıldı.
+    return await fetchApi('/auth/me', { method: 'GET' });
   },
 
   verifyEmail: async (email: string, code: string) => {

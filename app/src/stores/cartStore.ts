@@ -90,13 +90,15 @@ export const useCartStore = create<CartState>()(
           const data = await cartApi.get();
           
           // API'den gelen veriyi CartItem formatına çevir
+          // NOT: Server'dan stock bilgisi gelmelidir. Gelmiyorsa sepeti yenilemek yerine
+          // kullaniciyi uyarip guncel stok bilgisiyle sepeti yeniden yuklemek daha guvenlidir.
           const serverItems: CartItem[] = data.items.map((item: any) => ({
             product: {
               id: item.productId,
               name: item.name,
               price: item.price,
               images: [item.image],
-              stock: 100, // Server'dan stock bilgisi gelmiyorsa default
+              stock: item.stock ?? 0, // Server'dan gercek stok bilgisi bekleniyor
             } as Product,
             quantity: item.quantity,
           }));

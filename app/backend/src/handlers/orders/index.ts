@@ -5,7 +5,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { encryptObjectFields, decryptObjectFields, maskSensitiveData } from '../../utils/encryption';
@@ -198,13 +198,14 @@ async function checkStockAvailability(
   return { available: errors.length === 0, errors };
 }
 
-// Stok düşürme fonksiyonu
+// Stok düşürme fonksiyonu - Negatif stok olmamasini garanti eder
 async function deductStock(items: Array<{ productId: string; quantity: number }>): Promise<void> {
   for (const item of items) {
     await dynamodb.send(new UpdateCommand({
       TableName: PRODUCTS_TABLE,
       Key: { id: item.productId },
       UpdateExpression: 'SET stock = stock - :quantity, updatedAt = :updatedAt',
+      ConditionExpression: 'stock >= :quantity',  // ← NEGATIF STOK KORUMASI
       ExpressionAttributeValues: {
         ':quantity': item.quantity,
         ':updatedAt': new Date().toISOString()
@@ -220,8 +221,11 @@ async function returnStock(items: Array<{ productId: string; quantity: number }>
       TableName: PRODUCTS_TABLE,
       Key: { id: item.productId },
       UpdateExpression: 'SET stock = stock + :quantity, updatedAt = :updatedAt',
+      // Stok negatif olamaz (guvenlik kontrolu)
+      ConditionExpression: 'stock >= :zero',
       ExpressionAttributeValues: {
         ':quantity': item.quantity,
+        ':zero': 0,
         ':updatedAt': new Date().toISOString()
       }
     }));
@@ -232,6 +236,12 @@ export const getOrders = async (event: APIGatewayProxyEvent): Promise<APIGateway
   try {
     const queryUserId = event.queryStringParameters?.userId;
     const authUser = getUserFromToken(event);
+    const limit = parseInt(event.queryStringParameters?.limit || '50');
+    const lastKey = event.queryStringParameters?.lastKey;
+    
+    // Max limit 100 ile sınırla (performans icin)
+    const safeLimit = Math.min(limit, 100);
+    const exclusiveStartKey = lastKey ? { id: lastKey } : undefined;
 
     let result;
     if (queryUserId) {
@@ -244,13 +254,17 @@ export const getOrders = async (event: APIGatewayProxyEvent): Promise<APIGateway
         TableName: ORDERS_TABLE,
         IndexName: 'UserIdIndex',
         KeyConditionExpression: 'userId = :userId',
-        ExpressionAttributeValues: { ':userId': queryUserId }
+        ExpressionAttributeValues: { ':userId': queryUserId },
+        Limit: safeLimit,
+        ExclusiveStartKey: exclusiveStartKey,
       }));
     } else {
       // Admin yetkisi kontrolü gerekli
       const adminUser = requireStaff(event);
       result = await dynamodb.send(new ScanCommand({
-        TableName: ORDERS_TABLE
+        TableName: ORDERS_TABLE,
+        Limit: safeLimit,
+        ExclusiveStartKey: exclusiveStartKey,
       }));
       
       // Log admin access
@@ -260,7 +274,7 @@ export const getOrders = async (event: APIGatewayProxyEvent): Promise<APIGateway
         ipAddress: getClientIP(event),
         action: 'VIEW_ALL_ORDERS',
         resource: 'ORDER',
-        details: { count: result.Items?.length || 0 },
+        details: { count: result.Items?.length || 0, limit: safeLimit },
       });
     }
 
@@ -271,7 +285,12 @@ export const getOrders = async (event: APIGatewayProxyEvent): Promise<APIGateway
       })
     );
 
-    return createSuccessResponse(decryptedItems);
+    return createSuccessResponse({
+      orders: decryptedItems,
+      total: decryptedItems.length,
+      hasMore: !!result.LastEvaluatedKey,
+      nextKey: result.LastEvaluatedKey ? result.LastEvaluatedKey.id : null,
+    });
   } catch (error) {
     console.error('Error:', error);
     return createErrorResponse(500, 'Internal server error');
@@ -363,6 +382,55 @@ export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatew
       return createErrorResponse(400, 'Stock insufficient', stockCheck.errors);
     }
 
+    // FIYAT DOGRULAMASI: Siparisteki fiyatlar ile guncel urun fiyatlarini karsilastir
+    const priceErrors: Array<{ productId: string; name: string; expected: number; actual: number }> = [];
+    let calculatedTotal = 0;
+    
+    for (const item of items) {
+      const productResult = await dynamodb.send(new GetCommand({
+        TableName: PRODUCTS_TABLE,
+        Key: { id: item.productId },
+      }));
+      
+      const product = productResult.Item;
+      if (!product) {
+        return createErrorResponse(400, `Product not found: ${item.productId}`);
+      }
+      
+      const currentPrice = product.price || 0;
+      const orderPrice = item.unitPrice || item.price || 0;
+      
+      // Fiyat degismisse hata ver (±1 kuruş tolerans)
+      if (Math.abs(currentPrice - orderPrice) > 0.01) {
+        priceErrors.push({
+          productId: item.productId,
+          name: product.name || item.productName || 'Unknown',
+          expected: currentPrice,
+          actual: orderPrice,
+        });
+      }
+      
+      calculatedTotal += currentPrice * (item.quantity || 1);
+    }
+    
+    if (priceErrors.length > 0) {
+      await audit.orderCreate({
+        userId,
+        email,
+        ipAddress: getClientIP(event),
+        orderId: 'FAILED',
+        amount: orderData.totalAmount || 0,
+        items: items,
+        success: false,
+        errorMessage: 'Price mismatch detected',
+      });
+      
+      return createErrorResponse(409, 'Urun fiyatlari guncellendi, lutfen sepetinizi kontrol edin', {
+        priceErrors,
+        calculatedTotal,
+      });
+    }
+
     const orderId = `ORD-${Date.now()}`;
 
     // Prepare order with encrypted PII - override userId/email with token values
@@ -380,16 +448,55 @@ export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatew
     // Encrypt PII fields before saving
     const encryptedOrder = await encryptObjectFields(order, ORDER_PII_FIELDS);
 
-    // Siparişi kaydet
-    await dynamodb.send(new PutCommand({
-      TableName: ORDERS_TABLE,
-      Item: encryptedOrder
-    }));
+    // ATOMIK TRANSACTION: Siparis kaydet + stok düsür (hepsi ya basarili ya basarisiz)
+    // Bu sayede race condition ve veri tutarsizligi onlenir
+    const transactItems: any[] = [
+      {
+        Put: {
+          TableName: ORDERS_TABLE,
+          Item: encryptedOrder,
+        },
+      },
+      ...items.map((item: any) => ({
+        Update: {
+          TableName: PRODUCTS_TABLE,
+          Key: { id: item.productId },
+          UpdateExpression: 'SET stock = stock - :quantity, updatedAt = :updatedAt',
+          ConditionExpression: 'stock >= :quantity',  // Negatif stok olmaz
+          ExpressionAttributeValues: {
+            ':quantity': item.quantity,
+            ':updatedAt': new Date().toISOString(),
+          },
+        },
+      })),
+    ];
 
-    // Stok düşür
-    await deductStock(items);
+    try {
+      await dynamodb.send(new TransactWriteCommand({
+        TransactItems: transactItems,
+      }));
+    } catch (transactionError: any) {
+      console.error('Transaction failed:', transactionError);
+      
+      // Stok yetersizse TransactionCanceledException gelir
+      if (transactionError.name === 'TransactionCanceledException') {
+        await audit.orderCreate({
+          userId,
+          email,
+          ipAddress: getClientIP(event),
+          orderId: 'FAILED',
+          amount: orderData.totalAmount || 0,
+          items: items,
+          success: false,
+          errorMessage: 'Transaction failed - stock may have changed',
+        });
+        return createErrorResponse(409, 'Stok durumu degisti, lutfen sepetinizi kontrol edin');
+      }
+      
+      throw transactionError;
+    }
 
-    // Audit log
+    // Audit log - sadece transaction basarili olduktan sonra
     await audit.orderCreate({
       userId: userId || 'unknown',
       email: email || 'unknown',

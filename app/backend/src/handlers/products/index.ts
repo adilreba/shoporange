@@ -37,9 +37,14 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
     const category = event.queryStringParameters?.category;
     const search = event.queryStringParameters?.search?.toLowerCase();
     const limit = parseInt(event.queryStringParameters?.limit || '20');
+    const lastKey = event.queryStringParameters?.lastKey;
+
+    // Pagination icin ExclusiveStartKey
+    const exclusiveStartKey = lastKey ? { id: lastKey } : undefined;
 
     // Kategori ile query kullan (daha verimli)
     let products: any[] = [];
+    let lastEvaluatedKey: any = null;
     
     if (category) {
       const result = await dynamodb.send(new QueryCommand({
@@ -50,17 +55,22 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
           ':category': category,
         },
         Limit: limit,
+        ExclusiveStartKey: exclusiveStartKey,
       }));
       products = result.Items || [];
+      lastEvaluatedKey = result.LastEvaluatedKey;
     } else {
       const result = await dynamodb.send(new ScanCommand({
         TableName: PRODUCTS_TABLE,
         Limit: limit,
+        ExclusiveStartKey: exclusiveStartKey,
       }));
       products = result.Items || [];
+      lastEvaluatedKey = result.LastEvaluatedKey;
     }
 
     // Arama filtresi (memory'de filtrele)
+    // NOT: Production'da Elasticsearch/OpenSearch kullanilmali
     if (search) {
       products = products.filter((p: any) =>
         p.name?.toLowerCase().includes(search) ||
@@ -72,6 +82,8 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
     return createSuccessResponse({
       products,
       total: products.length,
+      hasMore: !!lastEvaluatedKey,
+      nextKey: lastEvaluatedKey ? lastEvaluatedKey.id : null,
     });
   } catch (error) {
     console.error('Error fetching products:', error);

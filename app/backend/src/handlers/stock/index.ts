@@ -6,6 +6,7 @@ import {
   PutCommand, 
   UpdateCommand, 
   QueryCommand,
+  ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 
 // DynamoDB client
@@ -419,13 +420,39 @@ export const getLowStockProducts = async (event: APIGatewayProxyEvent): Promise<
 // ==================== HELPER FUNCTIONS ====================
 async function getReservedStock(productId: string): Promise<number> {
   try {
-    // In a production system, you'd maintain a counter or use a GSI
-    // For now, we return 0 as a simplified implementation
-    // The actual reservation checking happens in the reserveStock function
-    return 0;
+    // Tüm aktif rezervasyonlari cek (status = 'reserved' AND expiresAt > now)
+    // NOT: Production'da bunun yerine productId uzerinden GSI kullanilmalidir
+    const now = Math.floor(Date.now() / 1000);
+    
+    const scanResult = await dynamodb.send(new ScanCommand({
+      TableName: STOCK_RESERVATIONS_TABLE,
+      FilterExpression: '#status = :status AND expiresAt > :now',
+      ExpressionAttributeNames: {
+        '#status': 'status',
+      },
+      ExpressionAttributeValues: {
+        ':status': 'reserved',
+        ':now': now,
+      },
+    }));
+    
+    const reservations = scanResult.Items || [];
+    let totalReserved = 0;
+    
+    for (const reservation of reservations) {
+      const items = reservation.items || [];
+      for (const item of items) {
+        if (item.productId === productId) {
+          totalReserved += item.quantity || 0;
+        }
+      }
+    }
+    
+    return totalReserved;
   } catch (error) {
     console.error('Error getting reserved stock:', error);
-    return 0;
+    // Hata durumunda guvenli taraf tut: tum stok rezerve edilmis varsay
+    return Infinity;
   }
 }
 
