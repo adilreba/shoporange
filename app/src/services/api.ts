@@ -75,6 +75,10 @@ async function getIdToken(): Promise<string | null> {
   return null;
 }
 
+// Global token refresh lock to prevent race conditions
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
 // Helper function for API calls with automatic token refresh
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   // Eğer mock mode aktifse, gerçek API çağrısı yapma
@@ -95,55 +99,82 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    // 10 saniye timeout ile fetch
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      // Handle 401 Unauthorized - token might be expired
-      if (response.status === 401 && !isRetry) {
-        // Try to refresh the token and retry the request once
-        try {
-          const persisted = localStorage.getItem('auth-storage');
-          if (persisted) {
-            const parsed = JSON.parse(persisted);
-            const refreshToken = parsed.state?.tokens?.refreshToken;
-            if (refreshToken) {
-              const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refreshToken }),
-              });
-              if (refreshResponse.ok) {
-                const result = await refreshResponse.json();
-                // Update localStorage with new tokens
-                parsed.state.tokens = {
-                  accessToken: result.accessToken,
-                  idToken: result.token,
-                  refreshToken: result.refreshToken,
-                  expiresAt: Date.now() + (result.expiresIn * 1000),
-                };
-                localStorage.setItem('auth-storage', JSON.stringify(parsed));
-                return makeRequest(true);
+      if (!response.ok) {
+        // Handle 401 Unauthorized - token might be expired
+        if (response.status === 401 && !isRetry) {
+          // Race condition önleme: Tek seferde bir refresh yap
+          if (!isRefreshing) {
+            isRefreshing = true;
+            refreshPromise = (async () => {
+              try {
+                const persisted = localStorage.getItem('auth-storage');
+                if (persisted) {
+                  const parsed = JSON.parse(persisted);
+                  const refreshToken = parsed.state?.tokens?.refreshToken;
+                  if (refreshToken) {
+                    const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ refreshToken }),
+                    });
+                    if (refreshResponse.ok) {
+                      const result = await refreshResponse.json();
+                      parsed.state.tokens = {
+                        accessToken: result.accessToken,
+                        idToken: result.token,
+                        refreshToken: result.refreshToken,
+                        expiresAt: Date.now() + (result.expiresIn * 1000),
+                      };
+                      localStorage.setItem('auth-storage', JSON.stringify(parsed));
+                      return true;
+                    }
+                  }
+                }
+              } catch (refreshError) {
+                console.error('Token refresh failed:', refreshError);
               }
-            }
+              return false;
+            })();
           }
-        } catch (refreshError) {
-          console.error('Token refresh failed:', refreshError);
+          
+          const refreshSuccess = await refreshPromise;
+          isRefreshing = false;
+          refreshPromise = null;
+          
+          if (refreshSuccess) {
+            return makeRequest(true);
+          }
+          
+          // Trigger auth refresh by throwing specific error
+          const error = new Error('UNAUTHORIZED');
+          (error as any).status = 401;
+          throw error;
         }
         
-        // Trigger auth refresh by throwing specific error
-        const error = new Error('UNAUTHORIZED');
-        (error as any).status = 401;
-        throw error;
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(error.error || `HTTP ${response.status}`);
       }
-      
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(error.error || `HTTP ${response.status}`);
-    }
 
-    return response.json();
+      return response.json();
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - server did not respond within 10 seconds');
+      }
+      throw error;
+    }
   };
   
   return makeRequest();

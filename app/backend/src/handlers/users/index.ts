@@ -329,6 +329,97 @@ export const updateMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
   }
 };
 
+// ===== SOFT DELETE USER =====
+export const softDeleteUser = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const adminUser = requireAdmin(event);
+    const userId = event.pathParameters?.id;
+    if (!userId) {
+      return createErrorResponse(400, 'User ID required');
+    }
+
+    const body = JSON.parse(event.body || '{}');
+    const adminId = body.adminId || adminUser.userId;
+
+    const result = await dynamodb.send(new UpdateCommand({
+      TableName: USERS_TABLE,
+      Key: { id: userId },
+      UpdateExpression: 'SET isActive = :false, deletedAt = :now, deletedBy = :adminId, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':false': false,
+        ':now': new Date().toISOString(),
+        ':adminId': adminId,
+      },
+      ReturnValues: 'ALL_NEW',
+    }));
+
+    await audit.adminAction({
+      adminId: adminUser.userId,
+      adminEmail: adminUser.email,
+      ipAddress: getClientIP(event),
+      action: 'SOFT_DELETE_USER',
+      resource: 'USER',
+      resourceId: userId,
+    });
+
+    return createSuccessResponse({ 
+      success: true, 
+      message: 'Kullanıcı başarıyla pasif yapıldı',
+      user: result.Attributes,
+    });
+  } catch (error: any) {
+    if (error.message === 'UNAUTHORIZED' || error.message === 'FORBIDDEN') {
+      return createErrorResponse(403, 'Admin access required');
+    }
+    console.error('Error soft deleting user:', error);
+    return createErrorResponse(500, 'Failed to soft delete user');
+  }
+};
+
+// ===== RESTORE USER =====
+export const restoreUser = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const adminUser = requireAdmin(event);
+    const userId = event.pathParameters?.id;
+    if (!userId) {
+      return createErrorResponse(400, 'User ID required');
+    }
+
+    const result = await dynamodb.send(new UpdateCommand({
+      TableName: USERS_TABLE,
+      Key: { id: userId },
+      UpdateExpression: 'SET isActive = :true, deletedAt = :null, deletedBy = :null, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':true': true,
+        ':null': null,
+        ':now': new Date().toISOString(),
+      },
+      ReturnValues: 'ALL_NEW',
+    }));
+
+    await audit.adminAction({
+      adminId: adminUser.userId,
+      adminEmail: adminUser.email,
+      ipAddress: getClientIP(event),
+      action: 'RESTORE_USER',
+      resource: 'USER',
+      resourceId: userId,
+    });
+
+    return createSuccessResponse({ 
+      success: true, 
+      message: 'Kullanıcı başarıyla geri yüklendi',
+      user: result.Attributes,
+    });
+  } catch (error: any) {
+    if (error.message === 'UNAUTHORIZED' || error.message === 'FORBIDDEN') {
+      return createErrorResponse(403, 'Admin access required');
+    }
+    console.error('Error restoring user:', error);
+    return createErrorResponse(500, 'Failed to restore user');
+  }
+};
+
 // Main handler
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   if (event.httpMethod === 'OPTIONS') {
@@ -343,7 +434,15 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (method === 'PUT') return updateMe(event);
   }
 
-  if (path.includes('/users/') && path.split('/users/')[1]) {
+  if (path.match(/\/users\/[^/]+\/soft-delete$/) || path.endsWith('/soft-delete')) {
+    if (method === 'PUT') return softDeleteUser(event);
+  }
+
+  if (path.match(/\/users\/[^/]+\/restore$/) || path.endsWith('/restore')) {
+    if (method === 'PUT') return restoreUser(event);
+  }
+
+  if (path.includes('/users/') && path.split('/users/')[1] && !path.includes('/soft-delete') && !path.includes('/restore')) {
     if (method === 'GET') return getUser(event);
     if (method === 'PUT') return updateUser(event);
   }
