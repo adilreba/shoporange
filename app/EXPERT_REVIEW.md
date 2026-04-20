@@ -383,7 +383,7 @@ sam deploy --guided
 | 5 | **No test coverage** | Sadece `authStore.test.ts` var, diğer store/handler test edilmiyor |
 | 6 | **TypeScript `any` kullanımı** | Özellikle `backend/src/handlers/orders/index.ts`'te `any[]` kullanımı var |
 | 7 | **WebSocket chat** | Production ölçeklenebilirliği test edilmedi (tek Lambda instance) |
-| 8 | **SEO** | React SPA, SSR veya prerendering yok |
+| 8 | **Sitemap dinamik ürünler** | Statik sitemap var ama her ürün için `<url>` eklenmiyor (SEO yapısı kapsamlı: Helmet, OG, Twitter Card, Schema.org JSON-LD) |
 
 ### 12.3 Düşük Öncelik
 | # | Sorun | Açıklama |
