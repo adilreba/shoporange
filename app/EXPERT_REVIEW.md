@@ -122,15 +122,17 @@ src/
 ```
 
 ### 4.2 State Management (Zustand)
-| Store | Persist | Server Sync | Açıklama |
-|-------|---------|-------------|----------|
-| `authStore` | ✅ localStorage | Cognito API | JWT token + refresh + Google OAuth |
-| `cartStore` | ✅ localStorage | ✅ POST /cart | Stok kontrollü sepet yönetimi |
-| `wishlistStore` | ✅ localStorage | - | Favoriler |
-| `compareStore` | ✅ localStorage | - | Karşılaştırma (max 4) |
-| `orderStore` | ❌ | ✅ GET /orders | Sipariş geçmişi |
-| `stockStore` | ❌ | ✅ WebSocket | Gerçek zamanlı stok |
-| `themeStore` | ✅ localStorage | - | Dark/light mode |
+| Store | localStorage Persist | Server Sync | Açıklama |
+|-------|---------------------|-------------|----------|
+| `authStore` | ✅ Evet | Cognito API | JWT token + refresh + Google OAuth |
+| `cartStore` | ✅ Evet | ✅ POST /cart | Stok kontrollü sepet yönetimi |
+| `wishlistStore` | ✅ Evet | - | Favoriler |
+| `compareStore` | ✅ Evet | - | Karşılaştırma (max 4) |
+| `orderStore` | 🔄 Hayır (sunucu kaynağı) | ✅ GET /orders | Sipariş geçmişi (her açılışta API'den çekilir) |
+| `stockStore` | 🔄 Hayır (gerçek zamanlı) | ✅ WebSocket | Stok verisi anlık değişir, localStorage'a yazılmaz |
+| `themeStore` | ✅ Evet | - | Dark/light mode |
+
+> **Not:** `orderStore` ve `stockStore` localStorage'a **bilerek** kaydedilmiyor. Sipariş verisi sunucu kaynağıdır, stok ise anlık değişir. Bu bir hata değil, bilinçli tasarım kararıdır.
 
 ### 4.3 Code Splitting (Vite)
 Ana chunk **1,723 KB'den 539 KB'ye** düşürüldü:
