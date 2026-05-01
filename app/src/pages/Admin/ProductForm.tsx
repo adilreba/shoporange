@@ -53,7 +53,7 @@ const COLOR_MAP: Record<string, string> = {
   'Şeffaf': 'transparent',
 };
 
-type TabType = 'basic' | 'variations';
+type TabType = 'basic' | 'variations' | 'seo';
 
 export default function ProductForm() {
   const { id } = useParams();
@@ -79,7 +79,11 @@ export default function ProductForm() {
     supplierCode: '',
     tags: [] as string[],
     featured: false,
-    active: true
+    active: true,
+    seoTitle: '',
+    seoDescription: '',
+    seoSlug: '',
+    canonicalUrl: '',
   });
   
   // Category attributes
@@ -133,6 +137,10 @@ export default function ProductForm() {
         tags: product.tags || [],
         featured: product.isFeatured || false,
         active: product.active !== false,
+        seoTitle: product.seoTitle || '',
+        seoDescription: product.seoDescription || '',
+        seoSlug: product.seoSlug || '',
+        canonicalUrl: product.canonicalUrl || '',
       });
       setImages(product.images || []);
     } catch (error) {
@@ -179,6 +187,10 @@ export default function ProductForm() {
         active: formData.active,
         stock: 0,
         images,
+        seoTitle: formData.seoTitle,
+        seoDescription: formData.seoDescription,
+        seoSlug: formData.seoSlug,
+        canonicalUrl: formData.canonicalUrl,
       };
 
       if (isEditMode && id) {
@@ -497,6 +509,18 @@ export default function ProductForm() {
           {variations.length > 0 && (
             <Badge variant="secondary" className="ml-1">{variations.length}</Badge>
           )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('seo')}
+          className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
+            activeTab === 'seo'
+              ? 'border-orange-500 text-orange-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Settings2 className="w-4 h-4" />
+          SEO
         </button>
       </div>
 
@@ -891,6 +915,97 @@ export default function ProductForm() {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* SEO Tab */}
+      {activeTab === 'seo' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>SEO Ayarları</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* SEO Title */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">SEO Başlığı (Meta Title)</label>
+                  <span className={`text-xs ${formData.seoTitle.length > 60 ? 'text-red-500' : 'text-gray-500'}`}>
+                    {formData.seoTitle.length} / 60
+                  </span>
+                </div>
+                <Input 
+                  value={formData.seoTitle}
+                  onChange={(e) => setFormData({...formData, seoTitle: e.target.value})}
+                  placeholder="Boş bırakılırsa ürün adı kullanılır"
+                />
+                <p className="text-xs text-gray-500">Google sonuçlarında görünen başlık. İdeal: 50-60 karakter.</p>
+              </div>
+
+              {/* SEO Description */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">SEO Açıklaması (Meta Description)</label>
+                  <span className={`text-xs ${formData.seoDescription.length > 160 ? 'text-red-500' : 'text-gray-500'}`}>
+                    {formData.seoDescription.length} / 160
+                  </span>
+                </div>
+                <textarea
+                  value={formData.seoDescription}
+                  onChange={(e) => setFormData({...formData, seoDescription: e.target.value})}
+                  placeholder="Boş bırakılırsa ürün açıklamasının ilk 160 karakteri kullanılır"
+                  className="w-full px-3 py-2 border rounded-md min-h-[100px] resize-none"
+                />
+                <p className="text-xs text-gray-500">Google sonuçlarında görünen açıklama. İdeal: 150-160 karakter.</p>
+              </div>
+
+              {/* SEO Slug */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">SEO Slug (URL)</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">/urun/</span>
+                  <Input 
+                    value={formData.seoSlug}
+                    onChange={(e) => setFormData({...formData, seoSlug: e.target.value})}
+                    placeholder="urun-adi-ornegi"
+                    className="flex-1"
+                  />
+                </div>
+                <p className="text-xs text-gray-500">Boş bırakılırsa ürün adından otomatik oluşturulur.</p>
+              </div>
+
+              {/* Canonical URL */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Canonical URL</label>
+                <Input 
+                  value={formData.canonicalUrl}
+                  onChange={(e) => setFormData({...formData, canonicalUrl: e.target.value})}
+                  placeholder="https://atushome.com/urun/ornek-urun"
+                />
+                <p className="text-xs text-gray-500">İçerik tekrarı varsa ana URL'yi belirtin.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Google Preview */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Google Arama Sonucu Önizlemesi</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-white border rounded-lg p-4 max-w-[600px]">
+                <div className="text-sm text-[#202124] truncate font-medium">
+                  {(formData.seoTitle || formData.name || 'Ürün Adı') + ' - AtusHome'}
+                </div>
+                <div className="text-xs text-[#5f6368] mt-1">
+                  https://atushome.com/urun/{formData.seoSlug || (formData.name ? formData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') : 'urun-adi')}
+                </div>
+                <div className="text-sm text-[#4d5156] mt-1 line-clamp-2">
+                  {formData.seoDescription || (formData.description ? formData.description.slice(0, 160) : 'Ürün açıklaması burada görünecek...')}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

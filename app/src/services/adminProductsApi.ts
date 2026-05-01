@@ -23,6 +23,11 @@ export interface AdminProduct {
   isBestseller?: boolean;
   rating?: number;
   reviewCount?: number;
+  // SEO fields
+  seoTitle?: string;
+  seoDescription?: string;
+  seoSlug?: string;
+  canonicalUrl?: string;
   [key: string]: any;
 }
 

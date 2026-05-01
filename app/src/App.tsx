@@ -153,9 +153,9 @@ function ProtectedRoute({
     return <Navigate to="/" replace />;
   }
   
-  // Özel izin kontrolü
-  if (requiredPermission && user) {
-    const hasPermission = ROLE_PERMISSIONS[user.role]?.includes(requiredPermission);
+  // Özel izin kontrolü (effectiveUser kullan, Zustand persist race condition'u önle)
+  if (requiredPermission && effectiveUser) {
+    const hasPermission = ROLE_PERMISSIONS[effectiveUser.role]?.includes(requiredPermission);
     if (!hasPermission) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -166,7 +166,7 @@ function ProtectedRoute({
               Bu sayfaya erişim yetkiniz bulunmuyor.
             </p>
             <p className="text-sm text-gray-500 mb-6">
-              Mevcut rolünüz: <span className="font-medium">{ROLE_NAMES[user.role]}</span>
+              Mevcut rolünüz: <span className="font-medium">{ROLE_NAMES[effectiveUser?.role || 'user']}</span>
             </p>
             <button 
               onClick={() => window.history.back()}

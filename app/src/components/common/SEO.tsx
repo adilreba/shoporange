@@ -18,6 +18,7 @@ interface SEOProps {
   author?: string;
   noindex?: boolean;
   breadcrumbs?: Array<{ name: string; url: string }>;
+  canonicalUrl?: string;
 }
 
 export function SEO({ 
@@ -38,10 +39,12 @@ export function SEO({
   author,
   noindex = false,
   breadcrumbs = [],
+  canonicalUrl,
 }: SEOProps) {
   const fullTitle = title.includes('AtusHome') ? title : `${title} | AtusHome`;
   const siteUrl = 'https://atushome.com';
   const fullUrl = url.startsWith('http') ? url : `${siteUrl}${url}`;
+  const canonical = canonicalUrl || fullUrl;
 
   // Schema.org JSON-LD yapıları
   const websiteSchema = {
@@ -186,7 +189,7 @@ export function SEO({
       <meta name="twitter:site" content="@atushome" />
       
       {/* Canonical URL */}
-      <link rel="canonical" href={fullUrl} />
+      <link rel="canonical" href={canonical} />
       
       {/* Alternate Languages */}
       <link rel="alternate" hrefLang="tr" href={fullUrl} />
@@ -228,10 +231,18 @@ export function generateProductSEO(product: {
   reviewCount: number;
   category: string;
   stock: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoSlug?: string;
+  canonicalUrl?: string;
 }) {
+  const title = product.seoTitle || `${product.name} - ${product.brand}`;
+  const description = product.seoDescription || product.description.slice(0, 160);
+  const slug = product.seoSlug || product.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
   return {
-    title: `${product.name} - ${product.brand}`,
-    description: product.description.slice(0, 160),
+    title,
+    description,
     keywords: `${product.name}, ${product.brand}, ${product.category}, satın al, fiyat`,
     image: product.images[0],
     type: 'product' as const,
@@ -241,6 +252,8 @@ export function generateProductSEO(product: {
     brand: product.brand,
     rating: product.rating,
     reviewCount: product.reviewCount,
+    slug,
+    canonicalUrl: product.canonicalUrl,
   };
 }
 

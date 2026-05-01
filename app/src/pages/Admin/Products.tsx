@@ -75,8 +75,9 @@ export function AdminProducts() {
     }
   };
 
-  // Check if user is admin
-  if (user?.role !== 'admin') {
+  // Check if user has admin panel access (ProtectedRoute already guards this, but double-check)
+  const isStaff = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'editor' || user?.role === 'support';
+  if (!isStaff) {
     toast.error('Bu sayfaya erişim yetkiniz yok!');
     navigate('/');
     return null;
