@@ -55,7 +55,7 @@ function validateTurkishPhone(phone: string): { valid: boolean; e164?: string; m
 }
 
 // ===== COGNITO FUNCTIONS =====
-async function signUp(input: { email: string; password: string; name: string; phone?: string }): Promise<{ userSub: string }> {
+async function signUp(input: { email: string; password: string; name: string; phone?: string; marketingConsent?: boolean }): Promise<{ userSub: string }> {
   const phoneCheck = validateTurkishPhone(input.phone || '');
   const e164Phone = phoneCheck.valid ? phoneCheck.e164 : undefined;
   if (input.phone && !phoneCheck.valid) {
@@ -71,6 +71,7 @@ async function signUp(input: { email: string; password: string; name: string; ph
       { Name: 'name', Value: input.name },
       ...(e164Phone ? [{ Name: 'phone_number', Value: e164Phone }] : []),
       { Name: 'custom:role', Value: 'user' },
+      ...(input.marketingConsent !== undefined ? [{ Name: 'custom:marketingConsent', Value: input.marketingConsent ? 'true' : 'false' }] : []),
     ],
   });
   const response = await cognitoClient.send(command);
@@ -276,7 +277,7 @@ export const register = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
       };
     }
 
-    const { email, password, name, phone } = JSON.parse(event.body);
+    const { email, password, name, phone, marketingConsent } = JSON.parse(event.body);
 
     // Input validation
     if (!email || !password || !name) {
@@ -342,6 +343,7 @@ export const register = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
       password,
       name: sanitizedName,
       phone: sanitizedPhone,
+      marketingConsent: typeof marketingConsent === 'boolean' ? marketingConsent : false,
     });
 
     logSecurityEvent('USER_REGISTERED', { email: sanitizedEmail }, 'low');

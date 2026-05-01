@@ -427,6 +427,9 @@ export const useShippingStore = create<ShippingState>()(
     }),
     {
       name: 'shipping-storage',
+      partialize: (state) => ({
+        companies: state.companies,
+      }),
     }
   )
 );

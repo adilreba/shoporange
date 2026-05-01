@@ -8,7 +8,35 @@ import { useAuthStore, initializeAuth } from '@/stores/authStore';
 import { LiveChatWidget } from '@/components/chat/LiveChatWidget';
 import { ScrollToTop } from '@/components/common/ScrollToTop';
 import { CookieBanner } from '@/components/common/CookieBanner';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useEffect } from 'react';
+import { analytics } from '@/lib/analytics';
+import { initializeCapacitor, onDeepLink } from '@/lib/capacitor';
+import { useNavigate } from 'react-router-dom';
+import { NetworkStatus } from '@/components/mobile/NetworkStatus';
+
+// Capacitor Native Bridge
+function CapacitorBridge() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Native features initialization
+    initializeCapacitor();
+
+    // Deep link handler
+    const unsubscribe = onDeepLink((data) => {
+      console.log('Deep link received:', data);
+      // Route'a yönlendir
+      if (data.path && data.path !== '/') {
+        navigate(data.path + (data.queryParams ? '?' + new URLSearchParams(data.queryParams).toString() : ''));
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
+
+  return null;
+}
 
 // Chat Widget Wrapper - Admin panelinde gizler
 function ChatWidgetWrapper() {
@@ -28,6 +56,20 @@ function CookieBannerWrapper() {
   return <CookieBanner />;
 }
 
+// Analytics Route Tracker — Her route değişikliğinde page_view event'i gönder
+function AnalyticsTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Admin sayfalarını track etme (gürültü)
+    if (location.pathname.startsWith('/admin')) return;
+    
+    analytics.pageView(location.pathname + location.search, document.title);
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 // Pages - Public (eager loaded for fastest initial render)
 import { Home } from '@/pages/Home';
 import { Products } from '@/pages/Products';
@@ -44,7 +86,7 @@ import { Contact } from '@/pages/Contact';
 import { NotFound } from '@/pages/NotFound';
 
 // Legal Pages (eager loaded - small)
-import { KVKKPage, PrivacyPolicyPage, TermsOfServicePage, ReturnPolicyPage, PreInformationPage } from '@/pages/legal';
+import { KVKKPage, PrivacyPolicyPage, TermsOfServicePage, ReturnPolicyPage, PreInformationPage, DistanceSalesContractPage } from '@/pages/legal';
 
 // Lazy loaded pages - improves initial bundle size
 const Cart = lazy(() => import('@/pages/Cart').then(m => ({ default: m.Cart })));
@@ -85,6 +127,8 @@ const ShippingSettings = lazy(() => import('@/pages/Admin/ShippingSettings').the
 const InvoiceManagement = lazy(() => import('@/pages/Admin/InvoiceManagement').then(m => ({ default: m.default })));
 const AuditLogs = lazy(() => import('@/pages/Admin/AuditLogs').then(m => ({ default: m.default })));
 const ParasutSettings = lazy(() => import('@/pages/Admin/ParasutSettings').then(m => ({ default: m.default })));
+const ABTests = lazy(() => import('@/pages/Admin/ABTests').then(m => ({ default: m.default })));
+const Automation = lazy(() => import('@/pages/Admin/Automation').then(m => ({ default: m.default })));
 
 // Protected Route Component
 function ProtectedRoute({ 
@@ -154,6 +198,7 @@ function App() {
 
   return (
     <HelmetProvider>
+    <ErrorBoundary>
     <Router>
       <Toaster 
         position="top-right" 
@@ -171,6 +216,7 @@ function App() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500" />
         </div>
       }>
+      <AnalyticsTracker />
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
@@ -198,6 +244,7 @@ function App() {
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/return-policy" element={<ReturnPolicyPage />} />
         <Route path="/pre-information" element={<PreInformationPage />} />
+        <Route path="/distance-sales-contract" element={<DistanceSalesContractPage />} />
         
         {/* Protected Routes */}
         <Route 
@@ -332,6 +379,10 @@ function App() {
           
           {/* Paraşüt - admin, super_admin */}
           <Route path="parasut" element={<ProtectedRoute requireAdmin requiredPermission="settings:edit"><ParasutSettings /></ProtectedRoute>} />
+          
+          {/* A/B Tests - admin, super_admin */}
+          <Route path="ab-tests" element={<ProtectedRoute requireAdmin requiredPermission="settings:view"><ABTests /></ProtectedRoute>} />
+          <Route path="automation" element={<ProtectedRoute requireAdmin requiredPermission="settings:view"><Automation /></ProtectedRoute>} />
         </Route>
         
         {/* 404 Page */}
@@ -339,10 +390,17 @@ function App() {
       </Routes>
       </Suspense>
       
+      {/* Native Capacitor Bridge */}
+      <CapacitorBridge />
+      
+      {/* Network Status Banner */}
+      <NetworkStatus />
+      
       {/* Chat Widget - Admin panelinde gizli */}
       <ChatWidgetWrapper />
       <CookieBannerWrapper />
     </Router>
+    </ErrorBoundary>
     </HelmetProvider>
   );
 }

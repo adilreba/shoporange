@@ -18,9 +18,10 @@ interface StripePaymentFormProps {
   amount: number;
   onSuccess: (paymentIntentId: string) => void;
   onCancel: () => void;
+  disabled?: boolean;
 }
 
-function PaymentForm({ amount, onSuccess, onCancel }: StripePaymentFormProps) {
+function PaymentForm({ amount, onSuccess, onCancel, disabled }: StripePaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -107,8 +108,8 @@ function PaymentForm({ amount, onSuccess, onCancel }: StripePaymentFormProps) {
           <CreditCard className="h-4 w-4" />
           Kart Bilgileri
         </label>
-        <div className="border rounded-lg p-4 bg-card focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500 transition-all">
-          <CardElement options={cardElementOptions} />
+        <div className={`border rounded-lg p-4 bg-card transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : 'focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500'}`}>
+          <CardElement options={{ ...cardElementOptions, disabled }} />
         </div>
         {cardError && (
           <p className="text-sm text-red-500">{cardError}</p>
@@ -146,7 +147,7 @@ function PaymentForm({ amount, onSuccess, onCancel }: StripePaymentFormProps) {
         <Button
           type="submit"
           className="flex-1 gradient-orange h-12"
-          disabled={(!stripe && !!stripePromise) || isProcessing}
+          disabled={disabled || (!stripe && !!stripePromise) || isProcessing}
         >
           {isProcessing ? (
             <>
@@ -166,15 +167,16 @@ interface StripePaymentProps {
   amount: number;
   onSuccess: (paymentIntentId: string) => void;
   onCancel: () => void;
+  disabled?: boolean;
 }
 
-export function StripePayment({ amount, onSuccess, onCancel }: StripePaymentProps) {
+export function StripePayment({ amount, onSuccess, onCancel, disabled }: StripePaymentProps) {
   if (!stripePromise) {
-    return <PaymentForm amount={amount} onSuccess={onSuccess} onCancel={onCancel} />;
+    return <PaymentForm amount={amount} onSuccess={onSuccess} onCancel={onCancel} disabled={disabled} />;
   }
   return (
     <Elements stripe={stripePromise}>
-      <PaymentForm amount={amount} onSuccess={onSuccess} onCancel={onCancel} />
+      <PaymentForm amount={amount} onSuccess={onSuccess} onCancel={onCancel} disabled={disabled} />
     </Elements>
   );
 }

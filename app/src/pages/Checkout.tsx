@@ -12,7 +12,8 @@ import {
   AlertTriangle,
   PackageX,
   Loader2,
-  Clock
+  Clock,
+  Mail
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +48,11 @@ export function Checkout() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  
+  // Yasal onaylar (6502 s.K. + KVKK)
+  const [acceptedPreInfo, setAcceptedPreInfo] = useState(false);
+  const [acceptedDistanceSales, setAcceptedDistanceSales] = useState(false);
+  const [acceptedMarketing, setAcceptedMarketing] = useState(false);
   
   // Stok kontrolü için state
   const [stockErrors, setStockErrors] = useState<Array<{productId: string, name: string, requested: number, available: number}>>([]);
@@ -147,7 +153,7 @@ export function Checkout() {
       
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Create order
+      // Create order with legal consents
       const newOrder = await addOrder({
         customer: shippingData.fullName,
         email: user?.email || '',
@@ -166,7 +172,13 @@ export function Checkout() {
         })),
         total: finalTotal,
         paymentMethod: 'credit_card',
-        notes: `Kargo: ${selectedShippingOption?.name || 'Standart'}`
+        notes: `Kargo: ${selectedShippingOption?.name || 'Standart'}`,
+        legalConsents: {
+          preInfoAccepted: acceptedPreInfo,
+          distanceSalesAccepted: acceptedDistanceSales,
+          marketingConsent: acceptedMarketing,
+          acceptedAt: new Date().toISOString()
+        }
       });
 
       setOrderId(newOrder.id);
@@ -466,11 +478,68 @@ export function Checkout() {
                     <p className="text-muted-foreground">Siparişiniz işleniyor...</p>
                   </div>
                 ) : (
-                  <StripePayment
-                    amount={finalTotal}
-                    onSuccess={handlePaymentSuccess}
-                    onCancel={() => setStep('shipping')}
-                  />
+                  <div className="space-y-6">
+                    {/* Yasal Onaylar - 6502 s.K. + KVKK */}
+                    <div className="bg-muted/50 rounded-xl p-4 space-y-4">
+                      <h3 className="font-medium text-sm flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 text-orange-500" />
+                        Yasal Onaylar
+                      </h3>
+                      
+                      {/* 1. Ön Bilgilendirme Formu */}
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={acceptedPreInfo}
+                          onChange={(e) => setAcceptedPreInfo(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                        />
+                        <span className="text-sm text-muted-foreground leading-relaxed">
+                          <a href="/pre-information" target="_blank" className="text-orange-600 hover:underline font-medium">Ön Bilgilendirme Formu</a>'nu okudum, 
+                          ürün bedeli, teslimat koşulları ve cayma hakkı hakkında bilgi sahibi oldum. 
+                          <span className="text-red-500">*</span>
+                        </span>
+                      </label>
+                      
+                      {/* 2. Mesafeli Satış Sözleşmesi */}
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={acceptedDistanceSales}
+                          onChange={(e) => setAcceptedDistanceSales(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                        />
+                        <span className="text-sm text-muted-foreground leading-relaxed">
+                          <a href="/distance-sales-contract" target="_blank" className="text-orange-600 hover:underline font-medium">Mesafeli Satış Sözleşmesi</a>'ni okudum, 
+                          tarafların hak ve yükümlülüklerini kabul ediyorum.
+                          <span className="text-red-500">*</span>
+                        </span>
+                      </label>
+                      
+                      {/* 3. Elektronik İletişim İzni (isteğe bağlı) */}
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={acceptedMarketing}
+                          onChange={(e) => setAcceptedMarketing(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                        />
+                        <span className="text-sm text-muted-foreground leading-relaxed">
+                          <Mail className="h-3.5 w-3.5 inline mr-1" />
+                          Kampanya, indirim ve yeni ürün haberlerini SMS/e-posta ile almak istiyorum. 
+                          (İsteğe bağlı)
+                        </span>
+                      </label>
+                    </div>
+                    
+                    {/* Ödeme Formu - yasal onaylar tamamlanmadan disable */}
+                    <StripePayment
+                      amount={finalTotal}
+                      onSuccess={handlePaymentSuccess}
+                      onCancel={() => setStep('shipping')}
+                      disabled={!acceptedPreInfo || !acceptedDistanceSales}
+                    />
+                  </div>
                 )}
               </div>
             )}

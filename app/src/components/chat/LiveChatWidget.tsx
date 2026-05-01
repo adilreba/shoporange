@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
-import { useLiveChatStore } from '@/stores/liveChatStore';
+import { useChatStore } from '@/stores/chatStore';
 
 // Hızlı yanıt seçenekleri
 interface QuickReply {
@@ -76,7 +76,7 @@ export function LiveChatWidget() {
     sendMessage,
     resetChat,
     requestAgent
-  } = useLiveChatStore();
+  } = useChatStore();
 
   const [inputMessage, setInputMessage] = useState('');
   const [showQuickReplies, setShowQuickReplies] = useState(true);
@@ -136,7 +136,7 @@ export function LiveChatWidget() {
         
         // Bot hoşgeldin mesajı
         setTimeout(() => {
-          useLiveChatStore.setState({
+          useChatStore.setState({
             messages: [{
               id: `welcome_${Date.now()}`,
               text: 'Merhaba! 👋 AtusHome müşteri hizmetlerine hoş geldiniz. Ben yapay zeka asistanınızım. Size nasıl yardımcı olabilirim?',
@@ -454,7 +454,7 @@ export function LiveChatWidget() {
                     setShowQuickReplies(true);
                     // Yeni hoşgeldin mesajı ekle
                     setTimeout(() => {
-                      useLiveChatStore.setState({
+                      useChatStore.setState({
                         messages: [{
                           id: `welcome_${Date.now()}`,
                           text: 'Merhaba! 👋 Yeni bir sohbet başlattınız. Size nasıl yardımcı olabilirim?',

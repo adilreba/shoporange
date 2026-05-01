@@ -32,6 +32,7 @@ export const handler = async (event: PostConfirmationEvent): Promise<PostConfirm
     const email = userAttributes.email;
     const name = userAttributes.name || email.split('@')[0];
     const role = userAttributes['custom:role'] || 'user';
+    const marketingConsent = userAttributes['custom:marketingConsent'] === 'true';
 
     console.log('[PostConfirmation] Processing user:', email, 'sub:', userSub);
 
@@ -65,6 +66,7 @@ export const handler = async (event: PostConfirmationEvent): Promise<PostConfirm
         phone: userAttributes.phone_number || '',
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
         address: [],
+        marketingConsent,
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

@@ -391,6 +391,10 @@ export const useInvoiceStore = create<InvoiceState>()(
     }),
     {
       name: 'invoice-storage',
+      partialize: (state) => ({
+        invoices: state.invoices,
+        providers: state.providers,
+      }),
     }
   )
 );

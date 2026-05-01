@@ -45,6 +45,15 @@ export const useRecentlyViewedStore = create<RecentlyViewedState>()(
     }),
     {
       name: 'recently-viewed-storage',
+      partialize: (state) => ({
+        items: state.items,
+      }),
     }
   )
 );
+
+// Clear recently viewed on logout
+import { onLogout } from './authStore';
+onLogout(() => {
+  useRecentlyViewedStore.getState().clearAll();
+});

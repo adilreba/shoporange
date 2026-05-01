@@ -108,6 +108,11 @@ export const useLoyaltyStore = create<LoyaltyState>()(
     }),
     {
       name: 'loyalty-storage',
+      partialize: (state) => ({
+        points: state.points,
+        totalEarned: state.totalEarned,
+        coupons: state.coupons,
+      }),
     }
   )
 );

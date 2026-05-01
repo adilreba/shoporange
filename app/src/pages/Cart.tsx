@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { SEO } from '@/components/common/SEO';
 import { 
   ShoppingBag, 
   Trash2, 
@@ -24,6 +25,7 @@ import { useCartStore } from '@/stores/cartStore';
 import { useStockStore } from '@/stores/stockStore';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
+import { useFeature } from '@growthbook/growthbook-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -36,6 +38,11 @@ import {
 
 export function Cart() {
   const navigate = useNavigate();
+
+  // A/B Test: Ücretsiz kargo eşiği
+  const shippingThresholdFeature = useFeature('free_shipping_threshold').value || '500';
+  const shippingThreshold = parseInt(shippingThresholdFeature as string, 10) || 500;
+
   const { 
     items, 
     updateQuantity, 
@@ -193,6 +200,12 @@ export function Cart() {
   }
 
   return (
+    <>
+      <SEO 
+        title="Alışveriş Sepetim - AtusHome"
+        description="Sepetinizi görüntüleyin ve ödemeye geçin. Güvenli alışveriş, hızlı teslimat."
+        noindex
+      />
     <div className="min-h-screen bg-background">
       <Header />
       
@@ -421,10 +434,10 @@ export function Cart() {
               </div>
 
               {/* Free Shipping Progress */}
-              {totalPrice() < 500 && (
+              {totalPrice() < shippingThreshold && (
                 <div className="p-3 bg-orange-50 rounded-lg">
                   <p className="text-xs sm:text-sm text-orange-700 text-center">
-                    <span className="font-bold">{formatPrice(500 - totalPrice())}</span> daha harcayın, 
+                    <span className="font-bold">{formatPrice(shippingThreshold - totalPrice())}</span> daha harcayın, 
                     <span className="font-bold"> ücretsiz kargo</span> kazanın!
                   </p>
                 </div>
@@ -539,5 +552,6 @@ export function Cart() {
 
       <Footer />
     </div>
+    </>
   );
 }

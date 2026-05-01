@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { fetchApi } from '@/services/api';
 import { 
   DollarSign, 
   ShoppingCart, 
@@ -34,8 +35,8 @@ import {
 } from 'recharts';
 import { toast } from 'sonner';
 
-// Mock data - Gerçek API'den gelecek
-const salesData = [
+// Mock data - API hatası durumunda fallback
+const mockSalesData = [
   { name: 'Pzt', revenue: 12500, orders: 45, visitors: 320 },
   { name: 'Sal', revenue: 18200, orders: 62, visitors: 450 },
   { name: 'Çar', revenue: 15800, orders: 55, visitors: 380 },
@@ -115,18 +116,53 @@ const StatCard = ({
 export default function AdminDashboard() {
   const [dateRange, setDateRange] = useState('7days');
   const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const daysMap: Record<string, number> = { today: 1, '7days': 7, '30days': 30, '90days': 90 };
+
+  const fetchStats = async () => {
+    setLoading(true);
+    try {
+      const days = daysMap[dateRange] || 7;
+      const data = await fetchApi(`/admin/dashboard/stats?days=${days}`);
+      setStats(data);
+    } catch (error) {
+      console.error('Dashboard stats error:', error);
+      toast.error('Dashboard verileri yüklenemedi');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, [dateRange]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-      toast.success('Veriler güncellendi');
-    }, 1000);
+    fetchStats();
   };
 
-  const totalRevenue = salesData.reduce((acc, day) => acc + day.revenue, 0);
-  const totalOrders = salesData.reduce((acc, day) => acc + day.orders, 0);
-  const avgOrderValue = totalRevenue / totalOrders;
+  const salesData = stats?.dailySales?.map((d: any) => ({
+    name: d.date.slice(5), // MM-DD
+    revenue: d.revenue,
+    orders: d.orders,
+    visitors: 0,
+  })) || mockSalesData;
+
+  const totalRevenue = stats?.orders?.revenue || salesData.reduce((acc: number, day: any) => acc + day.revenue, 0);
+  const totalOrders = stats?.orders?.total || salesData.reduce((acc: number, day: any) => acc + day.orders, 0);
+  const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 relative">
@@ -184,9 +220,9 @@ export default function AdminDashboard() {
           color="bg-purple-500" 
         />
         <StatCard 
-          title="Ziyaretçi" 
-          value="3,847" 
-          change="+18.7%" 
+          title="Toplam Kullanıcı" 
+          value={(stats?.users?.total || 0).toLocaleString()} 
+          change={`+${stats?.users?.new || 0} yeni`} 
           trend="up" 
           icon={Users} 
           color="bg-orange-500" 

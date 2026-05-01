@@ -6,29 +6,15 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, GetCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
-import { securityHeaders } from '../../utils/security';
 import { requireAuth } from '../../utils/authorization';
 import { audit } from '../../utils/auditLogger';
 import { getClientIP } from '../../utils/security';
+import { createErrorResponse, createSuccessResponse } from '../../utils/response';
 
 const client = new DynamoDBClient({});
 const dynamodb = DynamoDBDocumentClient.from(client);
 const REVIEWS_TABLE = process.env.REVIEWS_TABLE || '';
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE || '';
-
-const headers = securityHeaders;
-
-const createErrorResponse = (statusCode: number, message: string): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify({ error: message, timestamp: new Date().toISOString() }),
-});
-
-const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify(data),
-});
 
 // ===== GET REVIEWS BY PRODUCT =====
 export const getReviewsByProduct = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {

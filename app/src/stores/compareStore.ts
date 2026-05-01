@@ -83,3 +83,9 @@ export const useCompareStore = create<CompareState>()(
     }
   )
 );
+
+// Clear compare list on logout
+import { onLogout } from './authStore';
+onLogout(() => {
+  useCompareStore.getState().clearCompare();
+});

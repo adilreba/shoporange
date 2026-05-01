@@ -3,11 +3,18 @@ import { AlertCircle, Home, Search, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
+import { SEO } from '@/components/common/SEO';
 
 export function NotFound() {
   const navigate = useNavigate();
 
   return (
+    <>
+      <SEO 
+        title="Sayfa Bulunamadı - AtusHome"
+        description="Aradığınız sayfa bulunamadı. Ana sayfaya dönün veya başka bir arama yapın."
+        noindex
+      />
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       <main className="flex-1 flex items-center justify-center py-12 sm:py-16 px-4">
@@ -80,5 +87,6 @@ export function NotFound() {
       </main>
       <Footer />
     </div>
+    </>
   );
 }

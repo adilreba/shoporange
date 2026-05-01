@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import type { Product, CartItem } from '@/types';
 import { cartApi } from '@/services/api';
 import { useAuthStore } from './authStore';
+import { analytics } from '@/lib/analytics';
 
 // Helper function for stock check
 const checkStock = (product: Product, quantity: number, currentQuantity: number = 0) => {
@@ -147,6 +148,9 @@ export const useCartStore = create<CartState>()(
           });
         }
 
+        // Analytics: Add to cart event
+        analytics.addToCart(product, quantity);
+
         // API'ye gönder (eğer giriş yapılmışsa)
         if (isAuthenticated) {
           try {
@@ -165,10 +169,16 @@ export const useCartStore = create<CartState>()(
 
       removeFromCart: async (productId: string) => {
         const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        const removedItem = get().items.find(item => item.product.id === productId);
         
         set({
           items: get().items.filter(item => item.product.id !== productId)
         });
+
+        // Analytics: Remove from cart event
+        if (removedItem) {
+          analytics.removeFromCart(removedItem.product, removedItem.quantity);
+        }
 
         if (isAuthenticated) {
           try {
@@ -261,3 +271,9 @@ export const useCartStore = create<CartState>()(
     }
   )
 );
+
+// Clear cart on logout
+import { onLogout } from './authStore';
+onLogout(() => {
+  useCartStore.getState().clearCart().catch(() => {});
+});

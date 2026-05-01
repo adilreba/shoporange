@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, X, TrendingUp, Clock, ArrowRight, Mic, MicOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { products } from '@/data/mockData';
+import { productsApi } from '@/services/api';
 import type { Product } from '@/types';
 
 // Speech Recognition types
@@ -48,6 +48,7 @@ interface LiveSearchProps {
 export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Product[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [trendingSearches] = useState([
     'iPhone 15', 'Samsung', 'Nike Air Max', 'Laptop', 'Kulaklık'
@@ -80,30 +81,32 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
     }
   }, [isOpen]);
 
-  // Search function
-  const performSearch = useCallback((searchQuery: string) => {
+  // Search function — backend connected with OpenSearch
+  const performSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
       return;
     }
 
-    const normalizedQuery = searchQuery.toLowerCase().trim();
-    const filtered = products.filter(product => 
-      product.name.toLowerCase().includes(normalizedQuery) ||
-      product.brand.toLowerCase().includes(normalizedQuery) ||
-      product.category.toLowerCase().includes(normalizedQuery) ||
-      product.description.toLowerCase().includes(normalizedQuery) ||
-      (product.tags && product.tags.some(tag => tag.toLowerCase().includes(normalizedQuery)))
-    );
-
-    setResults(filtered.slice(0, 8)); // Limit to 8 results
+    setIsSearching(true);
+    try {
+      const data = await productsApi.search(searchQuery);
+      const searchResults = (data.products || []).slice(0, 8);
+      setResults(searchResults as Product[]);
+    } catch (error) {
+      console.error('Live search error:', error);
+      // Fallback: empty results on error
+      setResults([]);
+    } finally {
+      setIsSearching(false);
+    }
   }, []);
 
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
       performSearch(query);
-    }, 200);
+    }, 300); // Slightly increased for API call
 
     return () => clearTimeout(timer);
   }, [query, performSearch]);
@@ -267,8 +270,16 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
 
           {/* Results Area */}
           <div className="mt-4 max-h-[60vh] overflow-y-auto">
+            {/* Loading */}
+            {query.trim() && isSearching && (
+              <div className="text-center py-8">
+                <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Aranıyor...</p>
+              </div>
+            )}
+
             {/* Live Results */}
-            {query.trim() && results.length > 0 && (
+            {query.trim() && !isSearching && results.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-2">
                   <p className="text-sm text-muted-foreground">
@@ -319,7 +330,7 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
             )}
 
             {/* No Results */}
-            {query.trim() && results.length === 0 && (
+            {query.trim() && !isSearching && results.length === 0 && (
               <div className="text-center py-8">
                 <Search className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-muted-foreground">"{query}" için sonuç bulunamadı</p>

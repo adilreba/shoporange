@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
-import { useSimpleChatStore } from '@/stores/simpleChatStore';
+import { useChatStore } from '@/stores/chatStore';
 
 // Emoji list - basit
 const EMOJIS = ['😊', '👋', '😂', '❤️', '👍', '🎉', '🔥', '👏', '😍', '🤔', '😢', '🙏', '💪', '✨', '🎁', '👌'];
@@ -34,7 +34,7 @@ export function SimpleChatWidget() {
     sendMessage,
     resetChat,
     requestAgent
-  } = useSimpleChatStore();
+  } = useChatStore();
 
   const [inputText, setInputText] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
@@ -114,7 +114,7 @@ export function SimpleChatWidget() {
     toast.success('Canlı destek talebiniz alındı');
   };
 
-  const formatTime = (timestamp: number) => {
+  const formatTime = (timestamp: string | number) => {
     return new Date(timestamp).toLocaleTimeString('tr-TR', {
       hour: '2-digit',
       minute: '2-digit'

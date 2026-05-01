@@ -71,27 +71,61 @@ export async function decryptField(
 }
 
 /**
- * Encrypt object fields recursively
+ * Get nested value by dot-notation path
+ */
+function getNestedValue(obj: Record<string, any>, path: string): any {
+  return path.split('.').reduce((o, p) => o?.[p], obj);
+}
+
+/**
+ * Set nested value by dot-notation path (immutable clone)
+ */
+function setNestedValue(obj: Record<string, any>, path: string, value: any): Record<string, any> {
+  const parts = path.split('.');
+  const result = { ...obj };
+  let current = result;
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i];
+    current[key] = current[key] && typeof current[key] === 'object' && !Array.isArray(current[key])
+      ? { ...current[key] }
+      : {};
+    current = current[key];
+  }
+
+  current[parts[parts.length - 1]] = value;
+  return result;
+}
+
+/**
+ * Encrypt object fields (supports dot-notation for nested fields)
+ * - Dot notation: 'shippingAddress.street' encrypts only that nested field
+ * - Object field: 'shippingAddress' encrypts all string fields within the object (shallow)
+ * - String field: 'email' encrypts the string directly
  */
 export async function encryptObjectFields<T extends Record<string, any>>(
   obj: T,
   fieldsToEncrypt: string[],
   context: Record<string, string> = { service: 'orders', purpose: 'pii-protection' }
 ): Promise<T> {
-  const encrypted: Record<string, any> = { ...obj };
+  let encrypted: Record<string, any> = { ...obj };
 
   for (const field of fieldsToEncrypt) {
-    if (obj[field]) {
-      if (typeof obj[field] === 'object') {
-        // Recursively encrypt nested objects
-        encrypted[field] = await encryptObjectFields(
-          obj[field],
-          Object.keys(obj[field]),
-          context
-        );
-      } else if (typeof obj[field] === 'string') {
-        encrypted[field] = await encryptField(obj[field], context);
+    const value = getNestedValue(obj, field);
+    if (!value) continue;
+
+    if (typeof value === 'string') {
+      // Direct string field
+      encrypted = setNestedValue(encrypted, field, await encryptField(value, context));
+    } else if (typeof value === 'object' && !Array.isArray(value)) {
+      // Nested object: shallow encrypt all string fields (not recursive into deeper objects)
+      const nested = { ...value };
+      for (const key of Object.keys(nested)) {
+        if (typeof nested[key] === 'string') {
+          nested[key] = await encryptField(nested[key], context);
+        }
       }
+      encrypted = setNestedValue(encrypted, field, nested);
     }
   }
 
@@ -99,27 +133,34 @@ export async function encryptObjectFields<T extends Record<string, any>>(
 }
 
 /**
- * Decrypt object fields recursively
+ * Decrypt object fields (supports dot-notation for nested fields)
+ * - Dot notation: 'shippingAddress.street' decrypts only that nested field
+ * - Object field: 'shippingAddress' decrypts all string fields within the object (shallow)
+ * - String field: 'email' decrypts the string directly
  */
 export async function decryptObjectFields<T extends Record<string, any>>(
   obj: T,
   fieldsToDecrypt: string[],
   context: Record<string, string> = { service: 'orders', purpose: 'pii-protection' }
 ): Promise<T> {
-  const decrypted: Record<string, any> = { ...obj };
+  let decrypted: Record<string, any> = { ...obj };
 
   for (const field of fieldsToDecrypt) {
-    if (obj[field]) {
-      if (typeof obj[field] === 'object') {
-        // Recursively decrypt nested objects
-        decrypted[field] = await decryptObjectFields(
-          obj[field],
-          Object.keys(obj[field]),
-          context
-        );
-      } else if (typeof obj[field] === 'string') {
-        decrypted[field] = await decryptField(obj[field], context);
+    const value = getNestedValue(obj, field);
+    if (!value) continue;
+
+    if (typeof value === 'string') {
+      // Direct string field
+      decrypted = setNestedValue(decrypted, field, await decryptField(value, context));
+    } else if (typeof value === 'object' && !Array.isArray(value)) {
+      // Nested object: shallow decrypt all string fields
+      const nested = { ...value };
+      for (const key of Object.keys(nested)) {
+        if (typeof nested[key] === 'string') {
+          nested[key] = await decryptField(nested[key], context);
+        }
       }
+      decrypted = setNestedValue(decrypted, field, nested);
     }
   }
 

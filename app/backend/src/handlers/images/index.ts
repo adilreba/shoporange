@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createErrorResponse, createSuccessResponse } from '../../utils/response';
 
 const s3 = new S3Client({});
 const BUCKET_NAME = process.env.IMAGE_BUCKET || '';
@@ -11,18 +12,6 @@ const headers = {
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
 };
-
-const createErrorResponse = (statusCode: number, message: string): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify({ error: message }),
-});
-
-const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify(data),
-});
 
 export const getUploadUrl = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {

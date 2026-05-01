@@ -1,14 +1,17 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { DynamoDB, SecretsManager } from 'aws-sdk';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
-const dynamodb = new DynamoDB.DocumentClient();
-const secretsManager = new SecretsManager();
+const client = new DynamoDBClient({});
+const dynamodb = DynamoDBDocumentClient.from(client);
+const secretsManager = new SecretsManagerClient({});
 
 const TABLE_NAME = process.env.PAYMENT_METHODS_TABLE || 'AtusHome-PaymentMethods';
 
 const headers = {
   'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || 'https://atushome.com',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key',
 };
@@ -147,7 +150,7 @@ const DEFAULT_PAYMENT_METHODS: Omit<PaymentMethod, 'id' | 'lastUpdated'>[] = [
 const getApiKeysFromSecrets = async (provider: string, isTest: boolean): Promise<any> => {
   try {
     const secretName = `atushome/payment/${provider}/${isTest ? 'test' : 'production'}`;
-    const result = await secretsManager.getSecretValue({ SecretId: secretName }).promise();
+    const result = await secretsManager.send(new GetSecretValueCommand({ SecretId: secretName }));
     if (result.SecretString) {
       return JSON.parse(result.SecretString);
     }
@@ -164,9 +167,9 @@ const getApiKeysFromSecrets = async (provider: string, isTest: boolean): Promise
  */
 export const listAdmin = async (): Promise<APIGatewayProxyResult> => {
   try {
-    const result = await dynamodb.scan({
+    const result = await dynamodb.send(new ScanCommand({
       TableName: TABLE_NAME,
-    }).promise();
+    }));
 
     const methods = (result.Items || []).sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -198,13 +201,13 @@ export const listAdmin = async (): Promise<APIGatewayProxyResult> => {
  */
 export const listPublic = async (): Promise<APIGatewayProxyResult> => {
   try {
-    const result = await dynamodb.scan({
+    const result = await dynamodb.send(new ScanCommand({
       TableName: TABLE_NAME,
       FilterExpression: 'isActive = :active',
       ExpressionAttributeValues: {
         ':active': true,
       },
-    }).promise();
+    }));
 
     const methods = (result.Items || [])
       .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -261,10 +264,10 @@ export const getById = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const result = await dynamodb.get({
+    const result = await dynamodb.send(new GetCommand({
       TableName: TABLE_NAME,
       Key: { id },
-    }).promise();
+    }));
 
     if (!result.Item) {
       return {
@@ -318,10 +321,10 @@ export const update = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
     const userId = event.requestContext.authorizer?.claims?.sub || 'admin';
 
     // Mevcut kaydı al
-    const existing = await dynamodb.get({
+    const existing = await dynamodb.send(new GetCommand({
       TableName: TABLE_NAME,
       Key: { id },
-    }).promise();
+    }));
 
     if (!existing.Item) {
       return {
@@ -349,13 +352,13 @@ export const update = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
       updatedBy: userId,
     };
 
-    await dynamodb.put({
+    await dynamodb.send(new PutCommand({
       TableName: TABLE_NAME,
       Item: {
         ...existing.Item,
         ...allowedUpdates,
       },
-    }).promise();
+    }));
 
     return {
       statusCode: 200,
@@ -387,10 +390,10 @@ export const testConnection = async (event: APIGatewayProxyEvent): Promise<APIGa
       };
     }
 
-    const result = await dynamodb.get({
+    const result = await dynamodb.send(new GetCommand({
       TableName: TABLE_NAME,
       Key: { id },
-    }).promise();
+    }));
 
     if (!result.Item) {
       return {
@@ -464,13 +467,13 @@ export const seed = async (): Promise<APIGatewayProxyResult> => {
 
     for (const defaultMethod of DEFAULT_PAYMENT_METHODS) {
       // Önce var mı kontrol et
-      const existing = await dynamodb.scan({
+      const existing = await dynamodb.send(new ScanCommand({
         TableName: TABLE_NAME,
         FilterExpression: 'code = :code',
         ExpressionAttributeValues: {
           ':code': defaultMethod.code,
         },
-      }).promise();
+      }));
 
       if (existing.Items && existing.Items.length > 0) {
         continue; // Zaten var, atla
@@ -482,10 +485,10 @@ export const seed = async (): Promise<APIGatewayProxyResult> => {
         lastUpdated: now,
       };
 
-      await dynamodb.put({
+      await dynamodb.send(new PutCommand({
         TableName: TABLE_NAME,
         Item: method,
-      }).promise();
+      }));
     }
 
     return {

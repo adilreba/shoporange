@@ -46,3 +46,19 @@ coverage/
 *.tmp
 *.temp
 .vercel
+
+# Capacitor - iOS/Android build artifacts (keep config, ignore generated)
+ios/App/build/
+ios/App/Pods/
+ios/App/Podfile.lock
+ios/App/App/public/
+ios/DerivedData/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/captures/
+android/gradlew
+android/gradlew.bat
+android/gradle/wrapper/gradle-wrapper.jar
+*.keystore
+*.jks

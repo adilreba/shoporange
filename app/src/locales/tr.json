@@ -1,0 +1,78 @@
+{
+  "app": {
+    "name": "AtusHome",
+    "tagline": "Güvenli Online Alışveriş"
+  },
+  "nav": {
+    "home": "Ana Sayfa",
+    "products": "Ürünler",
+    "categories": "Kategoriler",
+    "cart": "Sepet",
+    "profile": "Profil",
+    "orders": "Siparişlerim",
+    "favorites": "Favorilerim",
+    "login": "Giriş Yap",
+    "logout": "Çıkış Yap",
+    "register": "Kayıt Ol"
+  },
+  "cart": {
+    "title": "Alışveriş Sepeti",
+    "empty": "Sepetiniz boş",
+    "total": "Toplam",
+    "checkout": "Ödeme Yap",
+    "continueShopping": "Alışverişe Devam Et",
+    "remove": "Kaldır",
+    "quantity": "Adet"
+  },
+  "product": {
+    "addToCart": "Sepete Ekle",
+    "outOfStock": "Stokta Yok",
+    "inStock": "Stokta Var",
+    "price": "Fiyat",
+    "description": "Açıklama",
+    "reviews": "Değerlendirmeler",
+    "relatedProducts": "Benzer Ürünler"
+  },
+  "auth": {
+    "email": "E-posta",
+    "password": "Şifre",
+    "forgotPassword": "Şifremi Unuttum",
+    "loginTitle": "Hesabınıza Giriş Yapın",
+    "registerTitle": "Yeni Hesap Oluşturun",
+    "name": "Ad Soyad",
+    "phone": "Telefon",
+    "confirmPassword": "Şifre Tekrar",
+    "submit": "Gönder"
+  },
+  "common": {
+    "search": "Ara",
+    "loading": "Yükleniyor...",
+    "error": "Bir hata oluştu",
+    "retry": "Tekrar Dene",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "delete": "Sil",
+    "edit": "Düzenle",
+    "close": "Kapat",
+    "yes": "Evet",
+    "no": "Hayır",
+    "success": "Başarılı",
+    "warning": "Uyarı",
+    "info": "Bilgi"
+  },
+  "error": {
+    "title": "Bir Hata Oluştu",
+    "description": "Üzgünüz, beklenmeyen bir hata oluştu. Lütfen sayfayı yenileyin veya ana sayfaya dönün.",
+    "retry": "Tekrar Dene",
+    "goHome": "Ana Sayfa"
+  },
+  "footer": {
+    "newsletter": "Bültenimize Abone Olun",
+    "subscribe": "Abone Ol",
+    "contact": "İletişim",
+    "about": "Hakkımızda",
+    "campaigns": "Kampanyalar",
+    "help": "Yardım",
+    "rights": "Tüm hakları saklıdır."
+  }
+}

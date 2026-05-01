@@ -2,13 +2,23 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, LoginCredentials, RegisterData } from '@/types';
 import * as googleAuth from '@/services/googleAuth';
-import { authApi, isMockMode } from '@/services/api';
+import { authApi, userApi, isMockMode } from '@/services/api';
 import { MOCK_USERS } from '@/data/mockUsers';
 import { checkPasswordStrength, isValidEmail, ClientRateLimiter } from '@/utils/security';
+import { analytics } from '@/lib/analytics';
 
 // Rate limiters for auth operations
 const loginRateLimiter = new ClientRateLimiter();
 const registerRateLimiter = new ClientRateLimiter();
+
+/** Cross-store logout callbacks — registered by other stores to clear their state on logout */
+const logoutCallbacks = new Set<() => void>();
+
+/** Register a callback to be called when the user logs out. Returns an unsubscribe function. */
+export function onLogout(callback: () => void): () => void {
+  logoutCallbacks.add(callback);
+  return () => logoutCallbacks.delete(callback);
+}
 
 interface Address {
   id: string;
@@ -38,6 +48,7 @@ interface AuthState {
   error: string | null;
   needsVerification: boolean;
   pendingVerificationEmail: string | null;
+  marketingConsent: boolean;
   
   // Actions
   login: (credentials: LoginCredentials) => Promise<boolean>;
@@ -73,6 +84,7 @@ export const useAuthStore = create<AuthState>()(
       error: null,
       needsVerification: false,
       pendingVerificationEmail: null,
+      marketingConsent: false,
 
       initAuth: async () => {
         console.log('[initAuth] Starting...');
@@ -170,6 +182,9 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true, 
             isLoading: false 
           });
+
+          // Analytics: Login event
+          analytics.login('email');
           
           // Mock mode'da kullanıcı rolünü MOCK_USERS'tan senkronize et
           if (isMockMode()) {
@@ -245,6 +260,7 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true, 
               isLoading: false 
             });
+            analytics.signUp('email');
             return true;
           }
 
@@ -254,6 +270,7 @@ export const useAuthStore = create<AuthState>()(
             pendingVerificationEmail: data.email,
             isLoading: false 
           });
+          analytics.signUp('email');
           return true;
         } catch (error: any) {
           console.error('Register error:', error);
@@ -335,6 +352,10 @@ export const useAuthStore = create<AuthState>()(
           error: null,
           needsVerification: false,
           pendingVerificationEmail: null
+        });
+        // Notify all registered stores to clear their user-specific state
+        logoutCallbacks.forEach((cb) => {
+          try { cb(); } catch (e) { /* ignore store errors during logout */ }
         });
       },
 
@@ -472,6 +493,7 @@ export const useAuthStore = create<AuthState>()(
                 isAuthenticated: true, 
                 isLoading: false 
               });
+              analytics.login('google');
               return true;
             }
             
@@ -513,6 +535,7 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true, 
               isLoading: false 
             });
+            analytics.signUp('google');
             return true;
           }
           
@@ -615,6 +638,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      updateMarketingConsent: (consent: boolean) => {
+        set({ marketingConsent: consent });
+      },
+
       updateUser: async (userData: Partial<User>) => {
         const { user } = get();
         if (!user) return false;
@@ -641,6 +668,9 @@ export const useAuthStore = create<AuthState>()(
           const currentAddresses = user.address || [];
           const updatedAddresses = [...currentAddresses, newAddress];
           
+          if (!isMockMode()) {
+            await userApi.updateProfile({ address: updatedAddresses });
+          }
           set({ user: { ...user, address: updatedAddresses } });
           return true;
         } catch (error) {
@@ -655,6 +685,9 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const updatedAddresses = user.address.filter(a => a.id !== addressId);
+          if (!isMockMode()) {
+            await userApi.updateProfile({ address: updatedAddresses });
+          }
           set({ user: { ...user, address: updatedAddresses } });
           return true;
         } catch (error) {
@@ -672,6 +705,9 @@ export const useAuthStore = create<AuthState>()(
             ...a,
             isDefault: a.id === addressId
           }));
+          if (!isMockMode()) {
+            await userApi.updateProfile({ address: updatedAddresses });
+          }
           set({ user: { ...user, address: updatedAddresses } });
           return true;
         } catch (error) {
@@ -705,6 +741,7 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         needsVerification: state.needsVerification,
         pendingVerificationEmail: state.pendingVerificationEmail,
+        marketingConsent: state.marketingConsent,
       }),
     }
   )

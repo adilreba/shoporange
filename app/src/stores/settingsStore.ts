@@ -134,6 +134,9 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'company-settings-storage',
+      partialize: (state) => ({
+        settings: state.settings,
+      }),
     }
   )
 );

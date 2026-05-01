@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuthStore } from '@/stores/authStore';
-import { useLiveChatStore } from '@/stores/liveChatStore';
+import { useChatStore } from '@/stores/chatStore';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { isChatMockMode } from '@/services/liveChatApi';
@@ -51,7 +51,7 @@ export default function AgentDashboard() {
     completeRequest,
     sendAgentMessage,
     fetchWaitingSessions
-  } = useLiveChatStore();
+  } = useChatStore();
 
   const [activeTab, setActiveTab] = useState<'waiting' | 'active'>('waiting');
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
@@ -333,7 +333,7 @@ export default function AgentDashboard() {
 
   // Test talebi oluştur
   const createTestRequest = () => {
-    const { requestAgent } = useLiveChatStore.getState();
+    const { requestAgent } = useChatStore.getState();
     requestAgent({
       userId: `test_${Date.now()}`,
       userName: 'Test Müşteri',

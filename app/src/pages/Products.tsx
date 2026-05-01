@@ -685,6 +685,7 @@ export function Products() {
     : `AtusHome'da ${filteredProducts.length} ürün arasından size uygun olanı bulun. Elektronik, moda, ev yaşam ve daha fazlası.`;
 
   return (
+    <>
     <div className="min-h-screen bg-background">
       <SEO 
         title={pageTitle}
@@ -926,5 +927,6 @@ export function Products() {
 
       <Footer />
     </div>
+    </>
   );
 }

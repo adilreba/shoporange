@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
+import { SEO } from '@/components/common/SEO';
 import { useAuthStore } from '@/stores/authStore';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 import { toast } from 'sonner';
@@ -69,6 +70,12 @@ export function Login() {
   };
 
   return (
+    <>
+      <SEO 
+        title="Giriş Yap - AtusHome"
+        description="AtusHome hesabınıza giriş yapın. Güvenli alışverişin keyfini çıkarın."
+        noindex
+      />
     <div className="min-h-screen bg-background">
       <Header />
       
@@ -198,5 +205,6 @@ export function Login() {
 
       <Footer />
     </div>
+    </>
   );
 }

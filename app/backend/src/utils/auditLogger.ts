@@ -72,14 +72,20 @@ export async function logAuditEvent(
       Item: entry,
     }));
 
-    // Also log to CloudWatch for real-time monitoring
-    console.log(`[AUDIT] ${entry.severity.toUpperCase()} ${entry.eventType}:`, {
+    // Also log to CloudWatch for real-time monitoring (structured JSON)
+    console.log(JSON.stringify({
+      level: 'audit',
+      severity: entry.severity,
+      eventType: entry.eventType,
       userId: entry.userId,
       action: entry.action,
       resource: entry.resource,
+      resourceId: entry.resourceId,
       success: entry.success,
       ipAddress: entry.ipAddress,
-    });
+      timestamp: entry.timestamp,
+      logId: entry.logId,
+    }));
   } catch (error) {
     console.error('Failed to write audit log:', error);
     // Don't throw - audit failure shouldn't break the main flow

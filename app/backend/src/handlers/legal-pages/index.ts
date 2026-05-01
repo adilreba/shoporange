@@ -1,12 +1,14 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { DynamoDB } from 'aws-sdk';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, ScanCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
-const dynamodb = new DynamoDB.DocumentClient();
+const client = new DynamoDBClient({});
+const dynamodb = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = process.env.LEGAL_PAGES_TABLE || 'AtusHome-LegalPages';
 
 const headers = {
   'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || 'https://atushome.com',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key',
 };
@@ -166,7 +168,7 @@ const DEFAULT_PAGES: Omit<LegalPage, 'id' | 'createdAt' | 'lastUpdated'>[] = [
 // Tüm listeleme (admin)
 export const listPages = async (): Promise<APIGatewayProxyResult> => {
   try {
-    const result = await dynamodb.scan({ TableName: TABLE_NAME }).promise();
+    const result = await dynamodb.send(new ScanCommand({ TableName: TABLE_NAME }));
     const pages = (result.Items || []).sort((a, b) => (a.order || 0) - (b.order || 0));
     
     return {
@@ -186,11 +188,11 @@ export const listPages = async (): Promise<APIGatewayProxyResult> => {
 // Public listeleme (sadece yayınlananlar)
 export const listPublicPages = async (): Promise<APIGatewayProxyResult> => {
   try {
-    const result = await dynamodb.scan({
+    const result = await dynamodb.send(new ScanCommand({
       TableName: TABLE_NAME,
       FilterExpression: 'isPublished = :published',
       ExpressionAttributeValues: { ':published': true },
-    }).promise();
+    }));
 
     const pages = (result.Items || [])
       .sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -216,12 +218,12 @@ export const getPageBySlug = async (event: APIGatewayProxyEvent): Promise<APIGat
     const slug = event.pathParameters?.slug;
     if (!slug) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Slug gerekli' }) };
 
-    const result = await dynamodb.query({
+    const result = await dynamodb.send(new QueryCommand({
       TableName: TABLE_NAME,
       IndexName: 'SlugIndex',
       KeyConditionExpression: 'slug = :slug',
       ExpressionAttributeValues: { ':slug': slug },
-    }).promise();
+    }));
 
     const page = result.Items?.[0];
     if (!page || (!page.isPublished && !event.headers.Authorization)) {
@@ -240,7 +242,7 @@ export const getPageById = async (event: APIGatewayProxyEvent): Promise<APIGatew
     const id = event.pathParameters?.id;
     if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID gerekli' }) };
 
-    const result = await dynamodb.get({ TableName: TABLE_NAME, Key: { id } }).promise();
+    const result = await dynamodb.send(new GetCommand({ TableName: TABLE_NAME, Key: { id } }));
     if (!result.Item) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Sayfa bulunamadı' }) };
 
     return { statusCode: 200, headers, body: JSON.stringify(result.Item) };
@@ -272,7 +274,7 @@ export const createPage = async (event: APIGatewayProxyEvent): Promise<APIGatewa
       order: data.order || 0,
     };
 
-    await dynamodb.put({ TableName: TABLE_NAME, Item: page }).promise();
+    await dynamodb.send(new PutCommand({ TableName: TABLE_NAME, Item: page }));
     return { statusCode: 201, headers, body: JSON.stringify(page) };
   } catch (error) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Oluşturulamadı' }) };
@@ -286,7 +288,7 @@ export const updatePage = async (event: APIGatewayProxyEvent): Promise<APIGatewa
     if (!id || !event.body) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID ve veri gerekli' }) };
 
     const data = JSON.parse(event.body);
-    const existing = await dynamodb.get({ TableName: TABLE_NAME, Key: { id } }).promise();
+    const existing = await dynamodb.send(new GetCommand({ TableName: TABLE_NAME, Key: { id } }));
     if (!existing.Item) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Sayfa bulunamadı' }) };
 
     const updated: LegalPage = {
@@ -296,7 +298,7 @@ export const updatePage = async (event: APIGatewayProxyEvent): Promise<APIGatewa
       lastUpdated: new Date().toISOString(),
     };
 
-    await dynamodb.put({ TableName: TABLE_NAME, Item: updated }).promise();
+    await dynamodb.send(new PutCommand({ TableName: TABLE_NAME, Item: updated }));
     return { statusCode: 200, headers, body: JSON.stringify(updated) };
   } catch (error) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Güncellenemedi' }) };
@@ -309,7 +311,7 @@ export const deletePage = async (event: APIGatewayProxyEvent): Promise<APIGatewa
     const id = event.pathParameters?.id;
     if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'ID gerekli' }) };
 
-    await dynamodb.delete({ TableName: TABLE_NAME, Key: { id } }).promise();
+    await dynamodb.send(new DeleteCommand({ TableName: TABLE_NAME, Key: { id } }));
     return { statusCode: 200, headers, body: JSON.stringify({ message: 'Silindi' }) };
   } catch (error) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Silinemedi' }) };
@@ -322,19 +324,19 @@ export const seedPages = async (): Promise<APIGatewayProxyResult> => {
     const now = new Date().toISOString();
 
     for (const defaultPage of DEFAULT_PAGES) {
-      const existing = await dynamodb.query({
+      const existing = await dynamodb.send(new QueryCommand({
         TableName: TABLE_NAME,
         IndexName: 'SlugIndex',
         KeyConditionExpression: 'slug = :slug',
         ExpressionAttributeValues: { ':slug': defaultPage.slug },
-      }).promise();
+      }));
 
       if (existing.Items?.length) continue;
 
-      await dynamodb.put({
+      await dynamodb.send(new PutCommand({
         TableName: TABLE_NAME,
         Item: { ...defaultPage, id: `legal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, createdAt: now, lastUpdated: now },
-      }).promise();
+      }));
     }
 
     return { statusCode: 200, headers, body: JSON.stringify({ message: 'Varsayılan sayfalar oluşturuldu' }) };

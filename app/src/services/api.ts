@@ -275,7 +275,7 @@ export const authApi = {
     });
   },
 
-  register: async (data: { email: string; password: string; name: string; phone?: string }) => {
+  register: async (data: { email: string; password: string; name: string; phone?: string; marketingConsent?: boolean }) => {
     if (isMockMode()) return mockRegister(data);
     return await fetchApi('/auth/register', {
       method: 'POST',
@@ -534,6 +534,12 @@ export const ordersApi = {
     email?: string;
     phone?: string;
     notes?: string;
+    legalConsents?: {
+      preInfoAccepted: boolean;
+      distanceSalesAccepted: boolean;
+      marketingConsent: boolean;
+      acceptedAt: string;
+    };
   }) => fetchApi('/orders', {
     method: 'POST',
     body: JSON.stringify(order),
@@ -548,6 +554,31 @@ export const ordersApi = {
     method: 'PUT',
     body: JSON.stringify({ status }),
   }),
+
+  downloadInvoice: async (id: string) => {
+    const headers: Record<string, string> = {};
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/orders/${id}/invoice`, {
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Fatura indirilemedi');
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fatura-${id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 // ====================

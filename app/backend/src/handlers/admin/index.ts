@@ -4,8 +4,10 @@ import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateComm
 import { SecretsManagerClient, GetSecretValueCommand, PutSecretValueCommand, CreateSecretCommand } from '@aws-sdk/client-secrets-manager';
 import { CognitoIdentityProviderClient, AdminAddUserToGroupCommand, AdminRemoveUserFromGroupCommand, AdminUpdateUserAttributesCommand, AdminListGroupsForUserCommand } from '@aws-sdk/client-cognito-identity-provider';
 import * as parasut from '../../services/parasut';
-import * as cognito from '../../services/cognito';
 import { checkAdminAccess, isSuperAdmin } from '../../utils/authorization';
+import { createErrorResponse, createSuccessResponse } from '../../utils/response';
+import { indexProduct, deleteProductIndex, bulkIndexProducts } from '../../utils/search';
+import { cacheDelPattern } from '../../utils/redis';
 
 // DynamoDB client - SDK v3
 const client = new DynamoDBClient({});
@@ -23,18 +25,6 @@ const headers = {
 };
 
 // Helper functions
-const createErrorResponse = (statusCode: number, message: string): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify({ error: message, timestamp: new Date().toISOString() }),
-});
-
-const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify(data),
-});
-
 // ========== PRODUCT MANAGEMENT ==========
 
 export const getAllProducts = async (): Promise<APIGatewayProxyResult> => {
@@ -149,6 +139,12 @@ export const createProduct = async (event: APIGatewayProxyEvent): Promise<APIGat
       Item: product
     }));
 
+    // OpenSearch index sync (async, non-blocking)
+    indexProduct(product).catch(err => console.error('[Admin] OpenSearch index error:', err));
+
+    // Cache invalidation (async, non-blocking)
+    cacheDelPattern('products:*').catch(err => console.error('[Admin] Cache clear error:', err));
+
     return createSuccessResponse({ message: 'Product created', product }, 201);
   } catch (error) {
     console.error('Error:', error);
@@ -190,6 +186,14 @@ export const updateProduct = async (event: APIGatewayProxyEvent): Promise<APIGat
       ReturnValues: 'ALL_NEW'
     }));
 
+    // OpenSearch index sync (async, non-blocking)
+    if (result.Attributes) {
+      indexProduct(result.Attributes).catch(err => console.error('[Admin] OpenSearch index error:', err));
+    }
+
+    // Cache invalidation (async, non-blocking)
+    cacheDelPattern('products:*').catch(err => console.error('[Admin] Cache clear error:', err));
+
     return createSuccessResponse({ message: 'Product updated', product: result.Attributes });
   } catch (error) {
     console.error('Error:', error);
@@ -209,10 +213,41 @@ export const deleteProduct = async (event: APIGatewayProxyEvent): Promise<APIGat
       Key: { id: productId }
     }));
 
+    // OpenSearch index delete (async, non-blocking)
+    deleteProductIndex(productId).catch(err => console.error('[Admin] OpenSearch delete error:', err));
+
+    // Cache invalidation (async, non-blocking)
+    cacheDelPattern('products:*').catch(err => console.error('[Admin] Cache clear error:', err));
+
     return createSuccessResponse({ message: 'Product deleted' });
   } catch (error) {
     console.error('Error:', error);
     return createErrorResponse(500, 'Failed to delete product');
+  }
+};
+
+export const reindexProducts = async (): Promise<APIGatewayProxyResult> => {
+  try {
+    // Tüm ürünleri DynamoDB'den çek
+    const result = await dynamodb.send(new ScanCommand({
+      TableName: PRODUCTS_TABLE,
+    }));
+
+    const products = result.Items || [];
+    if (products.length === 0) {
+      return createSuccessResponse({ message: 'No products to index', count: 0 });
+    }
+
+    // OpenSearch'e bulk indexle
+    await bulkIndexProducts(products);
+
+    return createSuccessResponse({
+      message: 'Products reindexed successfully',
+      count: products.length,
+    });
+  } catch (error) {
+    console.error('Reindex error:', error);
+    return createErrorResponse(500, 'Failed to reindex products');
   }
 };
 
@@ -441,6 +476,96 @@ export const seedData = async (): Promise<APIGatewayProxyResult> => {
   }
 };
 
+// ========== DASHBOARD STATS ==========
+
+export const getDashboardStats = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const days = parseInt(event.queryStringParameters?.days || '30');
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffISO = cutoffDate.toISOString();
+
+    // Siparişleri çek
+    const ordersResult = await dynamodb.send(new ScanCommand({
+      TableName: ORDERS_TABLE,
+    }));
+    const orders = ordersResult.Items || [];
+    const recentOrders = orders.filter((o: any) => o.createdAt >= cutoffISO);
+
+    const totalOrders = recentOrders.length;
+    const totalRevenue = recentOrders
+      .filter((o: any) => o.status === 'completed')
+      .reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+
+    const statusCounts: Record<string, number> = {};
+    recentOrders.forEach((o: any) => {
+      const status = o.status || 'unknown';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
+
+    // Kullanıcıları çek
+    const usersResult = await dynamodb.send(new ScanCommand({
+      TableName: USERS_TABLE,
+    }));
+    const users = usersResult.Items || [];
+    const totalUsers = users.length;
+    const newUsers = users.filter((u: any) => u.createdAt >= cutoffISO).length;
+
+    // Ürünleri çek
+    const productsResult = await dynamodb.send(new ScanCommand({
+      TableName: PRODUCTS_TABLE,
+    }));
+    const products = productsResult.Items || [];
+    const totalProducts = products.length;
+    const lowStockProducts = products
+      .filter((p: any) => (p.stock || 0) < 10)
+      .map((p: any) => ({ id: p.id, name: p.name, stock: p.stock }));
+
+    // Son 7 gün günlük satış (grafik için)
+    const dailySales: Record<string, { revenue: number; orders: number }> = {};
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      dailySales[key] = { revenue: 0, orders: 0 };
+    }
+
+    recentOrders.forEach((o: any) => {
+      const dateKey = (o.createdAt || '').split('T')[0];
+      if (dailySales[dateKey]) {
+        dailySales[dateKey].orders += 1;
+        if (o.status === 'completed') {
+          dailySales[dateKey].revenue += o.total || 0;
+        }
+      }
+    });
+
+    return createSuccessResponse({
+      period: { days, from: cutoffISO },
+      orders: {
+        total: totalOrders,
+        revenue: totalRevenue,
+        byStatus: statusCounts,
+      },
+      users: {
+        total: totalUsers,
+        new: newUsers,
+      },
+      products: {
+        total: totalProducts,
+        lowStock: lowStockProducts,
+        lowStockCount: lowStockProducts.length,
+      },
+      dailySales: Object.entries(dailySales)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, data]) => ({ date, ...data })),
+    });
+  } catch (error) {
+    console.error('Dashboard stats error:', error);
+    return createErrorResponse(500, 'Failed to get dashboard stats');
+  }
+};
+
 // ========== MAIN HANDLER ==========
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
@@ -457,10 +582,19 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const path = event.path;
   const method = event.httpMethod;
 
+  // Dashboard
+  if (path === '/admin/dashboard/stats' || path.endsWith('/admin/dashboard/stats')) {
+    if (method === 'GET') return getDashboardStats(event);
+  }
+
   // Products
   if (path === '/admin/products' || path.endsWith('/admin/products')) {
     if (method === 'GET') return getAllProducts();
     if (method === 'POST') return createProduct(event);
+  }
+
+  if (path === '/admin/products/reindex' || path.endsWith('/admin/products/reindex')) {
+    if (method === 'POST') return reindexProducts();
   }
 
   if (path.includes('/admin/products/') && path.split('/admin/products/')[1]) {

@@ -25,12 +25,14 @@ import {
   AlertCircle,
   MessageSquare,
   UserPlus,
-  ShoppingBag
+  ShoppingBag,
+  FlaskConical,
+  Mail
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useThemeStore } from '@/stores/themeStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useLiveChatStore } from '@/stores/liveChatStore';
+import { useChatStore } from '@/stores/chatStore';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,6 +67,8 @@ const allMenuItems: MenuItem[] = [
   { path: '/admin/categories', icon: Tag, label: 'Kategoriler', requiredPermission: 'content:edit' },
   { path: '/admin/settings', icon: Settings, label: 'Ayarlar', requiredPermission: 'settings:view' },
   { path: '/admin/audit-logs', icon: Shield, label: 'Denetim Kayıtları', requiredPermission: 'audit:view' },
+  { path: '/admin/ab-tests', icon: FlaskConical, label: 'A/B Testler', requiredPermission: 'settings:view' },
+  { path: '/admin/automation', icon: Mail, label: 'Otomasyon', requiredPermission: 'settings:view' },
   { path: '/admin/parasut', icon: FileText, label: 'e-Fatura (Paraşüt)', requiredPermission: 'settings:edit' },
 ];
 
@@ -90,7 +94,7 @@ export default function AdminLayout() {
   const { isDark, toggleTheme } = useThemeStore();
   const { user } = useAuthStore();
   const { can, isSuperAdmin } = usePermissions();
-  const { agentRequests, connect, isConnected, connectionStatus, fetchWaitingSessions } = useLiveChatStore();
+  const { agentRequests, connect, isConnected, connectionStatus, fetchWaitingSessions } = useChatStore();
 
   // Filter menu items based on user permissions
   const menuItems = allMenuItems.filter(item => {

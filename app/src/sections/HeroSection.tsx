@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useFeature } from '@growthbook/growthbook-react';
 
 const slides = [
   {
@@ -37,6 +38,7 @@ const slides = [
 ];
 
 export function HeroSection() {
+  const heroVariant = useFeature('homepage_hero_variant').value || 'static_image';
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [touchStart, setTouchStart] = useState(0);
@@ -106,13 +108,29 @@ export function HeroSection() {
               : 'opacity-0 scale-105'
           }`}
         >
-          {/* Background Image */}
-          <div 
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${slide.image})` }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent sm:from-black/70 sm:via-black/40" />
-          </div>
+          {/* Background Image / Video */}
+          {heroVariant === 'video' && index === 0 ? (
+            <div className="absolute inset-0 overflow-hidden">
+              <video
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover"
+                poster={slide.image}
+              >
+                <source src="https://cdn.coverr.co/videos/coverr-online-shopping-on-a-smartphone-4867/1080p.mp4" type="video/mp4" />
+              </video>
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent sm:from-black/70 sm:via-black/40" />
+            </div>
+          ) : (
+            <div 
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${slide.image})` }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent sm:from-black/70 sm:via-black/40" />
+            </div>
+          )}
 
           {/* Content */}
           <div className="relative h-full container-custom flex items-center">

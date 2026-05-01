@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ordersApi } from '@/services/api';
 import { toast } from 'sonner';
+import { useCartStore } from './cartStore';
+import { useStockStore } from './stockStore';
+import { analytics } from '@/lib/analytics';
 
 export interface StoreOrderItem {
   productId: string;
@@ -31,6 +34,12 @@ export interface StoreOrder {
   notes?: string;
   trackingNumber?: string;
   shippingCompany?: string;
+  legalConsents?: {
+    preInfoAccepted: boolean;
+    distanceSalesAccepted: boolean;
+    marketingConsent: boolean;
+    acceptedAt: string;
+  };
 }
 
 interface OrderState {
@@ -79,6 +88,7 @@ export const useOrderStore = create<OrderState>()(
             total: newOrder.total,
             paymentMethod: newOrder.paymentMethod,
             notes: newOrder.notes,
+            legalConsents: newOrder.legalConsents,
           });
           
           // API'den dönen order ID'yi kullan
@@ -93,6 +103,28 @@ export const useOrderStore = create<OrderState>()(
         set((state) => ({
           orders: [newOrder, ...state.orders],
         }));
+
+        // Analytics: Purchase event
+        analytics.purchase({
+          transaction_id: newOrder.id,
+          value: newOrder.total,
+          currency: 'TRY',
+          coupon: (newOrder as any).couponCode,
+          items: newOrder.items.map(item => ({
+            item_id: item.productId,
+            item_name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+        });
+
+        // Sipariş sonrası sepeti ve rezervasyonu temizle
+        try {
+          await useCartStore.getState().clearCart();
+          useStockStore.getState().clearReservation();
+        } catch (e) {
+          console.error('Post-order cleanup error:', e);
+        }
 
         return newOrder;
       },
@@ -289,6 +321,9 @@ export const useOrderStore = create<OrderState>()(
     }),
     {
       name: 'atushome-orders',
+      partialize: (state) => ({
+        orders: state.orders,
+      }),
     }
   )
 );

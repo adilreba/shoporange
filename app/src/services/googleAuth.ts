@@ -1,5 +1,20 @@
-import type { UserData, AuthTokens } from './cognito';
 import type { User } from '@/types';
+
+// Local type definitions (moved from deleted cognito.ts)
+interface UserData {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  [key: string]: any;
+}
+
+interface AuthTokens {
+  accessToken: string;
+  idToken: string;
+  refreshToken: string;
+  expiresAt: number;
+}
 
 // Google OAuth configuration
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';

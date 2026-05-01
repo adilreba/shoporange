@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { 
   Facebook, 
   Twitter, 
@@ -30,8 +31,10 @@ import { legalPagesPublicApi, type LegalPage } from '@/services/legalPagesApi';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 export function Footer() {
+  const { t } = useTranslation();
   const settings = useSettingsStore(state => state.settings);
   const [email, setEmail] = useState('');
+  const [subscribeConsent, setSubscribeConsent] = useState(false);
   const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
   const [legalPages, setLegalPages] = useState<Pick<LegalPage, 'slug' | 'title'>[]>([]);
   const [loadingPages, setLoadingPages] = useState(true);
@@ -59,8 +62,13 @@ export function Footer() {
       toast.error('Geçerli bir e-posta adresi girin');
       return;
     }
+    if (!subscribeConsent) {
+      toast.error('Lütfen elektronik iletişim iznini onaylayın');
+      return;
+    }
     toast.success('Bültenimize başarıyla abone oldunuz!');
     setEmail('');
+    setSubscribeConsent(false);
   };
 
   const handleSocialClick = (platform: string) => {
@@ -188,17 +196,31 @@ export function Footer() {
             </div>
             
             {/* Newsletter */}
-            <form onSubmit={handleSubscribe} className="flex gap-2 w-full sm:w-[380px] lg:w-[450px]">
-              <Input 
-                type="email" 
-                placeholder="E-posta adresiniz"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 text-sm h-10 flex-1"
-              />
-              <Button type="submit" className="gradient-orange whitespace-nowrap text-sm h-10 px-4">
-                Abone Ol
-              </Button>
+            <form onSubmit={handleSubscribe} className="space-y-3 w-full sm:w-[380px] lg:w-[450px]">
+              <div className="flex gap-2">
+                <Input 
+                  type="email" 
+                  placeholder="E-posta adresiniz"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 text-sm h-10 flex-1"
+                />
+                <Button type="submit" className="gradient-orange whitespace-nowrap text-sm h-10 px-4">
+                  {t('footer.subscribe')}
+                </Button>
+              </div>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={subscribeConsent}
+                  onChange={(e) => setSubscribeConsent(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-600 text-orange-600 focus:ring-orange-500"
+                />
+                <span className="text-xs text-gray-400 leading-relaxed">
+                  {t('footer.newsletter')} 
+                  <a href="/legal/kvkk" className="text-orange-400 hover:underline ml-1">KVKK Aydınlatma Metni</a>'ni okudum.
+                </span>
+              </label>
             </form>
           </div>
           
@@ -289,7 +311,7 @@ export function Footer() {
 
           {/* Contact - Dinamik */}
           <div>
-            <h4 className="font-semibold text-sm mb-3 text-white">İletişim</h4>
+            <h4 className="font-semibold text-sm mb-3 text-white">{t('footer.contact')}</h4>
             <ul className="space-y-2">
               <li>
                 <button 

@@ -10,7 +10,10 @@ import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { encryptObjectFields, decryptObjectFields, maskSensitiveData } from '../../utils/encryption';
 import { audit } from '../../utils/auditLogger';
-import { getClientIP, securityHeaders } from '../../utils/security';
+import { logLatency, logBusinessEvent, startTimer } from '../../utils/monitoring';
+import { getClientIP } from '../../utils/security';
+import { createErrorResponse, createSuccessResponse } from '../../utils/response';
+import { generateInvoicePDF } from '../../utils/pdf';
 import { getUserFromToken, requireAuth, requireStaff } from '../../utils/authorization';
 
 // DynamoDB client - SDK v3
@@ -27,24 +30,7 @@ const SMS_ORIGINATOR = process.env.SMS_ORIGINATOR || 'AtusHome';
 // PII fields to encrypt
 const ORDER_PII_FIELDS = ['shippingAddress', 'billingAddress', 'phone', 'email', 'fullName'];
 
-const headers = securityHeaders;
 
-// Helper functions
-const createErrorResponse = (statusCode: number, message: string, details?: any): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify({ 
-    error: message, 
-    details,
-    timestamp: new Date().toISOString() 
-  }),
-});
-
-const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify(data),
-});
 
 // Get user info from Cognito Authorizer claims
 const getUserInfo = (event: APIGatewayProxyEvent): { userId: string; email: string } => {
@@ -60,6 +46,37 @@ const getUserInfo = (event: APIGatewayProxyEvent): { userId: string; email: stri
 
 // Email templates for order notifications
 const emailTemplates: Record<string, (data: any) => { subject: string; body: string }> = {
+  order_created: (data) => ({
+    subject: `AtusHome - Siparişiniz Alındı #${data.orderNumber || data.orderId}`,
+    body: `Merhaba ${data.customerName || 'Değerli Müşterimiz'},
+
+Siparişiniz başarıyla alındı. Teşekkür ederiz!
+
+Sipariş No: ${data.orderNumber || data.orderId}
+Tarih: ${new Date(data.createdAt).toLocaleDateString('tr-TR')}
+Toplam Tutar: ${data.total?.toFixed(2)} TL
+Ödeme Yöntemi: ${data.paymentMethod || 'Kredi Kartı'}
+
+Sipariş detaylarınızı görüntülemek için hesabınıza giriş yapabilirsiniz.
+
+Teşekkürler,
+AtusHome Ekibi`
+  }),
+  payment_success: (data) => ({
+    subject: `AtusHome - Ödeme Başarılı #${data.orderNumber || data.orderId}`,
+    body: `Merhaba ${data.customerName || 'Değerli Müşterimiz'},
+
+Ödemeniz başarıyla tamamlandı. Siparişiniz hazırlanmaya başlandı.
+
+Sipariş No: ${data.orderNumber || data.orderId}
+Ödenen Tutar: ${data.total?.toFixed(2)} TL
+Ödeme Yöntemi: ${data.paymentMethod || 'Kredi Kartı'}
+
+Sipariş detaylarınızı görüntülemek için hesabınıza giriş yapabilirsiniz.
+
+Teşekkürler,
+AtusHome Ekibi`
+  }),
   order_status_update: (data) => ({
     subject: `AtusHome - Sipariş Durumu Güncellendi #${data.orderNumber || data.orderId}`,
     body: `Merhaba ${data.customerName || 'Değerli Müşterimiz'},
@@ -68,6 +85,7 @@ Siparişinizin durumu güncellendi.
 
 Sipariş No: ${data.orderNumber || data.orderId}
 Yeni Durum: ${data.status}
+${data.trackingNumber ? `Kargo Takip No: ${data.trackingNumber}` : ''}
 ${data.paymentStatus ? `Ödeme Durumu: ${data.paymentStatus}` : ''}
 
 Sipariş detaylarını görüntülemek için hesabınıza giriş yapabilirsiniz.
@@ -79,12 +97,16 @@ AtusHome Ekibi`
 
 // SMS templates for order notifications
 const smsTemplates: Record<string, (data: any) => string> = {
+  order_created: (data) =>
+    `AtusHome: Siparis #${data.orderNumber || data.orderId} alindi. Tutar: ${data.total?.toFixed(2)} TL. Tesekkurler!`,
   order_status_update: (data) => 
-    `AtusHome: Siparis #${data.orderNumber || data.orderId} durumu: ${data.status}. Bizi tercih ettiginiz icin tesekkurler!`
+    `AtusHome: Siparis #${data.orderNumber || data.orderId} durumu: ${data.status}. Bizi tercih ettiginiz icin tesekkurler!`,
+  payment_success: (data) =>
+    `AtusHome: Siparis #${data.orderNumber || data.orderId} odemesi tamamlandi. Tutar: ${data.total?.toFixed(2)} TL. Hazirlaniyor!`
 };
 
 // Send email via SES
-async function sendOrderEmail(to: string, template: string, data: any): Promise<{ success: boolean; messageId?: string; error?: string }> {
+export async function sendOrderEmail(to: string, template: string, data: any): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     const templateFn = emailTemplates[template];
     if (!templateFn) {
@@ -112,7 +134,7 @@ async function sendOrderEmail(to: string, template: string, data: any): Promise<
 }
 
 // Send SMS via SNS
-async function sendOrderSMS(phone: string, template: string, data: any): Promise<{ success: boolean; messageId?: string; error?: string }> {
+export async function sendOrderSMS(phone: string, template: string, data: any): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     // Format phone number (must start with country code)
     let formattedPhone = phone;
@@ -297,6 +319,79 @@ export const getOrders = async (event: APIGatewayProxyEvent): Promise<APIGateway
   }
 };
 
+export const generateInvoice = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const orderId = event.pathParameters?.id;
+    if (!orderId) {
+      return createErrorResponse(400, 'Order ID required');
+    }
+
+    const result = await dynamodb.send(new GetCommand({
+      TableName: ORDERS_TABLE,
+      Key: { id: orderId }
+    }));
+
+    if (!result.Item) {
+      return createErrorResponse(404, 'Order not found');
+    }
+
+    // Authorization: users can only view their own orders, staff can view all
+    const authUser = getUserFromToken(event);
+    if (authUser && authUser.userId !== result.Item.userId) {
+      try {
+        requireStaff(event);
+      } catch {
+        return createErrorResponse(403, 'You do not have permission to view this order');
+      }
+    }
+
+    // Decrypt PII fields
+    const order = await decryptObjectFields(result.Item, ORDER_PII_FIELDS);
+
+    const pdfBytes = await generateInvoicePDF({
+      orderId: order.id,
+      createdAt: order.createdAt,
+      customerName: order.fullName || order.customer || 'Müşteri',
+      customerEmail: order.email || '',
+      customerPhone: order.phone || '',
+      shippingAddress: order.shippingAddress || { street: '', city: '', postalCode: '' },
+      items: (order.items || []).map((item: any) => ({
+        name: item.name || 'Ürün',
+        quantity: item.quantity || 1,
+        price: item.price || 0,
+      })),
+      subtotal: order.subtotal || order.total * 0.8 || 0,
+      shippingCost: order.shippingCost || 0,
+      taxAmount: order.taxAmount || order.total * 0.2 || 0,
+      total: order.total || 0,
+      paymentMethod: order.paymentMethod || 'Kredi Kartı',
+      companyInfo: {
+        name: process.env.COMPANY_NAME || 'AtusHome',
+        address: process.env.COMPANY_ADDRESS || '',
+        taxOffice: process.env.COMPANY_TAX_OFFICE || '',
+        taxNumber: process.env.COMPANY_TAX_NUMBER || '',
+        phone: process.env.COMPANY_PHONE || '',
+        email: process.env.COMPANY_EMAIL || '',
+      },
+    });
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="fatura-${orderId}.pdf"`,
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+      },
+      body: Buffer.from(pdfBytes).toString('base64'),
+      isBase64Encoded: true,
+    };
+  } catch (error) {
+    console.error('Invoice generation error:', error);
+    return createErrorResponse(500, 'Failed to generate invoice');
+  }
+};
+
 export const getOrder = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     const orderId = event.pathParameters?.id;
@@ -319,11 +414,7 @@ export const getOrder = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
       try {
         requireStaff(event);
       } catch {
-        return {
-          statusCode: 403,
-          headers,
-          body: JSON.stringify({ error: 'You do not have permission to view this order' }),
-        };
+        return createErrorResponse(403, 'You do not have permission to view this order');
       }
     }
 
@@ -338,6 +429,7 @@ export const getOrder = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
 };
 
 export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  const timer = startTimer();
   try {
     if (!event.body) {
       return createErrorResponse(400, 'Request body required');
@@ -348,15 +440,11 @@ export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatew
     try {
       authUser = requireAuth(event);
     } catch {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ error: 'Authentication required' }),
-      };
+      return createErrorResponse(401, 'Authentication required');
     }
 
     const orderData = JSON.parse(event.body);
-    const { items, shippingAddress, billingAddress } = orderData;
+    const { items, shippingAddress, billingAddress, legalConsents } = orderData;
     const userId = authUser.userId;
     const email = authUser.email;
 
@@ -439,6 +527,7 @@ export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatew
       ...orderData,
       userId,
       email,
+      legalConsents: legalConsents || {},
       status: 'pending',
       paymentStatus: 'pending',
       createdAt: new Date().toISOString(),
@@ -509,7 +598,41 @@ export const createOrder = async (event: APIGatewayProxyEvent): Promise<APIGatew
 
     // Return decrypted data to user
     const decryptedOrder = await decryptObjectFields(encryptedOrder, ORDER_PII_FIELDS);
+
+    // Monitoring metrics
+    logLatency('createOrder', timer());
+    logBusinessEvent('ORDER_CREATED', 1, { orderId: decryptedOrder.id, total: String(decryptedOrder.total) });
     
+    // Sipariş onay bildirimleri (async, non-blocking)
+    // Kullanıcı tercihini USERS_TABLE'dan çek
+    (async () => {
+      try {
+        const userResult = await dynamodb.send(new GetCommand({
+          TableName: USERS_TABLE,
+          Key: { id: userId }
+        }));
+        const user = userResult.Item;
+        const preference = user?.notificationPreference || 'email';
+
+        await sendOrderNotification(
+          preference,
+          email,
+          decryptedOrder.phone,
+          'order_created',
+          {
+            orderId: decryptedOrder.id,
+            orderNumber: decryptedOrder.orderNumber || decryptedOrder.id,
+            customerName: decryptedOrder.fullName,
+            total: decryptedOrder.total,
+            paymentMethod: decryptedOrder.paymentMethod,
+            createdAt: decryptedOrder.createdAt,
+          }
+        );
+      } catch (notificationError) {
+        console.error('[Order] Notification error:', notificationError);
+      }
+    })();
+
     // Mask sensitive data in response
     const maskedOrder = maskSensitiveData(decryptedOrder, ['email', 'phone']);
 
@@ -680,13 +803,22 @@ export const updateOrderStatus = async (event: APIGatewayProxyEvent): Promise<AP
 // Main handler
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+    return createSuccessResponse({}, 200);
   }
 
   const path = event.path;
   const method = event.httpMethod;
 
-  if (path.includes('/orders/') && path.split('/orders/')[1]) {
+  // Parse path: /orders/{id}/invoice, /orders/{id}, /orders
+  const ordersPathMatch = path.match(/^\/orders(?:\/(.+))?\/?$/);
+  const subPath = ordersPathMatch?.[1];
+
+  if (subPath) {
+    const isInvoice = subPath.endsWith('/invoice');
+    const orderId = isInvoice ? subPath.replace('/invoice', '') : subPath;
+    event.pathParameters = { ...event.pathParameters, id: orderId };
+
+    if (isInvoice && method === 'GET') return generateInvoice(event);
     if (method === 'GET') return getOrder(event);
     if (method === 'PUT') return updateOrderStatus(event);
   }

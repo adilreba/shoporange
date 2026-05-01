@@ -31,12 +31,23 @@ import { useCompareStore } from '@/stores/compareStore';
 import { useRecentlyViewedStore } from '@/stores/recentlyViewedStore';
 import { useStockStore } from '@/stores/stockStore';
 import { toast } from 'sonner';
+import { analytics } from '@/lib/analytics';
+import { useFeature } from '@growthbook/growthbook-react';
 import { RecentlyViewed } from '@/components/product/RecentlyViewed';
 import { StockAlertButton } from '@/components/product/StockAlert';
 
 export function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  // A/B Test: Sepete Ekle buton rengi
+  const buttonColor = useFeature('cart_button_color').value || 'orange';
+  const buttonColorClasses: Record<string, string> = {
+    orange: 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-orange-500/25',
+    green: 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-green-500/25',
+    blue: 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-blue-500/25',
+  };
+  const buttonColorClass = buttonColorClasses[buttonColor as string] || buttonColorClasses.orange;
   const product = id ? getProductById(id) : undefined;
   
   const { addToCart } = useCartStore();
@@ -63,6 +74,13 @@ export function ProductDetail() {
     canAddToCart: (product?.stock || 0) > 0,
     error: null,
   });
+
+  // Track product view for analytics
+  useEffect(() => {
+    if (product) {
+      analytics.viewItem(product);
+    }
+  }, [product?.id]);
 
   // Check stock on mount and when product changes
   useEffect(() => {
@@ -467,7 +485,7 @@ export function ProductDetail() {
               {/* Add to Cart */}
               <Button 
                 size="lg"
-                className="flex-1 gradient-orange h-12 sm:h-14 text-base sm:text-lg"
+                className={`flex-1 h-12 sm:h-14 text-base sm:text-lg ${buttonColorClass}`}
                 onClick={handleAddToCart}
                 disabled={!stockInfo.canAddToCart || stockInfo.loading}
               >
@@ -560,7 +578,7 @@ export function ProductDetail() {
 
             {/* Add to Cart Button */}
             <Button 
-              className="flex-1 h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 shadow-lg shadow-orange-500/25 disabled:opacity-50 disabled:shadow-none"
+              className={`flex-1 h-12 rounded-xl text-base font-semibold text-white border-0 shadow-lg disabled:opacity-50 disabled:shadow-none ${buttonColorClass}`}
               onClick={handleAddToCart}
               disabled={!stockInfo.canAddToCart || stockInfo.loading}
             >

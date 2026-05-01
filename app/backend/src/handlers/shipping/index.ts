@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import * as yurtici from '../../services/yurticiKargo';
+import { createErrorResponse, createSuccessResponse } from '../../utils/response';
 
 const client = new DynamoDBClient({});
 const dynamodb = DynamoDBDocumentClient.from(client);
@@ -19,18 +20,6 @@ const headers = {
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
 };
-
-const createErrorResponse = (statusCode: number, message: string): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify({ error: message, timestamp: new Date().toISOString() }),
-});
-
-const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify(data),
-});
 
 /**
  * Yeni kargo oluştur

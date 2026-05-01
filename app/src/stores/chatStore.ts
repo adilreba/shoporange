@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { chatApi } from '@/services/api';
+import { getWaitingSessions } from '@/services/liveChatApi';
 
 // WebSocket URL
 const WS_URL = import.meta.env.VITE_CHAT_WS_URL || 'wss://faj6241vp7.execute-api.eu-west-1.amazonaws.com/prod';
@@ -8,16 +9,20 @@ const WS_URL = import.meta.env.VITE_CHAT_WS_URL || 'wss://faj6241vp7.execute-api
 interface Message {
   id: string;
   text: string;
-  sender: 'user' | 'bot' | 'agent';
+  sender: 'user' | 'bot' | 'agent' | 'system';
   timestamp: string;
   isRead?: boolean;
 }
 
 interface AgentRequest {
   id: string;
+  sessionId: string;
   userId: string;
+  customerId: string;
   userName: string;
+  customerName: string;
   userEmail: string;
+  customerEmail: string;
   timestamp: string;
   status: 'pending' | 'active' | 'completed' | 'disconnected';
   messages: Message[];
@@ -26,13 +31,17 @@ interface AgentRequest {
 interface ChatState {
   messages: Message[];
   isOpen: boolean;
+  isChatOpen: boolean;
   unreadCount: number;
   isAgentTyping: boolean;
+  isBotTyping: boolean;
   isConnected: boolean;
   connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected';
   agentName: string | null;
+  agentConnected: boolean;
   queuePosition: number | null;
   waitingForAgent: boolean;
+  botMode: boolean;
   
   // WebSocket
   ws: WebSocket | null;
@@ -42,34 +51,44 @@ interface ChatState {
   
   // Agent requests for admin panel
   agentRequests: AgentRequest[];
+  pendingRequests: AgentRequest[];
   activeSessions: AgentRequest[];
+  activeChats: AgentRequest[];
   
   // Actions
   setIsOpen: (isOpen: boolean) => void;
+  setChatOpen: (isOpen: boolean) => void;
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
   clearChat: () => void;
+  clearMessages: () => void;
   setAgentTyping: (isTyping: boolean) => void;
   
   // WebSocket Actions
   connect: (userId: string, type: 'customer' | 'agent', sessionId?: string) => void;
   disconnect: () => void;
+  reconnect: () => void;
   sendWebSocketMessage: (action: string, data?: any) => void;
   
   // Chat Actions
   sendMessage: (text: string) => void;
   sendTyping: () => void;
+  sendBotResponse: (userMessage: string) => void;
   closeSession: () => void;
+  closeChat: () => void;
   requestAgent: (userInfo?: { userId: string; userName: string; userEmail: string }) => void;
   markAsRead: () => void;
+  resetChat: () => void;
   
   // Admin actions
   getAgentRequests: () => AgentRequest[];
-  acceptRequest: (requestId: string) => void;
+  acceptRequest: (requestId: string, agentId?: string, agentName?: string) => void;
+  acceptChat: (sessionId: string, agentId: string) => void;
   completeRequest: (requestId: string) => void;
   agentAcceptedChat: (requestId: string, agentName: string) => void;
   sendAgentMessage: (requestId: string, text: string) => void;
   getSessionMessages: (requestId: string) => Message[];
   addCustomerMessage: (requestId: string, text: string) => void;
+  fetchWaitingSessions: () => Promise<void>;
 }
 
 // Mock bot responses
@@ -105,13 +124,17 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       messages: [],
       isOpen: false,
+      isChatOpen: false,
       unreadCount: 0,
       isAgentTyping: false,
+      isBotTyping: false,
       isConnected: false,
       connectionStatus: 'idle',
       agentName: null,
+      agentConnected: false,
       queuePosition: null,
       waitingForAgent: false,
+      botMode: true,
       
       // WebSocket
       ws: null,
@@ -121,10 +144,19 @@ export const useChatStore = create<ChatState>()(
       
       // Agent requests
       agentRequests: [],
+      pendingRequests: [],
       activeSessions: [],
+      activeChats: [],
 
       setIsOpen: (isOpen) => {
-        set({ isOpen });
+        set({ isOpen, isChatOpen: isOpen });
+        if (isOpen) {
+          get().markAsRead();
+        }
+      },
+
+      setChatOpen: (isOpen) => {
+        set({ isOpen, isChatOpen: isOpen });
         if (isOpen) {
           get().markAsRead();
         }
@@ -147,9 +179,15 @@ export const useChatStore = create<ChatState>()(
           messages: [],
           connectionStatus: 'idle',
           agentName: null,
+          agentConnected: false,
           queuePosition: null,
           waitingForAgent: false,
+          botMode: true,
         });
+      },
+
+      clearMessages: () => {
+        set({ messages: [], unreadCount: 0 });
       },
 
       setAgentTyping: (isTyping) => {
@@ -234,6 +272,7 @@ export const useChatStore = create<ChatState>()(
               ws: null,
               isConnected: false,
               connectionStatus: 'disconnected',
+              agentConnected: false,
             });
           };
           
@@ -248,6 +287,7 @@ export const useChatStore = create<ChatState>()(
               ws: null,
               isConnected: false,
               connectionStatus: 'disconnected',
+              agentConnected: false,
             });
           };
         } catch (error) {
@@ -270,7 +310,15 @@ export const useChatStore = create<ChatState>()(
           isConnected: false,
           connectionStatus: 'disconnected',
           agentName: null,
+          agentConnected: false,
         });
+      },
+
+      reconnect: () => {
+        const { userId, userType, sessionId } = get();
+        if (userId && userType) {
+          get().connect(userId, userType, sessionId || undefined);
+        }
       },
 
       sendWebSocketMessage: (action, data = {}) => {
@@ -312,7 +360,7 @@ export const useChatStore = create<ChatState>()(
       },
 
       sendMessage: (text) => {
-        const { waitingForAgent, isConnected, userType } = get();
+        const { waitingForAgent, isConnected, userType, agentConnected } = get();
         
         // Add user message locally
         get().addMessage({
@@ -325,8 +373,8 @@ export const useChatStore = create<ChatState>()(
           get().sendWebSocketMessage('send_message', { message: text });
         }
         
-        // If not waiting for agent, provide bot response
-        if (!waitingForAgent && userType !== 'agent') {
+        // If not waiting for agent and no agent connected, provide bot response
+        if (!waitingForAgent && !agentConnected && userType !== 'agent') {
           set({ isAgentTyping: true });
           
           setTimeout(() => {
@@ -347,6 +395,27 @@ export const useChatStore = create<ChatState>()(
         }
       },
 
+      sendBotResponse: (userMessage) => {
+        set({ isBotTyping: true });
+        const botResponse = findBotResponse(userMessage);
+        
+        setTimeout(() => {
+          const newMessage: Message = {
+            id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            text: botResponse,
+            sender: 'bot',
+            timestamp: new Date().toISOString(),
+            isRead: false,
+          };
+          
+          set((state) => ({
+            messages: [...state.messages, newMessage],
+            isBotTyping: false,
+            unreadCount: state.isOpen ? 0 : state.unreadCount + 1,
+          }));
+        }, 800 + Math.random() * 700);
+      },
+
       closeSession: () => {
         const { isConnected } = get();
         if (isConnected) {
@@ -355,9 +424,31 @@ export const useChatStore = create<ChatState>()(
         set({
           connectionStatus: 'disconnected',
           agentName: null,
+          agentConnected: false,
           queuePosition: null,
           waitingForAgent: false,
           sessionId: null,
+          botMode: true,
+        });
+      },
+
+      closeChat: () => {
+        const { ws, isConnected, sessionId } = get();
+        
+        if (isConnected && ws && sessionId) {
+          ws.send(JSON.stringify({
+            action: 'close_session',
+            sessionId
+          }));
+        }
+        
+        set({
+          agentConnected: false,
+          agentName: null,
+          waitingForAgent: false,
+          isConnected: false,
+          connectionStatus: 'disconnected',
+          botMode: true,
         });
       },
 
@@ -370,9 +461,13 @@ export const useChatStore = create<ChatState>()(
         // Create local request
         const newRequest: AgentRequest = {
           id: requestId,
+          sessionId: requestId,
           userId,
+          customerId: userId,
           userName,
+          customerName: userName,
           userEmail,
+          customerEmail: userEmail,
           timestamp: new Date().toISOString(),
           status: 'pending',
           messages: [{
@@ -386,7 +481,9 @@ export const useChatStore = create<ChatState>()(
         set((state) => ({ 
           waitingForAgent: true, 
           queuePosition: 1,
+          botMode: false,
           agentRequests: [...state.agentRequests, newRequest],
+          pendingRequests: [...state.pendingRequests, newRequest],
           userId,
         }));
         
@@ -430,30 +527,55 @@ export const useChatStore = create<ChatState>()(
         return get().agentRequests;
       },
 
-      acceptRequest: (requestId: string) => {
+      acceptRequest: (requestId: string, _agentId?: string, agentName?: string) => {
         const { userId } = get();
         
         set((state) => {
           // Already active
           if (state.activeSessions.some(req => req.id === requestId)) {
-            return { agentRequests: state.agentRequests };
+            return { agentRequests: state.agentRequests, pendingRequests: state.pendingRequests };
           }
           
           const request = state.agentRequests.find(req => req.id === requestId);
-          if (!request) return { agentRequests: state.agentRequests };
+          if (!request) return { agentRequests: state.agentRequests, pendingRequests: state.pendingRequests };
           
           // Connect to WebSocket as agent with this session
           if (userId) {
             get().connect(userId, 'agent', requestId);
           }
           
+          // Send accept_chat via WebSocket
+          setTimeout(() => {
+            get().sendWebSocketMessage('accept_chat', {
+              sessionId: requestId,
+              agentId: _agentId || userId,
+              agentName: agentName || state.agentName || 'Temsilci',
+              customerId: request.customerId,
+              customerName: request.customerName,
+              customerEmail: request.customerEmail,
+            });
+          }, 300);
+          
+          const updatedRequest: AgentRequest = { 
+            ...request, 
+            status: 'active' as const,
+          };
+          
           return {
             agentRequests: state.agentRequests.map(req =>
-              req.id === requestId ? { ...req, status: 'active' as const } : req
+              req.id === requestId ? updatedRequest : req
             ),
-            activeSessions: [...state.activeSessions, { ...request, status: 'active' as const }],
+            pendingRequests: state.pendingRequests.filter(req => req.id !== requestId),
+            activeSessions: [...state.activeSessions, updatedRequest],
+            activeChats: [...state.activeChats, updatedRequest],
+            agentConnected: true,
+            botMode: false,
           };
         });
+      },
+
+      acceptChat: (sessionId: string, agentId: string) => {
+        get().acceptRequest(sessionId, agentId, 'Temsilci');
       },
 
       completeRequest: (requestId: string) => {
@@ -468,7 +590,10 @@ export const useChatStore = create<ChatState>()(
           agentRequests: state.agentRequests.map(req =>
             req.id === requestId ? { ...req, status: 'completed' as const } : req
           ),
+          pendingRequests: state.pendingRequests.filter(req => req.id !== requestId),
           activeSessions: state.activeSessions.filter(req => req.id !== requestId),
+          activeChats: state.activeChats.filter(req => req.id !== requestId),
+          agentConnected: false,
         }));
       },
 
@@ -488,15 +613,31 @@ export const useChatStore = create<ChatState>()(
             messages: [...state.messages, agentConnectedMessage],
             waitingForAgent: false,
             agentName: agentName,
+            agentConnected: true,
+            botMode: false,
             agentRequests: state.agentRequests.map(req =>
               req.id === requestId 
                 ? { ...req, status: 'active' as const, messages: [...req.messages, agentConnectedMessage] } 
                 : req
             ),
+            pendingRequests: state.pendingRequests.filter(req => req.id !== requestId),
             activeSessions: state.activeSessions.map(req =>
               req.id === requestId 
                 ? { ...req, status: 'active' as const, messages: [...req.messages, agentConnectedMessage] } 
                 : req
+            ).concat(
+              state.activeSessions.some(req => req.id === requestId) 
+                ? [] 
+                : [{ ...request, status: 'active' as const, messages: [...request.messages, agentConnectedMessage] }]
+            ),
+            activeChats: state.activeChats.map(req =>
+              req.id === requestId 
+                ? { ...req, status: 'active' as const, messages: [...req.messages, agentConnectedMessage] } 
+                : req
+            ).concat(
+              state.activeChats.some(req => req.id === requestId) 
+                ? [] 
+                : [{ ...request, status: 'active' as const, messages: [...request.messages, agentConnectedMessage] }]
             ),
           };
         });
@@ -528,7 +669,17 @@ export const useChatStore = create<ChatState>()(
               ? { ...req, messages: [...req.messages, newMessage] } 
               : req
           ),
+          pendingRequests: state.pendingRequests.map(req =>
+            req.id === requestId 
+              ? { ...req, messages: [...req.messages, newMessage] } 
+              : req
+          ),
           activeSessions: state.activeSessions.map(req =>
+            req.id === requestId 
+              ? { ...req, messages: [...req.messages, newMessage] } 
+              : req
+          ),
+          activeChats: state.activeChats.map(req =>
             req.id === requestId 
               ? { ...req, messages: [...req.messages, newMessage] } 
               : req
@@ -577,12 +728,81 @@ export const useChatStore = create<ChatState>()(
                 ? { ...req, messages: [...req.messages, newMessage] } 
                 : req
             ),
+            pendingRequests: state.pendingRequests.map(req =>
+              req.id === requestId 
+                ? { ...req, messages: [...req.messages, newMessage] } 
+                : req
+            ),
             activeSessions: state.activeSessions.map(req =>
               req.id === requestId 
                 ? { ...req, messages: [...req.messages, newMessage] } 
                 : req
             ),
+            activeChats: state.activeChats.map(req =>
+              req.id === requestId 
+                ? { ...req, messages: [...req.messages, newMessage] } 
+                : req
+            ),
           };
+        });
+      },
+
+      fetchWaitingSessions: async () => {
+        console.log('[ChatStore] fetchWaitingSessions called');
+        const result = await getWaitingSessions();
+        console.log('[ChatStore] getWaitingSessions result:', result);
+        if (result.success && result.data) {
+          console.log('[ChatStore] Found', result.data.length, 'waiting sessions');
+          set((state) => {
+            const newRequests = result.data!.filter(
+              session => !state.agentRequests.some(r => r.id === session.sessionId)
+            ).map(session => ({
+              id: session.sessionId,
+              sessionId: session.sessionId,
+              customerId: session.customerId,
+              customerName: session.customerName || 'Misafir Kullanıcı',
+              customerEmail: session.customerEmail || '',
+              userId: session.customerId || '',
+              userName: session.customerName || 'Misafir Kullanıcı',
+              userEmail: session.customerEmail || '',
+              timestamp: session.createdAt,
+              status: 'pending' as const,
+              messages: (session.messages || []).map((msg: any) => ({
+                id: msg.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                text: msg.text || msg.content || '',
+                sender: (msg.sender === 'agent' ? 'agent' : msg.sender === 'system' ? 'system' : 'user') as Message['sender'],
+                timestamp: msg.timestamp || new Date().toISOString(),
+                isRead: msg.isRead ?? false,
+              })),
+            }));
+
+            console.log('[ChatStore] Adding', newRequests.length, 'new requests');
+            return {
+              agentRequests: [...state.agentRequests, ...newRequests],
+              pendingRequests: [...state.pendingRequests, ...newRequests],
+            };
+          });
+        }
+      },
+
+      resetChat: () => {
+        const { sessionId, isConnected } = get();
+        
+        if (sessionId && isConnected) {
+          console.log('[ChatStore] Closing session before disconnect:', sessionId);
+          get().sendWebSocketMessage('close_session', { sessionId });
+        }
+        
+        get().disconnect();
+        set({
+          messages: [],
+          sessionId: null,
+          agentConnected: false,
+          agentName: null,
+          waitingForAgent: false,
+          queuePosition: null,
+          botMode: true,
+          unreadCount: 0,
         });
       },
     }),
@@ -613,8 +833,10 @@ function handleWebSocketMessage(
     case 'agent_assigned':
     case 'agent_joined':
       set({ 
-        agentName: data.agentId || 'Temsilci',
+        agentName: data.agentId || data.agentName || 'Temsilci',
         waitingForAgent: false,
+        agentConnected: true,
+        botMode: false,
       });
       get().addMessage({
         text: data.message || 'Müşteri temsilcimiz bağlandı. Size nasıl yardımcı olabilirim?',
@@ -628,7 +850,7 @@ function handleWebSocketMessage(
         const newMessage: Message = {
           id: msg.messageId || `msg_${Date.now()}`,
           text: msg.content || msg.text,
-          sender: msg.senderType === 'agent' ? 'agent' : msg.senderType === 'customer' ? 'user' : 'bot',
+          sender: msg.senderType === 'agent' ? 'agent' : msg.senderType === 'customer' ? 'user' : msg.senderType === 'system' ? 'system' : 'bot',
           timestamp: msg.timestamp || new Date().toISOString(),
         };
         
@@ -640,6 +862,11 @@ function handleWebSocketMessage(
         if (userType === 'agent' && msg.sessionId) {
           set((state: ChatState) => ({
             activeSessions: state.activeSessions.map(req =>
+              req.id === msg.sessionId 
+                ? { ...req, messages: [...req.messages, newMessage] } 
+                : req
+            ),
+            activeChats: state.activeChats.map(req =>
               req.id === msg.sessionId 
                 ? { ...req, messages: [...req.messages, newMessage] } 
                 : req
@@ -681,6 +908,7 @@ function handleWebSocketMessage(
       set({ 
         agentName: null,
         waitingForAgent: true,
+        agentConnected: false,
       });
       break;
       
@@ -696,14 +924,38 @@ function handleWebSocketMessage(
         sessionId: null,
         isConnected: false,
         ws: null,
+        agentConnected: false,
+        botMode: true,
       });
       break;
       
     case 'new_waiting_customer':
       // Agent tarafında yeni müşteri bildirimi
       if (userType === 'agent') {
-        // Trigger a refresh of waiting sessions
-        console.log('[WebSocket] New waiting customer:', data);
+        if (data.sessionId) {
+          set((state: ChatState) => {
+            if (state.agentRequests.some(r => r.id === data.sessionId)) {
+              return state;
+            }
+            const newRequest: AgentRequest = {
+              id: data.sessionId,
+              sessionId: data.sessionId,
+              customerId: data.customerId,
+              customerName: data.customerName || 'Misafir Kullanıcı',
+              customerEmail: data.customerEmail || '',
+              userId: data.customerId || '',
+              userName: data.customerName || 'Misafir Kullanıcı',
+              userEmail: data.customerEmail || '',
+              timestamp: new Date().toISOString(),
+              status: 'pending',
+              messages: [],
+            };
+            return {
+              agentRequests: [...state.agentRequests, newRequest],
+              pendingRequests: [...state.pendingRequests, newRequest],
+            };
+          });
+        }
       }
       break;
       
@@ -716,3 +968,16 @@ function handleWebSocketMessage(
       console.log('[WebSocket] Unknown message type:', data.type);
   }
 }
+
+// Auto-reconnect on window focus
+if (typeof window !== 'undefined') {
+  window.addEventListener('focus', () => {
+    const state = useChatStore.getState();
+    if (state.userId && state.userType && !state.isConnected && state.connectionStatus !== 'connecting') {
+      console.log('[ChatStore] Auto-reconnecting...');
+      state.reconnect();
+    }
+  });
+}
+
+export default useChatStore;

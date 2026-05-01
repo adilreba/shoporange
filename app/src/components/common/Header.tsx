@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { 
   Search, 
   ShoppingCart, 
@@ -54,6 +55,7 @@ const isEmoji = (str: string): boolean => {
 };
 
 export function Header() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { isDark, toggleTheme } = useThemeStore();
@@ -176,14 +178,14 @@ export function Header() {
                       className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      <span className="text-lg">🏠</span> Ana Sayfa
+                      <span className="text-lg">🏠</span> {t('nav.home')}
                     </Link>
                     <Link 
                       to="/products" 
                       className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      <span className="text-lg">📦</span> Tüm Ürünler
+                      <span className="text-lg">📦</span> {t('nav.products')}
                     </Link>
                     {isAuthenticated && isStaffUser && (
                       <Link 
@@ -223,7 +225,7 @@ export function Header() {
                             setIsMobileMenuOpen(false);
                           }}
                         >
-                          Giriş Yap
+                          {t('nav.login')}
                         </Button>
                         <Button 
                           variant="outline" 
@@ -233,7 +235,7 @@ export function Header() {
                             setIsMobileMenuOpen(false);
                           }}
                         >
-                          Kayıt Ol
+                          {t('nav.register')}
                         </Button>
                       </div>
                     )}
@@ -371,7 +373,7 @@ export function Header() {
                     <DropdownMenuItem onClick={() => navigate('/wishlist')} className="flex items-center justify-between">
                       <span className="flex items-center gap-2">
                         <Heart className="h-4 w-4" />
-                        Favorilerim
+                        {t('nav.favorites')}
                       </span>
                       {wishlistCount > 0 && (
                         <Badge className="bg-red-500 text-white text-xs px-2">{wishlistCount}</Badge>
@@ -380,7 +382,7 @@ export function Header() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate('/orders')}>
                       <Package className="h-4 w-4 mr-2" />
-                      Siparişlerim
+                      {t('nav.orders')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/support')}>
                       <MessageCircle className="h-4 w-4 mr-2" />
@@ -400,7 +402,7 @@ export function Header() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/profile')}>
                       <User className="h-4 w-4 mr-2" />
-                      Profilim
+                      {t('nav.profile')}
                     </DropdownMenuItem>
                     {isAuthenticated && isStaffUser && (
                       <DropdownMenuItem onClick={() => navigate('/admin')}>
@@ -482,7 +484,7 @@ export function Header() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                       <LogOut className="mr-2 h-4 w-4" />
-                      Çıkış Yap
+                      {t('nav.logout')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -523,7 +525,7 @@ export function Header() {
                   to="/products" 
                   className="px-[clamp(0.75rem,2vw,1rem)] py-[clamp(0.375rem,1vw,0.5rem)] rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors font-medium text-[clamp(0.75rem,1vw,0.875rem)] text-gray-700 dark:text-gray-200 hover:text-orange-600 dark:hover:text-orange-400"
                 >
-                  Tüm Ürünler
+                  {t('nav.products')}
                 </Link>
               </li>
               {categories.slice(0, 6).map((cat) => (

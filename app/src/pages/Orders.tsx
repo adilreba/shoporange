@@ -3,13 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   Package, 
   Search, 
- 
   Clock, 
   CheckCircle, 
   Truck, 
   XCircle,
   MapPin,
-  Eye
+  Eye,
+  FileDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
 import { useAuthStore } from '@/stores/authStore';
 import { useOrderStore } from '@/stores/orderStore';
+import { ordersApi } from '@/services/api';
 import { toast } from 'sonner';
 
 export function Orders() {
@@ -228,6 +229,21 @@ export function Orders() {
                                   onClick={() => toast.info('Sipariş detayları yakında!')}
                                 >
                                   Detaylar
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      await ordersApi.downloadInvoice(order.id);
+                                      toast.success('Fatura indiriliyor...');
+                                    } catch (error) {
+                                      toast.error('Fatura indirilemedi');
+                                    }
+                                  }}
+                                >
+                                  <FileDown className="w-4 h-4 mr-1" />
+                                  Fatura
                                 </Button>
                               </div>
                             </div>

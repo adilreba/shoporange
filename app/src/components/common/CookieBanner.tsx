@@ -1,6 +1,9 @@
 /**
  * KVKK Çerez Politikası Banner
  * Kullanıcı çerez kullanımına onay vermeden önce gösterilir
+ * 
+ * Güncellendi: GA4 + GTM + Facebook Pixel + Hotjar + Clarity desteği
+ * Cookie consent değiştiğinde analytics.updateConsent() çağrılır
  */
 
 import { useState, useEffect } from 'react';
@@ -15,8 +18,9 @@ import {
 } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Link } from 'react-router-dom';
+import { analytics } from '@/lib/analytics';
 
-interface CookiePreferences {
+export interface CookiePreferences {
   necessary: boolean;
   analytics: boolean;
   marketing: boolean;
@@ -40,15 +44,17 @@ export function CookieBanner() {
     // LocalStorage'dan kullanıcı tercihini kontrol et
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.accepted) {
-        setIsVisible(false);
-        setPreferences(parsed);
-        // Google Analytics'i yükle (eğer analytics onaylıysa)
-        if (parsed.analytics) {
-          loadGoogleAnalytics();
+      try {
+        const parsed: CookiePreferences = JSON.parse(saved);
+        if (parsed.accepted) {
+          setIsVisible(false);
+          setPreferences(parsed);
+          // Kayıtlı tercihleri analytics'e bildir (sayfa refresh sonrası)
+          analytics.updateConsent(parsed);
+        } else {
+          setIsVisible(true);
         }
-      } else {
+      } catch {
         setIsVisible(true);
       }
     } else {
@@ -57,30 +63,8 @@ export function CookieBanner() {
     }
   }, []);
 
-  const loadGoogleAnalytics = () => {
-    // Google Analytics yükleme fonksiyonu
-    const gtagId = import.meta.env.VITE_GA_ID;
-    if (!gtagId) return;
-
-    // Script ekle
-    const script1 = document.createElement('script');
-    script1.async = true;
-    script1.src = `https://www.googletagmanager.com/gtag/js?id=${gtagId}`;
-    document.head.appendChild(script1);
-
-    // Gtag config
-    const script2 = document.createElement('script');
-    script2.innerHTML = `
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', '${gtagId}', { 'anonymize_ip': true });
-    `;
-    document.head.appendChild(script2);
-  };
-
   const savePreferences = (prefs: CookiePreferences) => {
-    const data = {
+    const data: CookiePreferences = {
       ...prefs,
       timestamp: new Date().toISOString(),
     };
@@ -88,10 +72,9 @@ export function CookieBanner() {
     setPreferences(prefs);
     setIsVisible(false);
 
-    // Analytics çerezleri onaylandıysa yükle
-    if (prefs.analytics) {
-      loadGoogleAnalytics();
-    }
+    // Analytics service'e consent güncellemesini bildir
+    // Bu fonksiyon GA4 consent mode'u günceller ve izin verilen servisleri yükler
+    analytics.updateConsent(prefs);
   };
 
   const handleAcceptAll = () => {
@@ -230,7 +213,7 @@ export function CookieBanner() {
                   Analitik Çerezler
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Site kullanımını analiz etmek ve performansı iyileştirmek için kullanılır. Google Analytics dahildir.
+                  Site kullanımını analiz etmek ve performansı iyileştirmek için kullanılır. Google Analytics, Microsoft Clarity ve Hotjar dahildir.
                 </p>
               </div>
               <Switch 
@@ -248,7 +231,7 @@ export function CookieBanner() {
                   Pazarlama Çerezleri
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Size özel reklamlar göstermek ve pazarlama kampanyalarını optimize etmek için kullanılır.
+                  Size özel reklamlar göstermek ve pazarlama kampanyalarını optimize etmek için kullanılır. Facebook Pixel ve Google Ads dahildir.
                 </p>
               </div>
               <Switch 

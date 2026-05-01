@@ -14,6 +14,7 @@ interface StockAlertState {
   removeAlert: (productId: string, email: string) => void;
   hasAlert: (productId: string, email: string) => boolean;
   getUserAlerts: (email: string) => StockAlert[];
+  clearAll: () => void;
 }
 
 export const useStockAlertStore = create<StockAlertState>()(
@@ -56,9 +57,22 @@ export const useStockAlertStore = create<StockAlertState>()(
       getUserAlerts: (email: string) => {
         return get().alerts.filter((alert) => alert.email === email);
       },
+
+      clearAll: () => {
+        set({ alerts: [] });
+      },
     }),
     {
       name: 'stock-alert-storage',
+      partialize: (state) => ({
+        alerts: state.alerts,
+      }),
     }
   )
 );
+
+// Clear stock alerts on logout
+import { onLogout } from './authStore';
+onLogout(() => {
+  useStockAlertStore.getState().clearAll();
+});

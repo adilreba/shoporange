@@ -1,5 +1,16 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import * as iyzico from '../../services/iyzico';
+import { createErrorResponse, createSuccessResponse } from '../../utils/response';
+import { sendOrderEmail, sendOrderSMS } from '../../handlers/orders';
+import { audit } from '../../utils/auditLogger';
+import { logMetric } from '../../utils/monitoring';
+
+const client = new DynamoDBClient({});
+const dynamodb = DynamoDBDocumentClient.from(client);
+const ORDERS_TABLE = process.env.ORDERS_TABLE || '';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@atushome.com';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
@@ -11,18 +22,6 @@ const headers = {
 };
 
 // Helper functions
-const createErrorResponse = (statusCode: number, message: string): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify({ error: message, timestamp: new Date().toISOString() }),
-});
-
-const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify(data),
-});
-
 export const createPaymentIntent = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     if (!event.body) {
@@ -210,7 +209,7 @@ export const iyzicoVerifyPayment = async (event: APIGatewayProxyEvent): Promise<
       return createErrorResponse(400, 'Request body required');
     }
 
-    const { paymentId, conversationData, conversationId } = JSON.parse(event.body);
+    const { paymentId, conversationData, conversationId, orderId } = JSON.parse(event.body);
 
     if (!paymentId || !conversationId) {
       return createErrorResponse(400, 'Payment ID and Conversation ID required');
@@ -223,7 +222,80 @@ export const iyzicoVerifyPayment = async (event: APIGatewayProxyEvent): Promise<
     });
 
     if (!result.success) {
+      // Audit log for failed payment
+      audit.paymentAttempt({
+        userId: 'unknown',
+        email: 'unknown',
+        ipAddress: event.requestContext?.identity?.sourceIp || '',
+        orderId: orderId || 'unknown',
+        amount: 0,
+        paymentMethod: 'iyzico',
+        success: false,
+        errorMessage: result.error || 'Ödeme doğrulanamadı',
+      }).catch(() => {});
+
       return createErrorResponse(400, result.error || 'Ödeme doğrulanamadı');
+    }
+
+    // Siparişi güncelle (eğer orderId varsa)
+    if (orderId && ORDERS_TABLE) {
+      try {
+        const orderResult = await dynamodb.send(new GetCommand({
+          TableName: ORDERS_TABLE,
+          Key: { id: orderId },
+        }));
+
+        const order = orderResult.Item;
+        if (order) {
+          await dynamodb.send(new UpdateCommand({
+            TableName: ORDERS_TABLE,
+            Key: { id: orderId },
+            UpdateExpression: 'SET #status = :status, paymentStatus = :paymentStatus, paidAt = :paidAt, updatedAt = :updatedAt, paymentMethod = :paymentMethod',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: {
+              ':status': 'processing',
+              ':paymentStatus': 'completed',
+              ':paidAt': new Date().toISOString(),
+              ':updatedAt': new Date().toISOString(),
+              ':paymentMethod': 'iyzico',
+            },
+          }));
+
+          // Bildirim gönder
+          if (order.email) {
+            sendOrderEmail(order.email, 'payment_success', {
+              orderId: order.id,
+              orderNumber: order.id,
+              customerName: order.fullName || order.customer,
+              total: order.total,
+              paymentMethod: 'iyzico',
+            }).catch(err => console.error('[Payment] Email error:', err));
+          }
+          if (order.phone) {
+            sendOrderSMS(order.phone, 'order_status_update', {
+              orderId: order.id,
+              orderNumber: order.id,
+              status: 'Ödeme Tamamlandı - Hazırlanıyor',
+            }).catch(err => console.error('[Payment] SMS error:', err));
+          }
+
+          // Audit log
+          audit.paymentAttempt({
+            userId: order.userId || 'unknown',
+            email: order.email || 'unknown',
+            ipAddress: event.requestContext?.identity?.sourceIp || '',
+            orderId: order.id,
+            amount: order.total || 0,
+            paymentMethod: 'iyzico',
+            success: true,
+          }).catch(() => {});
+
+          logMetric('PAYMENT_SUCCESS', 1, 'Count', { paymentMethod: 'iyzico', orderId: order.id });
+        }
+      } catch (orderError) {
+        console.error('[Payment] Order update error:', orderError);
+        // Don't fail the payment verification if order update fails
+      }
     }
 
     return createSuccessResponse({

@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
+import { SEO } from '@/components/common/SEO';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 
@@ -25,6 +26,7 @@ export function Register() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +94,8 @@ export function Register() {
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
-      password: formData.password
+      password: formData.password,
+      marketingConsent
     });
     
     if (success) {
@@ -123,6 +126,12 @@ export function Register() {
   };
 
   return (
+    <>
+      <SEO 
+        title="Kayıt Ol - AtusHome"
+        description="AtusHome'a üye olun. Hızlı teslimat, güvenli ödeme ve özel kampanyalardan yararlanın."
+        noindex
+      />
     <div className="min-h-screen bg-background">
       <Header />
       
@@ -271,24 +280,36 @@ export function Register() {
                 />
                 <span className="text-sm text-muted-foreground">
                   <Link 
-                    to="/legal/on-bilgilendirme-formu" 
+                    to="/pre-information" 
                     className="text-orange-600 hover:underline"
                     target="_blank"
                     rel="noopener noreferrer"
                   >Ön Bilgilendirme Formu</Link>,{' '}
                   <Link 
-                    to="/legal/mesafeli-satis-sozlesmesi" 
+                    to="/distance-sales-contract" 
                     className="text-orange-600 hover:underline"
                     target="_blank"
                     rel="noopener noreferrer"
                   >Mesafeli Satış Sözleşmesi</Link>'ni ve{' '}
                   <Link 
-                    to="/legal/gizlilik-politikasi" 
+                    to="/privacy" 
                     className="text-orange-600 hover:underline"
                     target="_blank"
                     rel="noopener noreferrer"
                   >Gizlilik Politikası</Link>'nı okudum ve kabul ediyorum.
                   <span className="text-xs text-gray-400 block mt-1">(Yeni sekmede açılır)</span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-2 cursor-pointer">
+                <Checkbox 
+                  checked={marketingConsent}
+                  onCheckedChange={(checked) => setMarketingConsent(checked as boolean)}
+                  className="mt-1"
+                />
+                <span className="text-sm text-muted-foreground">
+                  Kampanya, indirim ve yeni ürünlerden haberdar olmak için elektronik iletişim izni veriyorum.
+                  <span className="text-xs text-gray-400 block mt-1">(İsteğe bağlı)</span>
                 </span>
               </label>
 
@@ -336,5 +357,6 @@ export function Register() {
 
       <Footer />
     </div>
+    </>
   );
 }

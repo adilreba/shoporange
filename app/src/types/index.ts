@@ -271,6 +271,7 @@ export interface RegisterData {
   email: string;
   password: string;
   phone?: string;
+  marketingConsent?: boolean;
 }
 
 // ==================== ADMIN TYPES ====================

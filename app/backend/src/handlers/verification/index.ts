@@ -3,6 +3,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+import { createErrorResponse, createSuccessResponse } from '../../utils/response';
 
 // SDK v3 Clients
 const dynamoClient = new DynamoDBClient({});
@@ -21,18 +22,6 @@ const headers = {
 };
 
 // Helper functions
-const createErrorResponse = (statusCode: number, message: string): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify({ error: message, timestamp: new Date().toISOString() }),
-});
-
-const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify(data),
-});
-
 // 6 haneli OTP kodu oluştur
 const generateOTP = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();

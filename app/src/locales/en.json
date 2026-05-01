@@ -1,0 +1,78 @@
+{
+  "app": {
+    "name": "AtusHome",
+    "tagline": "Secure Online Shopping"
+  },
+  "nav": {
+    "home": "Home",
+    "products": "Products",
+    "categories": "Categories",
+    "cart": "Cart",
+    "profile": "Profile",
+    "orders": "My Orders",
+    "favorites": "My Favorites",
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register"
+  },
+  "cart": {
+    "title": "Shopping Cart",
+    "empty": "Your cart is empty",
+    "total": "Total",
+    "checkout": "Checkout",
+    "continueShopping": "Continue Shopping",
+    "remove": "Remove",
+    "quantity": "Quantity"
+  },
+  "product": {
+    "addToCart": "Add to Cart",
+    "outOfStock": "Out of Stock",
+    "inStock": "In Stock",
+    "price": "Price",
+    "description": "Description",
+    "reviews": "Reviews",
+    "relatedProducts": "Related Products"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot Password",
+    "loginTitle": "Login to Your Account",
+    "registerTitle": "Create New Account",
+    "name": "Full Name",
+    "phone": "Phone",
+    "confirmPassword": "Confirm Password",
+    "submit": "Submit"
+  },
+  "common": {
+    "search": "Search",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Info"
+  },
+  "error": {
+    "title": "An Error Occurred",
+    "description": "Sorry, an unexpected error occurred. Please refresh the page or return to the home page.",
+    "retry": "Retry",
+    "goHome": "Home Page"
+  },
+  "footer": {
+    "newsletter": "Subscribe to Our Newsletter",
+    "subscribe": "Subscribe",
+    "contact": "Contact",
+    "about": "About Us",
+    "campaigns": "Campaigns",
+    "help": "Help",
+    "rights": "All rights reserved."
+  }
+}

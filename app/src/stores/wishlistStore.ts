@@ -63,3 +63,9 @@ export const useWishlistStore = create<WishlistState>()(
     }
   )
 );
+
+// Clear wishlist on logout
+import { onLogout } from './authStore';
+onLogout(() => {
+  useWishlistStore.getState().clearWishlist();
+});

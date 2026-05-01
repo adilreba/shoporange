@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, GetCommand, PutCommand, UpdateCommand, DeleteCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { getUserId } from '../../utils/authorization';
+import { createErrorResponse, createSuccessResponse } from '../../utils/response';
 
 // DynamoDB client - SDK v3
 const client = new DynamoDBClient({});
@@ -15,18 +16,6 @@ const headers = {
 };
 
 // Helper functions
-const createErrorResponse = (statusCode: number, message: string): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify({ error: message, timestamp: new Date().toISOString() }),
-});
-
-const createSuccessResponse = (data: any, statusCode = 200): APIGatewayProxyResult => ({
-  statusCode,
-  headers,
-  body: JSON.stringify(data),
-});
-
 // getUserId is now imported from '../../utils/authorization'
 
 // Sepeti getir
