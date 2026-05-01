@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 import { initializeAnalytics } from './lib/analytics'
+import { initializeCapacitor, onDeepLink } from './lib/capacitor'
 import { ABTestProvider } from './components/analytics/ABTestProvider'
 import './i18n'
 import './index.css'
@@ -10,9 +11,20 @@ import App from './App.tsx'
 // =============================================================================
 // ANALYTICS INITIALIZATION
 // =============================================================================
-// Cookie consent kontrolü içinde yapılır — kullanıcı analytics onayladıysa
-// GA4, GTM, Hotjar, Clarity yüklenir. Marketing onayladıysa Pixel yüklenir.
 initializeAnalytics()
+
+// =============================================================================
+// CAPACITOR NATIVE INITIALIZATION
+// =============================================================================
+initializeCapacitor()
+
+// Deep link handler (window.location ile, Router context gerektirmez)
+onDeepLink((data) => {
+  console.log('Deep link received:', data)
+  if (data.path && data.path !== '/') {
+    window.location.href = data.path + (data.queryParams ? '?' + new URLSearchParams(data.queryParams).toString() : '')
+  }
+})
 
 // Service Worker kaydet (PWA)
 registerSW({

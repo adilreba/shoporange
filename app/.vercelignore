@@ -1,0 +1,26 @@
+# Capacitor native projects (too large for Vercel)
+ios/
+android/
+
+# Backend (separate AWS deploy)
+backend/
+
+# Local env
+.env
+.env.local
+.env.production
+
+# Dev tools
+node_modules/
+.vite/
+.cache/
+stats.html
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Misc
+.DS_Store
+*.tmp
+*.temp

@@ -11,32 +11,7 @@ import { CookieBanner } from '@/components/common/CookieBanner';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useEffect } from 'react';
 import { analytics } from '@/lib/analytics';
-import { initializeCapacitor, onDeepLink } from '@/lib/capacitor';
-import { useNavigate } from 'react-router-dom';
 import { NetworkStatus } from '@/components/mobile/NetworkStatus';
-
-// Capacitor Native Bridge
-function CapacitorBridge() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // Native features initialization
-    initializeCapacitor();
-
-    // Deep link handler
-    const unsubscribe = onDeepLink((data) => {
-      console.log('Deep link received:', data);
-      // Route'a yönlendir
-      if (data.path && data.path !== '/') {
-        navigate(data.path + (data.queryParams ? '?' + new URLSearchParams(data.queryParams).toString() : ''));
-      }
-    });
-
-    return () => unsubscribe();
-  }, [navigate]);
-
-  return null;
-}
 
 // Chat Widget Wrapper - Admin panelinde gizler
 function ChatWidgetWrapper() {
@@ -389,9 +364,6 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
-      
-      {/* Native Capacitor Bridge */}
-      <CapacitorBridge />
       
       {/* Network Status Banner */}
       <NetworkStatus />
