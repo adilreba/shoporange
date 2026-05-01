@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ABTestProvider } from '@/components/analytics/ABTestProvider';
 import { Suspense, lazy } from 'react';
 import type { Permission } from '@/types';
 import { ROLE_NAMES, ROLE_PERMISSIONS } from '@/types';
@@ -175,6 +176,7 @@ function App() {
     <HelmetProvider>
     <ErrorBoundary>
     <Router>
+      <ABTestProvider>
       <Toaster 
         position="top-right" 
         richColors 
@@ -371,6 +373,7 @@ function App() {
       {/* Chat Widget - Admin panelinde gizli */}
       <ChatWidgetWrapper />
       <CookieBannerWrapper />
+      </ABTestProvider>
     </Router>
     </ErrorBoundary>
     </HelmetProvider>

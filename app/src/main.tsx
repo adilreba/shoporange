@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 import { initializeAnalytics } from './lib/analytics'
 import { initializeCapacitor, onDeepLink } from './lib/capacitor'
-import { ABTestProvider } from './components/analytics/ABTestProvider'
 import './i18n'
 import './index.css'
 import App from './App.tsx'
@@ -40,8 +39,6 @@ registerSW({
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ABTestProvider>
-      <App />
-    </ABTestProvider>
+    <App />
   </StrictMode>,
 )
