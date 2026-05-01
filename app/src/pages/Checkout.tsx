@@ -27,7 +27,7 @@ import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useStockStore } from '@/stores/stockStore';
-import { shippingOptions } from '@/data/mockData';
+import { useShippingStore } from '@/stores/shippingStore';
 import { toast } from 'sonner';
 
 export function Checkout() {
@@ -42,6 +42,7 @@ export function Checkout() {
     getReservationExpiry,
     refreshReservation
   } = useStockStore();
+  const { getActiveCompanies, findBestCompanyForCity } = useShippingStore();
   
   const [step, setStep] = useState<'shipping' | 'payment' | 'processing'>('shipping');
   const [selectedShipping, setSelectedShipping] = useState('standard');
@@ -66,7 +67,30 @@ export function Checkout() {
     zipCode: user?.address?.[0]?.zipCode || ''
   });
 
-  const selectedShippingOption = shippingOptions.find(o => o.id === selectedShipping);
+  // Aktif kargo firmaları
+  const activeCompanies = getActiveCompanies();
+  
+  // Şehir bazlı kargo önerisi
+  const recommendedCompany = shippingData.city 
+    ? findBestCompanyForCity(shippingData.city) 
+    : undefined;
+  
+  // Kargo seçenekleri: admin'de tanımlı firmalar varsa onları, yoksa fallback
+  const checkoutShippingOptions = activeCompanies.length > 0
+    ? activeCompanies.map((company, idx) => ({
+        id: company.id,
+        name: company.name,
+        description: `${company.branchInfo.branchCity} şubesi • ${company.type === 'yurtici' ? '1-3 gün' : '2-5 gün'}`,
+        price: idx === 0 ? 49 : 59, // Basit fiyatlandırma (admin'den gelecek)
+        estimatedDays: company.type === 'yurtici' ? '1-3 gün' : '2-5 gün',
+        isRecommended: company.id === recommendedCompany?.id,
+      }))
+    : [
+        { id: 'standard', name: 'Standart Kargo', description: '3-5 iş günü', price: 49, estimatedDays: '3-5 gün', isRecommended: false },
+        { id: 'express', name: 'Express Kargo', description: '1-2 iş günü', price: 99, estimatedDays: '1-2 gün', isRecommended: false },
+      ];
+  
+  const selectedShippingOption = checkoutShippingOptions.find(o => o.id === selectedShipping);
   const shippingPrice = selectedShippingOption?.price || 0;
   const subtotal = totalPrice();
   const discount = subtotal * (discountAmount / 100);
@@ -426,7 +450,7 @@ export function Checkout() {
                   onValueChange={setSelectedShipping}
                   className="space-y-2 sm:space-y-3"
                 >
-                  {shippingOptions.map((option) => (
+                  {checkoutShippingOptions.map((option) => (
                     <label
                       key={option.id}
                       className={`flex items-start sm:items-center gap-3 p-3 sm:p-4 rounded-xl border-2 cursor-pointer transition-colors ${
@@ -438,7 +462,14 @@ export function Checkout() {
                       <RadioGroupItem value={option.id} className="mt-0.5 sm:mt-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                          <span className="font-medium text-sm">{option.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{option.name}</span>
+                            {(option as any).isRecommended && (
+                              <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
+                                Önerilen
+                              </span>
+                            )}
+                          </div>
                           <span className="font-bold text-sm">
                             {option.price === 0 ? 'Ücretsiz' : formatPrice(option.price)}
                           </span>

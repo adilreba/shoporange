@@ -6,7 +6,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import * as yurtici from '../../services/yurticiKargo';
+import { getProvider, isSupportedProvider, listProviders } from '../../services/shipping';
 import { createErrorResponse, createSuccessResponse } from '../../utils/response';
 
 const client = new DynamoDBClient({});
@@ -64,37 +64,27 @@ export const createShipment = async (event: APIGatewayProxyEvent): Promise<APIGa
     const order = orderResult.Item;
     const trackingNumber = `YT${Date.now().toString(36).toUpperCase()}`;
 
-    let shipmentResult;
-
-    // Kargo firmasına göre işlem yap
-    switch (provider) {
-      case 'yurtici':
-        shipmentResult = await yurtici.createShipment({
-          cargoKey: trackingNumber,
-          invoiceNumber: orderId,
-          receiverName,
-          receiverAddress,
-          receiverCity,
-          receiverDistrict,
-          receiverPhone,
-          receiverEmail,
-          weight,
-          description: description || `Sipariş #${orderId}`,
-          cargoType,
-          paymentType,
-          collectionPrice,
-        });
-        break;
-      
-      // Diğer kargo firmaları buraya eklenecek
-      case 'aras':
-      case 'mng':
-        // Henüz entegre değil
-        return createErrorResponse(400, `${provider} henüz entegre değil`);
-      
-      default:
-        return createErrorResponse(400, 'Invalid provider');
+    if (!isSupportedProvider(provider)) {
+      return createErrorResponse(400, `Desteklenmeyen kargo firması: ${provider}`);
     }
+
+    const providerInstance = getProvider(provider);
+    
+    const shipmentResult = await providerInstance.createShipment({
+      cargoKey: trackingNumber,
+      invoiceNumber: orderId,
+      receiverName,
+      receiverAddress,
+      receiverCity,
+      receiverDistrict,
+      receiverPhone,
+      receiverEmail,
+      weight,
+      description: description || `Sipariş #${orderId}`,
+      cargoType,
+      paymentType,
+      collectionPrice,
+    });
 
     if (!shipmentResult.success) {
       return createErrorResponse(400, shipmentResult.error || 'Kargo oluşturulamadı');
@@ -171,16 +161,8 @@ export const trackShipment = async (event: APIGatewayProxyEvent): Promise<APIGat
       return createErrorResponse(400, 'Tracking number required');
     }
 
-    let trackResult;
-
-    switch (provider) {
-      case 'yurtici':
-        trackResult = await yurtici.trackShipment(trackingNumber);
-        break;
-      
-      default:
-        return createErrorResponse(400, 'Invalid provider');
-    }
+    const providerInstance = getProvider(provider);
+    const trackResult = await providerInstance.trackShipment(trackingNumber);
 
     if (!trackResult.success) {
       return createErrorResponse(404, trackResult.error || 'Takip bilgisi bulunamadı');
@@ -224,17 +206,8 @@ export const cancelShipment = async (event: APIGatewayProxyEvent): Promise<APIGa
 
     const shipment = shipmentResult.Item;
 
-    // Kargo firmasına göre iptal et
-    let cancelResult;
-
-    switch (shipment.provider) {
-      case 'yurtici':
-        cancelResult = await yurtici.cancelShipment(shipment.trackingNumber);
-        break;
-      
-      default:
-        return createErrorResponse(400, 'Provider not supported');
-    }
+    const providerInstance = getProvider(shipment.provider);
+    const cancelResult = await providerInstance.cancelShipment(shipment.trackingNumber);
 
     if (!cancelResult.success) {
       return createErrorResponse(400, cancelResult.error || 'İptal işlemi başarısız');
@@ -317,16 +290,8 @@ export const createBarcode = async (event: APIGatewayProxyEvent): Promise<APIGat
       return createErrorResponse(400, 'Tracking numbers required');
     }
 
-    let barcodeResult;
-
-    switch (provider) {
-      case 'yurtici':
-        barcodeResult = await yurtici.createBarcode(trackingNumbers);
-        break;
-      
-      default:
-        return createErrorResponse(400, 'Provider not supported');
-    }
+    const providerInstance = getProvider(provider);
+    const barcodeResult = await providerInstance.createBarcode(trackingNumbers);
 
     if (!barcodeResult.success) {
       return createErrorResponse(400, barcodeResult.error || 'Barkod oluşturulamadı');
@@ -349,20 +314,25 @@ export const testConnection = async (event: APIGatewayProxyEvent): Promise<APIGa
   try {
     const provider = event.pathParameters?.provider || 'yurtici';
 
-    let testResult;
-
-    switch (provider) {
-      case 'yurtici':
-        testResult = await yurtici.testConnection();
-        break;
-      
-      default:
-        return createErrorResponse(400, 'Invalid provider');
-    }
+    const providerInstance = getProvider(provider);
+    const testResult = await providerInstance.testConnection();
 
     return createSuccessResponse(testResult);
   } catch (error: any) {
     console.error('Test connection error:', error);
+    return createErrorResponse(500, error.message || 'Internal server error');
+  }
+};
+
+/**
+ * Tüm kargo firmalarını listele
+ */
+export const listProvidersHandler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const providers = listProviders();
+    return createSuccessResponse({ providers });
+  } catch (error: any) {
+    console.error('List providers error:', error);
     return createErrorResponse(500, error.message || 'Internal server error');
   }
 };
@@ -377,6 +347,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const method = event.httpMethod;
 
   console.log(`Shipping handler: ${method} ${path}`);
+
+  // List providers
+  if (path === '/shipping/providers' || path.endsWith('/shipping/providers')) {
+    if (method === 'GET') return listProvidersHandler(event);
+  }
 
   // Create shipment
   if (path === '/shipping' || path.endsWith('/shipping')) {

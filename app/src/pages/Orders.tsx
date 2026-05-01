@@ -9,18 +9,22 @@ import {
   XCircle,
   MapPin,
   Eye,
-  FileDown
+  FileDown,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
 import { useAuthStore } from '@/stores/authStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { ordersApi } from '@/services/api';
+import { shippingApi } from '@/services/shippingApi';
+import { TrackingTimeline } from '@/components/shipping/TrackingTimeline';
 import { toast } from 'sonner';
 
 export function Orders() {
@@ -29,6 +33,12 @@ export function Orders() {
   const { getOrdersByEmail } = useOrderStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  
+  // Track dialog state
+  const [trackDialogOpen, setTrackDialogOpen] = useState(false);
+  const [trackOrder, setTrackOrder] = useState<any>(null);
+  const [trackEvents, setTrackEvents] = useState<any[]>([]);
+  const [trackLoading, setTrackLoading] = useState(false);
 
   // Get orders from store for current user
   const userOrders = user?.email ? getOrdersByEmail(user.email) : [];
@@ -70,8 +80,30 @@ export function Orders() {
     );
   };
 
-  const handleTrackOrder = (orderId: string) => {
-    navigate(`/track-order?order=${orderId}`);
+  const handleTrackOrder = async (orderId: string) => {
+    const order = displayOrders.find(o => o.id === orderId);
+    if (!order || !order.trackingNumber) {
+      toast.info('Bu sipariş için kargo bilgisi bulunmuyor');
+      return;
+    }
+    
+    setTrackOrder(order);
+    setTrackDialogOpen(true);
+    setTrackLoading(true);
+    
+    try {
+      const result = await shippingApi.track(order.trackingNumber, order.shippingCompany || 'yurtici');
+      if (result.success && result.tracking?.details) {
+        setTrackEvents(result.tracking.details);
+      } else {
+        setTrackEvents([]);
+      }
+    } catch (error) {
+      console.error('Track error:', error);
+      setTrackEvents([]);
+    } finally {
+      setTrackLoading(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -210,9 +242,18 @@ export function Orders() {
 
                             {/* Actions */}
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <MapPin className="w-4 h-4" />
-                                {order.address?.city}
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <MapPin className="w-4 h-4" />
+                                  {order.address?.city}
+                                </div>
+                                {order.trackingNumber && (
+                                  <div className="flex items-center gap-1.5 text-xs">
+                                    <Truck className="w-3 h-3 text-orange-500" />
+                                    <span className="text-orange-600 font-medium">{order.shippingCompany || 'Kargo'}</span>
+                                    <span className="text-muted-foreground font-mono">{order.trackingNumber}</span>
+                                  </div>
+                                )}
                               </div>
                               <div className="flex items-center gap-2">
                                 <Button 
@@ -258,6 +299,40 @@ export function Orders() {
           </div>
         </div>
       </main>
+
+      {/* Track Dialog */}
+      <Dialog open={trackDialogOpen} onOpenChange={setTrackDialogOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5 text-orange-500" />
+              Kargo Takibi
+            </DialogTitle>
+          </DialogHeader>
+          {trackLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Clock className="h-8 w-8 animate-spin text-orange-500" />
+            </div>
+          ) : (
+            <TrackingTimeline
+              events={trackEvents}
+              trackingNumber={trackOrder?.trackingNumber}
+              provider={trackOrder?.shippingCompany}
+            />
+          )}
+          {trackOrder?.trackingNumber && (
+            <a
+              href={`https://www.yurticikargo.com/tr/online-servisler/gonderi-sorgula?code=${trackOrder.trackingNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 text-sm text-orange-600 hover:underline mt-4"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Kargo firması sitesinde görüntüle
+            </a>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>
