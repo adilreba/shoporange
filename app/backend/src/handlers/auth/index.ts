@@ -18,12 +18,12 @@ import {
 import {
   securityHeaders,
   sanitizeInput,
-  checkRateLimit,
   getClientIP,
   detectSQLInjection,
   validatePasswordStrength,
   logSecurityEvent,
 } from '../../utils/security';
+import { checkAuthRateLimit } from '../../utils/rateLimiter';
 
 // ===== COGNITO CLIENT SETUP =====
 const cognitoClient = new CognitoIdentityProviderClient({
@@ -243,13 +243,12 @@ const RATE_LIMITS = {
 };
 
 // Helper: Rate limit check with specific limits
-const checkAuthRateLimit = (
+const applyAuthRateLimit = async (
   event: APIGatewayProxyEvent,
   type: keyof typeof RATE_LIMITS
 ) => {
   const clientIP = getClientIP(event);
-  const limit = RATE_LIMITS[type] || RATE_LIMITS.default;
-  return checkRateLimit(`${clientIP}:${type}`, limit.max, limit.window);
+  return checkAuthRateLimit(`${clientIP}:${type}`);
 };
 
 /**
@@ -259,7 +258,7 @@ const checkAuthRateLimit = (
 export const register = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     // Rate limiting
-    const rateCheck = checkAuthRateLimit(event, 'register');
+    const rateCheck = await applyAuthRateLimit(event, 'register');
     if (!rateCheck.allowed) {
       logSecurityEvent('RATE_LIMIT_EXCEEDED', { endpoint: 'register', ip: getClientIP(event) }, 'medium');
       return {
@@ -406,7 +405,7 @@ export const login = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
   try {
     // Rate limiting - brute force protection
     const clientIP = getClientIP(event);
-    const rateCheck = checkAuthRateLimit(event, 'login');
+    const rateCheck = await applyAuthRateLimit(event, 'login');
     
     if (!rateCheck.allowed) {
       logSecurityEvent('BRUTE_FORCE_ATTEMPT', { endpoint: 'login', ip: clientIP }, 'high');
@@ -503,7 +502,7 @@ export const login = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
 export const verifyEmail = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     // Rate limiting
-    const rateCheck = checkAuthRateLimit(event, 'login');
+    const rateCheck = await applyAuthRateLimit(event, 'login');
     if (!rateCheck.allowed) {
       logSecurityEvent('RATE_LIMIT_EXCEEDED', { endpoint: 'verifyEmail', ip: getClientIP(event) }, 'medium');
       return {
@@ -576,7 +575,7 @@ export const verifyEmail = async (event: APIGatewayProxyEvent): Promise<APIGatew
 export const resendCode = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     // Rate limiting
-    const rateCheck = checkAuthRateLimit(event, 'login');
+    const rateCheck = await applyAuthRateLimit(event, 'login');
     if (!rateCheck.allowed) {
       logSecurityEvent('RATE_LIMIT_EXCEEDED', { endpoint: 'resendCode', ip: getClientIP(event) }, 'medium');
       return {
