@@ -16,7 +16,7 @@ architecture = "x86_64"
 handler = "index.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["GetUserFunction", "GetMeFunction", "UpdateUserFunction", "UpdateMeFunction"]
+functions = ["GetUserFunction", "GetMeFunction", "UpdateUserFunction", "UpdateMeFunction", "SoftDeleteUserFunction", "RestoreUserFunction"]
 
 [function_build_definitions.7f155f69-279e-4662-a371-b0cf6b2e8671]
 codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/orders"
@@ -170,6 +170,15 @@ handler = "index.listAdmin"
 manifest_hash = ""
 packagetype = "Zip"
 functions = ["PaymentMethodsListAdminFunction", "PaymentMethodsListPublicFunction", "PaymentMethodsGetByIdFunction", "PaymentMethodsUpdateFunction", "PaymentMethodsTestFunction", "PaymentMethodsSeedFunction"]
+
+[function_build_definitions.704d3292-ac86-4d60-b079-3223f7a4da32]
+codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/reviews"
+runtime = "nodejs20.x"
+architecture = "x86_64"
+handler = "index.handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["ReviewsFunction"]
 
 [layer_build_definitions.d30cd55d-c7cb-40ed-acc3-8058fbed1f4b]
 layer_name = "DependenciesLayer"

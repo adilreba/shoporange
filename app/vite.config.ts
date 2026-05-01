@@ -81,10 +81,20 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // K9: Production'da mock kullanıcı verilerini (bcrypt hash'ler) bundle'dan çıkar
+      "@/data/mockUsers": path.resolve(__dirname, "./src/data/mockUsers.empty.ts"),
     },
   },
   build: {
     chunkSizeWarningLimit: 500,
+    // Production'da console.log ve console.warn kaldır (Y13)
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: ['log', 'warn'],
+        drop_debugger: true,
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks: {

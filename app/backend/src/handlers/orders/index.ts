@@ -380,7 +380,7 @@ export const generateInvoice = async (event: APIGatewayProxyEvent): Promise<APIG
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="fatura-${orderId}.pdf"`,
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '',
         'Access-Control-Allow-Headers': 'Content-Type,Authorization',
       },
       body: Buffer.from(pdfBytes).toString('base64'),

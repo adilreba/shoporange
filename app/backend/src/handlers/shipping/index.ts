@@ -16,7 +16,7 @@ const SHIPPING_TABLE = process.env.SHIPPING_TABLE || '';
 const ORDERS_TABLE = process.env.ORDERS_TABLE || '';
 
 const headers = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '',
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
 };

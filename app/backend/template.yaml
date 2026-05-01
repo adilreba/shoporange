@@ -29,6 +29,7 @@ Globals:
         PRODUCT_VARIATIONS_TABLE: !Ref ProductVariationsTable
         CATEGORIES_TABLE: !Ref CategoriesTable
         AUDIT_LOGS_TABLE: !Ref AuditLogsTable
+        REVIEWS_TABLE: !Ref ReviewsTable
         KMS_KEY_ID: !Ref PIIEncryptionKey
         FROM_EMAIL: !Ref FromEmail
         SMS_ORIGINATOR: 'AtusHome'
@@ -83,6 +84,35 @@ Resources:
         - IndexName: StatusIndex
           KeySchema:
             - AttributeName: status
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  ReviewsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-Reviews
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: productId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ProductIdIndex
+          KeySchema:
+            - AttributeName: productId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
               KeyType: HASH
           Projection:
             ProjectionType: ALL
@@ -801,6 +831,56 @@ Resources:
           Type: Api
           Properties:
             Path: /users/me
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  SoftDeleteUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/users
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+              Resource: !GetAtt PIIEncryptionKey.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /users/{userId}/soft-delete
+            Method: put
+            RestApiId: !Ref ApiGateway
+
+  RestoreUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/users
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+              Resource: !GetAtt PIIEncryptionKey.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /users/{userId}/restore
             Method: put
             RestApiId: !Ref ApiGateway
 
@@ -2963,6 +3043,27 @@ Resources:
             Method: post
             RestApiId: !Ref ApiGateway
 
+  ReviewsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/reviews
+      Handler: index.handler
+      Description: Reviews API handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ReviewsTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref ReviewsTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /reviews
+            Method: ANY
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
   # Cognito User Pool Domain for OAuth
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
@@ -3111,3 +3212,7 @@ Outputs:
   ImageBucketName:
     Description: S3 Bucket Name for product images
     Value: !Ref ProductImagesBucket
+
+  ReviewsTableName:
+    Description: Reviews Table Name
+    Value: !Ref ReviewsTable

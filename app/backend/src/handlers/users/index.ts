@@ -18,7 +18,7 @@ const USER_PII_FIELDS = ['email', 'phone', 'address'] as const;
 // getUserId is now imported from '../../utils/authorization'
 
 const headers = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '',
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
 };

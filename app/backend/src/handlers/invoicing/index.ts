@@ -19,7 +19,7 @@ const INVOICES_TABLE = process.env.INVOICES_TABLE || '';
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@atushome.com';
 
 const headers = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '',
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
 };

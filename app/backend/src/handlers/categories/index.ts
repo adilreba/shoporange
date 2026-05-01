@@ -16,7 +16,7 @@ const CATEGORY_ATTRIBUTES_TABLE = process.env.CATEGORY_ATTRIBUTES_TABLE || 'Atus
 // CORS headers
 const headers = {
   'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '',
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET,PUT,DELETE',
 };

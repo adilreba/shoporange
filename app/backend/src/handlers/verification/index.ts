@@ -16,7 +16,7 @@ const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@atushome.com';
 const SMS_ORIGINATOR = process.env.SMS_ORIGINATOR || 'AtusHome';
 
 const headers = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '',
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key',
   'Access-Control-Allow-Methods': 'POST,OPTIONS',
 };
