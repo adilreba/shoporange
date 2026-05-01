@@ -116,15 +116,38 @@ function ProtectedRoute({
   requireAdmin?: boolean;
   requiredPermission?: Permission;
 }) {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, isLoading } = useAuthStore();
+  
+  // Auth state henüz yüklenmediyse bekle (zustand persist async olabilir)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500" />
+      </div>
+    );
+  }
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
   
+  // user null ise localStorage'dan yedek olarak oku (zustand persist race condition)
+  let effectiveUser = user;
+  if (!effectiveUser) {
+    try {
+      const raw = localStorage.getItem('auth-storage');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        effectiveUser = parsed.state?.user || null;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  
   // Admin paneline erişebilen roller: admin, super_admin, editor, support
-  const isStaff = user?.role === 'admin' || user?.role === 'super_admin' || 
-                  user?.role === 'editor' || user?.role === 'support';
+  const isStaff = effectiveUser?.role === 'admin' || effectiveUser?.role === 'super_admin' || 
+                  effectiveUser?.role === 'editor' || effectiveUser?.role === 'support';
   
   if (requireAdmin && !isStaff) {
     return <Navigate to="/" replace />;
