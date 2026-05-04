@@ -2107,6 +2107,14 @@ Resources:
             Path: /categories
             Method: post
             RestApiId: !Ref ApiGateway
+        ApiEventTree:
+          Type: Api
+          Properties:
+            Path: /categories/tree
+            Method: get
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
         ApiEventGet:
           Type: Api
           Properties:

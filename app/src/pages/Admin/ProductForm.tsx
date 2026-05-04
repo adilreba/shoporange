@@ -20,12 +20,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { adminProductsApi, type AdminProduct } from '@/services/adminProductsApi';
-import { productsApi } from '@/services/api';
+import { productsApi, categoriesApi } from '@/services/api';
 import { 
-  PRODUCT_CATEGORIES, 
   getCategoryAttributes, 
   type CategoryAttribute,
-  getCategoryName 
 } from '@/services/categoryAttributesApi';
 import { 
   bulkCreateVariations,
@@ -97,6 +95,27 @@ export default function ProductForm() {
   const [generatingVariations, setGeneratingVariations] = useState(false);
   
   const [tagInput, setTagInput] = useState('');
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Load categories for dropdown
+  useEffect(() => {
+    categoriesApi.getTree()
+      .then((res: any) => {
+        const tree = Array.isArray(res) ? res : res.data || [];
+        const flat: Array<{ id: string; name: string }> = [];
+        const walk = (nodes: any[], depth = 0) => {
+          for (const node of nodes) {
+            flat.push({ id: node.categoryId, name: '  '.repeat(depth) + node.name });
+            if (node.children?.length) walk(node.children, depth + 1);
+          }
+        };
+        walk(tree);
+        setCategories(flat);
+      })
+      .catch(() => setCategories([]));
+  }, []);
+
+  const getCategoryNameLocal = (id: string) => categories.find(c => c.id === id)?.name?.trim() || id;
 
   // Load existing product in edit mode
   useEffect(() => {
@@ -572,14 +591,14 @@ export default function ProductForm() {
                       required
                     >
                       <option value="">Kategori seçin</option>
-                      {PRODUCT_CATEGORIES.map(cat => (
+                      {categories.map(cat => (
                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
                     </select>
                     {formData.category && (
                       <p className="text-xs text-orange-600">
                         <AlertCircle className="w-3 h-3 inline mr-1" />
-                        {getCategoryName(formData.category)} için {categoryAttributes.length} özellik mevcut
+                        {getCategoryNameLocal(formData.category)} için {categoryAttributes.length} özellik mevcut
                       </p>
                     )}
                   </div>
@@ -819,7 +838,7 @@ export default function ProductForm() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Settings2 className="w-5 h-5" />
-                    {getCategoryName(formData.category)} Özellikleri
+                    {getCategoryNameLocal(formData.category)} Özellikleri
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">

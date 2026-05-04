@@ -42,9 +42,11 @@ interface Category {
   slug: string;
   description?: string;
   icon?: string;
+  parentId?: string;
   order: number;
   isActive: boolean;
   attributes?: CategoryAttribute[];
+  children?: Category[];
 }
 
 interface CategoryAttribute {
@@ -80,6 +82,7 @@ export default function CategoryManagement() {
     name: '',
     description: '',
     icon: 'List',
+    parentId: '',
   });
   
   // New attribute form
@@ -96,12 +99,24 @@ export default function CategoryManagement() {
     loadCategories();
   }, []);
 
+  const flattenTree = (nodes: Category[]): Category[] => {
+    const result: Category[] = [];
+    for (const node of nodes) {
+      const { children, ...rest } = node;
+      result.push(rest);
+      if (children && children.length > 0) {
+        result.push(...flattenTree(children));
+      }
+    }
+    return result;
+  };
+
   const loadCategories = async () => {
     try {
       setLoading(true);
-      const res = await categoriesApi.getAll();
-      const data = Array.isArray(res) ? res : res.data || [];
-      setCategories(data);
+      const res = await categoriesApi.getTree();
+      const treeData = Array.isArray(res) ? res : res.data || [];
+      setCategories(flattenTree(treeData));
     } catch (error) {
       toast.error('Kategoriler yüklenemedi');
       console.error(error);
@@ -180,13 +195,14 @@ export default function CategoryManagement() {
         slug: generateUniqueSlug(newCategory.name),
         description: newCategory.description,
         icon: newCategory.icon,
+        parentId: newCategory.parentId || undefined,
         order: categories.length + 1,
         isActive: true,
       };
 
       await categoriesApi.create(payload);
       await loadCategories();
-      setNewCategory({ name: '', description: '', icon: 'List' });
+      setNewCategory({ name: '', description: '', icon: 'List', parentId: '' });
       toast.success('Kategori oluşturuldu');
     } catch (error: any) {
       toast.error(error.message || 'Kategori oluşturulamadı');
@@ -351,6 +367,20 @@ export default function CategoryManagement() {
                 />
               </div>
               <div className="space-y-2">
+                <label className="text-sm font-medium">Üst Kategori</label>
+                <select
+                  value={newCategory.parentId}
+                  onChange={(e) => setNewCategory({ ...newCategory, parentId: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="">Ana Kategori (Yok)</option>
+                  {categories.filter(c => !c.parentId).map(cat => (
+                    <option key={cat.categoryId} value={cat.categoryId}>{cat.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">Alt kategori oluşturmak için üst kategori seçin</p>
+              </div>
+              <div className="space-y-2">
                 <label className="text-sm font-medium">İkon</label>
                 <select
                   value={newCategory.icon}
@@ -407,13 +437,18 @@ export default function CategoryManagement() {
                         : 'border-gray-200 hover:border-orange-300'
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+                    <div className={`w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center ${category.parentId ? 'ml-4' : ''}`}>
                       {ICONS[category.icon || 'List'] || <List className="w-5 h-5" />}
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium">{category.name}</p>
+                      <p className="font-medium">
+                        {category.parentId ? '└─ ' : ''}{category.name}
+                      </p>
                       <p className="text-xs text-gray-500">
                         {category.attributes?.length || 0} özellik
+                        {category.parentId && (
+                          <span className="ml-1 text-orange-500">• Alt Kategori</span>
+                        )}
                       </p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -437,6 +472,11 @@ export default function CategoryManagement() {
                   <p className="text-sm text-gray-500 mt-1">
                     {selectedCategory.description}
                   </p>
+                  {selectedCategory.parentId && (
+                    <p className="text-xs text-orange-500 mt-1">
+                      Üst Kategori: {categories.find(c => c.categoryId === selectedCategory.parentId)?.name || selectedCategory.parentId}
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Button

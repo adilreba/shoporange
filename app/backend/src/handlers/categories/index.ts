@@ -382,6 +382,59 @@ async function updateCategoryAttribute(event: APIGatewayProxyEvent): Promise<API
   }
 }
 
+// Get categories as tree structure
+async function getCategoryTree(): Promise<APIGatewayProxyResult> {
+  try {
+    const result = await docClient.send(new ScanCommand({
+      TableName: CATEGORIES_TABLE,
+    }));
+
+    const categories = (result.Items || []) as Category[];
+
+    // Build tree
+    const categoryMap = new Map<string, any>();
+    const rootCategories: any[] = [];
+
+    // First pass: create nodes
+    for (const cat of categories) {
+      categoryMap.set(cat.categoryId, {
+        ...cat,
+        children: [],
+      });
+    }
+
+    // Second pass: build hierarchy
+    for (const cat of categories) {
+      const node = categoryMap.get(cat.categoryId);
+      if (cat.parentId && categoryMap.has(cat.parentId)) {
+        const parent = categoryMap.get(cat.parentId);
+        parent.children.push(node);
+      } else {
+        rootCategories.push(node);
+      }
+    }
+
+    // Sort by order
+    const sortNodes = (nodes: any[]) => {
+      nodes.sort((a, b) => (a.order || 0) - (b.order || 0));
+      for (const node of nodes) {
+        if (node.children.length > 0) {
+          sortNodes(node.children);
+        }
+      }
+    };
+    sortNodes(rootCategories);
+
+    return createResponse(200, {
+      success: true,
+      data: rootCategories,
+    });
+  } catch (error) {
+    console.error('Get category tree error:', error);
+    return createResponse(500, { success: false, message: 'Failed to get category tree' });
+  }
+}
+
 // Delete attribute
 async function deleteCategoryAttribute(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const categoryId = event.pathParameters?.categoryId;
@@ -423,6 +476,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   // GET /categories
   if (path === '/categories' && method === 'GET') {
     return getCategories();
+  }
+
+  // GET /categories/tree
+  if (path === '/categories/tree' && method === 'GET') {
+    return getCategoryTree();
   }
 
   // POST /categories

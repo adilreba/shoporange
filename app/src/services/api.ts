@@ -457,6 +457,7 @@ export const categoriesApi = {
     fetchApi(`/categories/${categoryId}/attributes/${attributeId}`, {
       method: 'DELETE',
     }),
+  getTree: () => fetchApi('/categories/tree'),
 };
 
 // ====================
