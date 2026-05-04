@@ -311,7 +311,7 @@ export function LiveSearch({ isOpen, onClose }: LiveSearchProps) {
                         <span className="font-bold text-orange-600">
                           {formatPrice(product.price)}
                         </span>
-                        {product.originalPrice && (
+                        {product.originalPrice && product.originalPrice > product.price && (
                           <span className="text-sm text-muted-foreground line-through">
                             {formatPrice(product.originalPrice)}
                           </span>

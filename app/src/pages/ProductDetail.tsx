@@ -422,13 +422,13 @@ export function ProductDetail() {
               <span className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-600">
                 {formatPrice(product.price)}
               </span>
-              {product.originalPrice && (
+              {product.originalPrice && product.originalPrice > product.price && (
                 <>
                   <span className="text-lg sm:text-xl text-muted-foreground line-through">
                     {formatPrice(product.originalPrice)}
                   </span>
                   <Badge className="bg-red-500 text-xs sm:text-sm">
-                    %{product.discount} Tasarruf
+                    %{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)} Tasarruf
                   </Badge>
                 </>
               )}

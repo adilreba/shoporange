@@ -111,9 +111,16 @@ export function Wishlist() {
                 </Link>
 
                 <div className="mt-auto pt-3">
-                  <span className="text-lg font-bold text-orange-600 block mb-3">
-                    {formatPrice(product.price)}
-                  </span>
+                  <div className="mb-3">
+                    <span className="text-lg font-bold text-orange-600">
+                      {formatPrice(product.price)}
+                    </span>
+                    {product.originalPrice && product.originalPrice > product.price && (
+                      <span className="text-sm text-muted-foreground line-through ml-2">
+                        {formatPrice(product.originalPrice)}
+                      </span>
+                    )}
+                  </div>
 
                   <Button 
                     className="w-full gradient-orange"

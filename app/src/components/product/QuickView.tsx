@@ -64,7 +64,7 @@ export function QuickView({ product, isOpen, onClose }: QuickViewProps) {
     setSelectedImage((prev) => (prev - 1 + product.images.length) % product.images.length);
   };
 
-  const discount = product.originalPrice 
+  const discount = product.originalPrice && product.originalPrice > product.price
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0;
 

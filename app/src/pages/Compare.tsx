@@ -163,7 +163,7 @@ export function Compare() {
                     <span className="text-lg font-bold text-orange-600">
                       {formatPrice(product.price)}
                     </span>
-                    {product.originalPrice && (
+                    {product.originalPrice && product.originalPrice > product.price && (
                       <span className="text-sm text-muted-foreground line-through ml-2">
                         {formatPrice(product.originalPrice)}
                       </span>
@@ -281,7 +281,7 @@ export function Compare() {
                   <span className="text-xl font-bold text-orange-600">
                     {formatPrice(product.price)}
                   </span>
-                  {product.originalPrice && (
+                  {product.originalPrice && product.originalPrice > product.price && (
                     <span className="text-sm text-muted-foreground line-through ml-2">
                       {formatPrice(product.originalPrice)}
                     </span>

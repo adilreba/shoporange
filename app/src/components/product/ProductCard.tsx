@@ -69,7 +69,7 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
     }
   };
 
-  const discount = product.originalPrice 
+  const discount = product.originalPrice && product.originalPrice > product.price
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0;
 

@@ -105,7 +105,7 @@ export function RecentlyViewed() {
                   <span className="font-bold text-orange-600">
                     {formatPrice(product.price)}
                   </span>
-                  {product.originalPrice && (
+                  {product.originalPrice && product.originalPrice > product.price && (
                     <span className="text-xs text-muted-foreground line-through">
                       {formatPrice(product.originalPrice)}
                     </span>
