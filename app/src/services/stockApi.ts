@@ -115,6 +115,11 @@ export const stockApi = {
     return fetchApi(`/stock/low-stock?threshold=${threshold}`);
   },
 
+  // Get stock movement history for a product (Admin only)
+  getStockMovements: async (productId: string): Promise<{ movements: any[]; total: number }> => {
+    return fetchApi(`/stock/movements/${productId}`);
+  },
+
   // Check stock for multiple products
   checkMultipleStocks: async (
     items: Array<{ productId: string; quantity: number }>

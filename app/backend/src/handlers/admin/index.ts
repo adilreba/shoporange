@@ -166,7 +166,7 @@ export const updateProduct = async (event: APIGatewayProxyEvent): Promise<APIGat
     const expressionValues: Record<string, any> = { ':updatedAt': new Date().toISOString() };
     const expressionNames: Record<string, string> = {};
 
-    const fields = ['name', 'description', 'price', 'category', 'stock', 'images', 'brand'];
+    const fields = ['name', 'description', 'price', 'category', 'stock', 'images', 'brand', 'originalPrice', 'discount'];
     fields.forEach(field => {
       if (updates[field] !== undefined) {
         const placeholder = field === 'name' ? '#name' : field;

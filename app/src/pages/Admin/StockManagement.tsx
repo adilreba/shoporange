@@ -87,6 +87,10 @@ export default function StockManagement() {
   const [sortBy, setSortBy] = useState<'name' | 'stock' | 'reserved'>('stock');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [stockFilter, setStockFilter] = useState<'all' | 'sufficient' | 'low' | 'critical' | 'out'>('all');
+  const [isMovementsDialogOpen, setIsMovementsDialogOpen] = useState(false);
+  const [movementsProduct, setMovementsProduct] = useState<StockItem | null>(null);
+  const [movements, setMovements] = useState<any[]>([]);
+  const [movementsLoading, setMovementsLoading] = useState(false);
 
   // Load products
   useEffect(() => {
@@ -205,6 +209,25 @@ export default function StockManagement() {
       console.error('Error updating stock:', error);
       toast.error('Stok güncellenirken hata oluştu');
     }
+  };
+
+  const loadMovements = async (productId: string) => {
+    try {
+      setMovementsLoading(true);
+      const res = await stockApi.getStockMovements(productId);
+      setMovements(Array.isArray(res) ? res : res.movements || []);
+    } catch (error) {
+      console.error('Error loading movements:', error);
+      setMovements([]);
+    } finally {
+      setMovementsLoading(false);
+    }
+  };
+
+  const openMovements = (product: StockItem) => {
+    setMovementsProduct(product);
+    setIsMovementsDialogOpen(true);
+    loadMovements(product.id);
   };
 
   const getStockStatusBadge = (item: StockItem) => {
@@ -558,17 +581,27 @@ export default function StockManagement() {
                         <TableCell className="font-medium text-gray-900 dark:text-white">{product.actualAvailable}</TableCell>
                         <TableCell>{getStockStatusBadge(product)}</TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedProduct(product);
-                              setStockAdjustment(0);
-                              setIsUpdateDialogOpen(true);
-                            }}
-                          >
-                            Güncelle
-                          </Button>
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openMovements(product)}
+                            >
+                              <Clock className="w-4 h-4 mr-1" />
+                              Hareketler
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedProduct(product);
+                                setStockAdjustment(0);
+                                setIsUpdateDialogOpen(true);
+                              }}
+                            >
+                              Güncelle
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -751,6 +784,72 @@ export default function StockManagement() {
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Güncelle
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stock Movements Dialog */}
+      <Dialog open={isMovementsDialogOpen} onOpenChange={setIsMovementsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Stok Hareketleri</DialogTitle>
+            <DialogDescription>
+              {movementsProduct?.name} — SKU: {movementsProduct?.sku}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {movementsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-8 w-8 animate-spin text-orange-500" />
+              </div>
+            ) : movements.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Clock className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                <p>Henüz stok hareketi kaydedilmemiş</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tarih</TableHead>
+                    <TableHead>Tip</TableHead>
+                    <TableHead>Miktar</TableHead>
+                    <TableHead>Önceki</TableHead>
+                    <TableHead>Yeni</TableHead>
+                    <TableHead>Sebep</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {movements.map((m) => (
+                    <TableRow key={m.movementId}>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {new Date(m.createdAt).toLocaleString('tr-TR')}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={
+                          m.type === 'increment' ? 'text-green-600 border-green-200' :
+                          m.type === 'decrement' ? 'text-red-600 border-red-200' :
+                          'text-gray-600 border-gray-200'
+                        }>
+                          {m.type === 'increment' ? 'Artış' : m.type === 'decrement' ? 'Azalış' : 'Değiştirme'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{m.quantity}</TableCell>
+                      <TableCell className="text-gray-500">{m.previousStock}</TableCell>
+                      <TableCell className="font-medium">{m.newStock}</TableCell>
+                      <TableCell className="text-xs text-gray-500 max-w-[150px] truncate">{m.reason}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMovementsDialogOpen(false)}>
+              Kapat
             </Button>
           </DialogFooter>
         </DialogContent>

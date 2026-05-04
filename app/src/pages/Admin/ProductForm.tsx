@@ -84,6 +84,8 @@ export default function ProductForm() {
     seoDescription: '',
     seoSlug: '',
     canonicalUrl: '',
+    originalPrice: '',
+    discount: '',
   });
   
   // Category attributes
@@ -141,6 +143,8 @@ export default function ProductForm() {
         seoDescription: product.seoDescription || '',
         seoSlug: product.seoSlug || '',
         canonicalUrl: product.canonicalUrl || '',
+        originalPrice: product.originalPrice?.toString() || '',
+        discount: product.discount?.toString() || '',
       });
       setImages(product.images || []);
     } catch (error) {
@@ -191,6 +195,8 @@ export default function ProductForm() {
         seoDescription: formData.seoDescription,
         seoSlug: formData.seoSlug,
         canonicalUrl: formData.canonicalUrl,
+        originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
+        discount: formData.discount ? parseFloat(formData.discount) : undefined,
       };
 
       if (isEditMode && id) {
@@ -655,9 +661,9 @@ export default function ProductForm() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Temel Fiyat (₺) *</label>
+                    <label className="text-sm font-medium">Satış Fiyatı (₺) *</label>
                     <Input 
                       type="number"
                       value={formData.basePrice}
@@ -666,6 +672,33 @@ export default function ProductForm() {
                       required
                     />
                     <p className="text-xs text-gray-500">Varyasyonlar için temel fiyat</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Liste Fiyatı (₺)</label>
+                    <Input 
+                      type="number"
+                      value={formData.originalPrice}
+                      onChange={(e) => setFormData({...formData, originalPrice: e.target.value})}
+                      placeholder="İndirimsiz fiyat"
+                    />
+                    <p className="text-xs text-gray-500">Üstü çizilecek fiyat (opsiyonel)</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">İndirim (%)</label>
+                    <Input 
+                      type="number"
+                      value={formData.discount}
+                      onChange={(e) => setFormData({...formData, discount: e.target.value})}
+                      placeholder="0"
+                      min="0"
+                      max="100"
+                    />
+                    <p className="text-xs text-gray-500">
+                      {formData.basePrice && formData.originalPrice && parseFloat(formData.originalPrice) > parseFloat(formData.basePrice)
+                        ? `%${Math.round((1 - parseFloat(formData.basePrice) / parseFloat(formData.originalPrice)) * 100)} indirim`
+                        : 'İndirim yüzdesi (opsiyonel)'
+                      }
+                    </p>
                   </div>
                 </div>
 

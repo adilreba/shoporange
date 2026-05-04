@@ -434,6 +434,29 @@ export const categoriesApi = {
   getAll: () => fetchApi('/categories'),
   getBySlug: (slug: string) => fetchApi(`/categories/${slug}`),
   getById: (id: string) => fetchApi(`/categories/${id}`),
+  create: (data: any) =>
+    fetchApi('/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: any) =>
+    fetchApi(`/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  delete: (id: string) =>
+    fetchApi(`/categories/${id}`, {
+      method: 'DELETE',
+    }),
+  createAttribute: (categoryId: string, data: any) =>
+    fetchApi(`/categories/${categoryId}/attributes`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  deleteAttribute: (categoryId: string, attributeId: string) =>
+    fetchApi(`/categories/${categoryId}/attributes/${attributeId}`, {
+      method: 'DELETE',
+    }),
 };
 
 // ====================

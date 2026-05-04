@@ -21,6 +21,7 @@ Globals:
         CART_TABLE: !Ref CartTable
         VERIFICATION_TABLE: !Ref VerificationTable
         STOCK_RESERVATIONS_TABLE: !Ref StockReservationsTable
+        STOCK_MOVEMENTS_TABLE: !Ref StockMovementsTable
         SHIPPING_TABLE: !Ref ShippingTable
         CHAT_CONNECTIONS_TABLE: !Ref ChatConnectionsTable
         CHAT_SESSIONS_TABLE: !Ref ChatSessionsTable
@@ -287,6 +288,32 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
+
+  # Stock Movements Table (audit trail for inventory changes)
+  StockMovementsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AtusHome-StockMovements
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: movementId
+          AttributeType: S
+        - AttributeName: productId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: movementId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ProductIdIndex
+          KeySchema:
+            - AttributeName: productId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
 
   # Invoices Table (e-Fatura / e-Arşiv)
   InvoicesTable:
@@ -1421,12 +1448,33 @@ Resources:
     Properties:
       CodeUri: dist/handlers/stock
       Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref StockMovementsTable
       Events:
         ApiEvent:
           Type: Api
           Properties:
             Path: /stock/update/{id}
             Method: put
+            RestApiId: !Ref ApiGateway
+
+  GetStockMovementsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/stock
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref StockMovementsTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /stock/movements/{id}
+            Method: get
             RestApiId: !Ref ApiGateway
 
   BulkUpdateStockFunction:

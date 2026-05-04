@@ -28,6 +28,9 @@ export interface AdminProduct {
   seoDescription?: string;
   seoSlug?: string;
   canonicalUrl?: string;
+  // Pricing fields
+  originalPrice?: number;
+  discount?: number;
   [key: string]: any;
 }
 

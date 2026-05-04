@@ -15,6 +15,7 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE || '';
 const STOCK_RESERVATIONS_TABLE = process.env.STOCK_RESERVATIONS_TABLE || '';
+const STOCK_MOVEMENTS_TABLE = process.env.STOCK_MOVEMENTS_TABLE || '';
 
 // CORS headers
 const headers = {
@@ -286,6 +287,13 @@ export const updateStock = async (event: APIGatewayProxyEvent): Promise<APIGatew
       return createResponse(400, { error: 'Invalid stock value' });
     }
 
+    // Get previous stock for audit trail
+    const productResult = await dynamodb.send(new GetCommand({
+      TableName: PRODUCTS_TABLE,
+      Key: { id: productId },
+    }));
+    const previousStock = productResult.Item?.stock || 0;
+
     // Update product stock
     await dynamodb.send(new UpdateCommand({
       TableName: PRODUCTS_TABLE,
@@ -297,8 +305,20 @@ export const updateStock = async (event: APIGatewayProxyEvent): Promise<APIGatew
       },
     }));
 
-    // Log stock change
-    console.log(`Stock updated for ${productId}: ${newStock}, reason: ${reason || 'No reason provided'}`);
+    // Record stock movement
+    await dynamodb.send(new PutCommand({
+      TableName: STOCK_MOVEMENTS_TABLE,
+      Item: {
+        movementId: `mov_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        productId,
+        type: newStock > previousStock ? 'increment' : newStock < previousStock ? 'decrement' : 'set',
+        quantity: Math.abs(newStock - previousStock),
+        previousStock,
+        newStock,
+        reason: reason || 'Manuel stok güncellemesi',
+        createdAt: new Date().toISOString(),
+      },
+    }));
 
     return createResponse(200, {
       success: true,
@@ -417,6 +437,35 @@ export const getLowStockProducts = async (event: APIGatewayProxyEvent): Promise<
   }
 };
 
+// ==================== GET STOCK MOVEMENTS (Admin) ====================
+export const getStockMovements = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const productId = event.pathParameters?.id;
+
+    if (!productId) {
+      return createResponse(400, { error: 'Product ID required' });
+    }
+
+    const result = await dynamodb.send(new QueryCommand({
+      TableName: STOCK_MOVEMENTS_TABLE,
+      IndexName: 'ProductIdIndex',
+      KeyConditionExpression: 'productId = :productId',
+      ExpressionAttributeValues: {
+        ':productId': productId,
+      },
+      ScanIndexForward: false, // newest first
+    }));
+
+    return createResponse(200, {
+      movements: result.Items || [],
+      total: result.Count || 0,
+    });
+  } catch (error) {
+    console.error('Error getting stock movements:', error);
+    return createResponse(500, { error: 'Failed to get stock movements' });
+  }
+};
+
 // ==================== HELPER FUNCTIONS ====================
 async function getReservedStock(productId: string): Promise<number> {
   try {
@@ -499,6 +548,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   if (path === '/stock/low-stock' && method === 'GET') {
     return getLowStockProducts(event);
+  }
+
+  if (path.match(/\/stock\/movements\/[^/]+$/) && method === 'GET') {
+    return getStockMovements(event);
   }
 
   return createResponse(404, { error: 'Not found' });

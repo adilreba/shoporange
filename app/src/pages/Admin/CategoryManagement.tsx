@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { categoriesApi } from '@/services/api';
 import {
   Dialog,
   DialogContent,
@@ -98,38 +99,12 @@ export default function CategoryManagement() {
   const loadCategories = async () => {
     try {
       setLoading(true);
-      // Mock data for now
-      const mockCategories: Category[] = [
-        {
-          categoryId: 'giyim',
-          name: 'Giyim',
-          slug: 'giyim',
-          description: 'Kadın, erkek ve çocuk giyim ürünleri',
-          icon: 'Shirt',
-          order: 1,
-          isActive: true,
-          attributes: [
-            { attributeId: 'beden', name: 'Beden', type: 'select', options: ['XS', 'S', 'M', 'L', 'XL'], required: true, order: 1 },
-            { attributeId: 'renk', name: 'Renk', type: 'color', options: ['Siyah', 'Beyaz', 'Kırmızı', 'Mavi'], required: true, order: 2 },
-          ],
-        },
-        {
-          categoryId: 'ayakkabi',
-          name: 'Ayakkabı',
-          slug: 'ayakkabi',
-          description: 'Spor, klasik ve günlük ayakkabılar',
-          icon: 'Footprints',
-          order: 2,
-          isActive: true,
-          attributes: [
-            { attributeId: 'numara', name: 'Numara', type: 'select', options: ['36', '37', '38', '39', '40'], required: true, order: 1 },
-            { attributeId: 'renk', name: 'Renk', type: 'color', options: ['Siyah', 'Beyaz', 'Kahverengi'], required: true, order: 2 },
-          ],
-        },
-      ];
-      setCategories(mockCategories);
+      const res = await categoriesApi.getAll();
+      const data = Array.isArray(res) ? res : res.data || [];
+      setCategories(data);
     } catch (error) {
       toast.error('Kategoriler yüklenemedi');
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -194,29 +169,28 @@ export default function CategoryManagement() {
       return;
     }
 
-    // Check if category name already exists
     if (isCategoryNameExists(newCategory.name)) {
       toast.error(`"${newCategory.name}" kategorisi zaten mevcut!`);
       return;
     }
 
     try {
-      const category: Category = {
-        categoryId: `cat_${Date.now()}`,
+      const payload = {
         name: newCategory.name,
         slug: generateUniqueSlug(newCategory.name),
         description: newCategory.description,
         icon: newCategory.icon,
         order: categories.length + 1,
         isActive: true,
-        attributes: [],
       };
 
-      setCategories([...categories, category]);
+      await categoriesApi.create(payload);
+      await loadCategories();
       setNewCategory({ name: '', description: '', icon: 'List' });
       toast.success('Kategori oluşturuldu');
-    } catch (error) {
-      toast.error('Kategori oluşturulamadı');
+    } catch (error: any) {
+      toast.error(error.message || 'Kategori oluşturulamadı');
+      console.error(error);
     }
   };
 
@@ -224,10 +198,15 @@ export default function CategoryManagement() {
     if (!confirm('Bu kategoriyi silmek istediğinize emin misiniz?')) return;
     
     try {
-      setCategories(categories.filter(c => c.categoryId !== categoryId));
+      await categoriesApi.delete(categoryId);
+      await loadCategories();
+      if (selectedCategory?.categoryId === categoryId) {
+        setSelectedCategory(null);
+      }
       toast.success('Kategori silindi');
-    } catch (error) {
-      toast.error('Kategori silinemedi');
+    } catch (error: any) {
+      toast.error(error.message || 'Kategori silinemedi');
+      console.error(error);
     }
   };
 
@@ -243,8 +222,7 @@ export default function CategoryManagement() {
     }
 
     try {
-      const attribute: CategoryAttribute = {
-        attributeId: `attr_${Date.now()}`,
+      const payload = {
         name: newAttribute.name,
         type: newAttribute.type,
         options: newAttribute.options,
@@ -252,19 +230,13 @@ export default function CategoryManagement() {
         order: (selectedCategory.attributes?.length || 0) + 1,
       };
 
-      const updatedCategory = {
-        ...selectedCategory,
-        attributes: [...(selectedCategory.attributes || []), attribute],
-      };
-
-      setCategories(categories.map(c => 
-        c.categoryId === selectedCategory.categoryId ? updatedCategory : c
-      ));
-      setSelectedCategory(updatedCategory);
+      await categoriesApi.createAttribute(selectedCategory.categoryId, payload);
+      await loadCategories();
       setNewAttribute({ name: '', type: 'select', options: [], required: false, optionInput: '' });
       toast.success('Özellik eklendi');
-    } catch (error) {
-      toast.error('Özellik eklenemedi');
+    } catch (error: any) {
+      toast.error(error.message || 'Özellik eklenemedi');
+      console.error(error);
     }
   };
 
@@ -273,18 +245,12 @@ export default function CategoryManagement() {
     if (!confirm('Bu özelliği silmek istediğinize emin misiniz?')) return;
 
     try {
-      const updatedCategory = {
-        ...selectedCategory,
-        attributes: selectedCategory.attributes?.filter(a => a.attributeId !== attributeId) || [],
-      };
-
-      setCategories(categories.map(c => 
-        c.categoryId === selectedCategory.categoryId ? updatedCategory : c
-      ));
-      setSelectedCategory(updatedCategory);
+      await categoriesApi.deleteAttribute(selectedCategory.categoryId, attributeId);
+      await loadCategories();
       toast.success('Özellik silindi');
-    } catch (error) {
-      toast.error('Özellik silinemedi');
+    } catch (error: any) {
+      toast.error(error.message || 'Özellik silinemedi');
+      console.error(error);
     }
   };
 
