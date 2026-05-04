@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 
 export function Register() {
   const navigate = useNavigate();
-  const { register, socialLogin, isLoading, error, clearError, needsVerification } = useAuthStore();
+  const { register, socialLogin, isLoading, error, clearError, needsVerification, clearVerification } = useAuthStore();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -176,7 +176,7 @@ export function Register() {
                   <div className="space-y-1">
                     <p>Bu e-posta adresi zaten kayıtlı.</p>
                     <div className="flex gap-3 text-xs">
-                      <Link to="/login" className="underline hover:text-red-900 font-medium">Giriş yap</Link>
+                      <Link to="/login" onClick={() => clearVerification()} className="underline hover:text-red-900 font-medium">Giriş yap</Link>
                       <Link to="/forgot-password" className="underline hover:text-red-900 font-medium">Şifremi unuttum</Link>
                     </div>
                   </div>
@@ -347,7 +347,7 @@ export function Register() {
 
             <p className="text-center text-sm text-muted-foreground mt-6">
               Zaten hesabınız var mı?{' '}
-              <Link to="/login" className="text-orange-600 font-medium hover:underline">
+              <Link to="/login" onClick={() => clearVerification()} className="text-orange-600 font-medium hover:underline">
                 Giriş yapın
               </Link>
             </p>

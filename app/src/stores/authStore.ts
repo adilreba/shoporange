@@ -739,8 +739,8 @@ export const useAuthStore = create<AuthState>()(
         user: state.user, 
         tokens: state.tokens,
         isAuthenticated: state.isAuthenticated,
-        needsVerification: state.needsVerification,
-        pendingVerificationEmail: state.pendingVerificationEmail,
+        // NOTE: needsVerification ve pendingVerificationEmail persist edilmiyor.
+        // Bu geçici state'ler sayfa yenilendiğinde sıfırlanmalı.
         marketingConsent: state.marketingConsent,
       }),
     }

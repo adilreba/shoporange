@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, CheckCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,12 +12,22 @@ import { toast } from 'sonner';
 export function VerifyEmail() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { verifyEmail, resendVerificationCode, pendingVerificationEmail, isLoading } = useAuthStore();
+  const { verifyEmail, resendVerificationCode, clearVerification, pendingVerificationEmail, isLoading } = useAuthStore();
   
   const [code, setCode] = useState('');
   
   // Eğer state üzerinden email gelmediyse, authStore'daki pending email'i kullan
   const email = (location.state as any)?.email || pendingVerificationEmail;
+
+  // 30 dakika timeout: Eski doğrulama session'ını temizle
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      clearVerification();
+      toast.info('Doğrulama süresi doldu. Lütfen tekrar kayıt olun.');
+      navigate('/register');
+    }, 30 * 60 * 1000); // 30 dakika
+    return () => clearTimeout(timer);
+  }, [clearVerification, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,13 +136,23 @@ export function VerifyEmail() {
                 </button>
               </p>
               
-              <Link
-                to="/register"
-                className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Kayıt sayfasına dön
-              </Link>
+              <div className="flex flex-col gap-2">
+                <Link
+                  to="/login"
+                  onClick={() => clearVerification()}
+                  className="inline-flex items-center justify-center text-sm text-orange-600 hover:text-orange-700 font-medium"
+                >
+                  Giriş Yap
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => clearVerification()}
+                  className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Kayıt sayfasına dön
+                </Link>
+              </div>
             </div>
           </div>
         </div>
