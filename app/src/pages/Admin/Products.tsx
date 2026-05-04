@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Package, 
@@ -35,8 +35,10 @@ interface Product {
 }
 
 interface Category {
-  id: string;
+  categoryId: string;
   name: string;
+  parentId?: string;
+  children?: Category[];
 }
 
 export function AdminProducts() {
@@ -60,7 +62,7 @@ export function AdminProducts() {
       setLoading(true);
       const [productsRes, categoriesRes] = await Promise.all([
         adminProductsApi.getAll(),
-        categoriesApi.getAll().catch(() => []),
+        categoriesApi.getTree().catch(() => []),
       ]);
       setProducts(Array.isArray(productsRes) ? productsRes : productsRes.data || []);
       setCategories(Array.isArray(categoriesRes) ? categoriesRes : categoriesRes.data || []);
@@ -80,13 +82,38 @@ export function AdminProducts() {
     return null;
   }
 
+  // Helpers for hierarchical categories
+  const findCategory = (cats: Category[], targetId: string): Category | null => {
+    for (const cat of cats) {
+      if (cat.categoryId === targetId) return cat;
+      if (cat.children) {
+        const found = findCategory(cat.children, targetId);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  
+  const collectIds = (cat: Category): string[] => {
+    const ids = [cat.categoryId];
+    if (cat.children) {
+      for (const child of cat.children) {
+        ids.push(...collectIds(child));
+      }
+    }
+    return ids;
+  };
+
+  const selectedCategoryObj = selectedCategory === 'all' ? null : findCategory(categories, selectedCategory);
+  const categoryIds = selectedCategoryObj ? collectIds(selectedCategoryObj) : [];
+
   // Filter products
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.barcode?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || categoryIds.includes(product.category);
     return matchesSearch && matchesCategory;
   });
 
@@ -157,7 +184,17 @@ export function AdminProducts() {
                     >
                       <option value="all">Tüm Kategoriler</option>
                       {categories.map((cat: Category) => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        <Fragment key={cat.categoryId}>
+                          <option value={cat.categoryId}>{cat.name}</option>
+                          {cat.children && cat.children.length > 0 && cat.children.map((child: Category) => (
+                            <Fragment key={child.categoryId}>
+                              <option value={child.categoryId}>{'  └─ ' + child.name}</option>
+                              {child.children && child.children.length > 0 && child.children.map((sub: Category) => (
+                                <option key={sub.categoryId} value={sub.categoryId}>{'    └─ ' + sub.name}</option>
+                              ))}
+                            </Fragment>
+                          ))}
+                        </Fragment>
                       ))}
                     </select>
                   </div>
@@ -235,7 +272,7 @@ export function AdminProducts() {
                               </div>
                             </td>
                             <td className="p-4">
-                              {categories.find(c => c.id === product.category)?.name || product.category}
+                              {findCategory(categories, product.category)?.name || product.category}
                             </td>
                             <td className="p-4">
                               <span className="font-medium">{formatPrice(product.price)}</span>
