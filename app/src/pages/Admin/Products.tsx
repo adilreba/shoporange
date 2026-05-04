@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
   Package, 
-  ShoppingCart, 
-  Users, 
   Plus, 
   Search, 
   Edit2, 
@@ -138,46 +135,7 @@ export function AdminProducts() {
       </header>
 
       <div className="container-custom py-8">
-        <div className="grid lg:grid-cols-5 gap-8">
-          {/* Sidebar */}
-          <aside className="lg:col-span-1">
-            <nav className="space-y-2">
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start"
-                onClick={() => navigate('/admin')}
-              >
-                <LayoutDashboard className="h-4 w-4 mr-2" />
-                Dashboard
-              </Button>
-              <Button 
-                variant="default" 
-                className="w-full justify-start gradient-orange"
-              >
-                <Package className="h-4 w-4 mr-2" />
-                Ürünler
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start"
-                onClick={() => navigate('/admin/orders')}
-              >
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Siparişler
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start"
-                onClick={() => navigate('/admin/users')}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Kullanıcılar
-              </Button>
-            </nav>
-          </aside>
-
-          {/* Main Content */}
-          <main className="lg:col-span-4 space-y-6">
+        <div className="space-y-6">
             {/* Toolbar */}
             <Card>
               <CardContent className="p-4">
@@ -362,7 +320,6 @@ export function AdminProducts() {
                 )}
               </CardContent>
             </Card>
-          </main>
         </div>
       </div>
     </div>
