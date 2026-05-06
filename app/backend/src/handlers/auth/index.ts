@@ -16,7 +16,7 @@ import {
   AuthFlowType,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { OAuth2Client } from 'google-auth-library';
 import {
@@ -321,9 +321,17 @@ async function createUserProfile(userData: {
 
   const encryptionContext = { userId: userData.id, service: 'auth', purpose: 'google-signup' };
 
+  let encryptedEmail: string;
+  try {
+    encryptedEmail = await encryptField(userData.email, encryptionContext);
+  } catch (encError) {
+    console.warn('[createUserProfile] Encryption failed, using plain email:', encError);
+    encryptedEmail = userData.email;
+  }
+
   const userProfile = {
     id: userData.id,
-    email: await encryptField(userData.email, encryptionContext),
+    email: encryptedEmail,
     name: userData.name,
     avatar: userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&background=random`,
     phone: '',
@@ -351,10 +359,6 @@ async function createUserProfile(userData: {
  */
 async function linkGoogleAccount(userId: string, googleSub: string, avatarUrl?: string): Promise<void> {
   if (!USERS_TABLE) return;
-
-  // We need to fetch current user first to update properly
-  // For simplicity, we'll use UpdateCommand
-  const { UpdateCommand } = await import('@aws-sdk/lib-dynamodb');
   
   const updateExpressions: string[] = ['SET google_sub = :googleSub, auth_provider = :authProvider, updatedAt = :updatedAt'];
   const expressionValues: any = {

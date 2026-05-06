@@ -109,8 +109,9 @@ export function getClientIP(event: APIGatewayProxyEvent): string {
 /**
  * Security headers for all responses
  */
-// CORS origin: Environment variable'dan al, yoksa '*' kullan (development/production uyumlulugu)
-const CORS_ORIGIN = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '*';
+// CORS origin: '*' for all environments (API Gateway + Lambda proxy integration)
+// Production'da spesifik origin'e kisitlanabilir
+const CORS_ORIGIN = '*';
 
 export const securityHeaders = {
   'Content-Type': 'application/json',

@@ -2427,6 +2427,13 @@ Resources:
             TableName: !Ref UsersTable
         - S3CrudPolicy:
             BucketName: !Ref ProductImagesBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt PIIEncryptionKey.Arn
       Events:
         ApiEvent:
           Type: Api
