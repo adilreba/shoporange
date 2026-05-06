@@ -971,14 +971,20 @@ export const logout = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
  * Get current user
  */
 export const getMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  console.log('[getMe] Called with headers:', Object.keys(event.headers || {}));
   try {
     const authHeader = event.headers.Authorization || event.headers.authorization;
     const accessToken = authHeader?.replace('Bearer ', '');
 
+    const corsHeaders = {
+      ...securityHeaders,
+      'Access-Control-Allow-Origin': '*',
+    };
+
     if (!accessToken) {
       return {
         statusCode: 401,
-        headers: securityHeaders,
+        headers: corsHeaders,
         body: JSON.stringify({ error: 'Authorization header required' }),
       };
     }
@@ -987,7 +993,7 @@ export const getMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
 
     return {
       statusCode: 200,
-      headers: securityHeaders,
+      headers: corsHeaders,
       body: JSON.stringify({
         id: user.sub,
         email: user.email,
@@ -997,10 +1003,13 @@ export const getMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
       }),
     };
   } catch (error: any) {
-    console.error('Get user error:', error);
+    console.error('[getMe] Error:', error);
     return {
       statusCode: 401,
-      headers: securityHeaders,
+      headers: {
+        ...securityHeaders,
+        'Access-Control-Allow-Origin': '*',
+      },
       body: JSON.stringify({ error: 'Invalid or expired token' }),
     };
   }
