@@ -109,8 +109,8 @@ export function getClientIP(event: APIGatewayProxyEvent): string {
 /**
  * Security headers for all responses
  */
-// CORS origin: Environment variable'dan al, yoksa guvenlik icin '*' kullanma
-const CORS_ORIGIN = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '';
+// CORS origin: Environment variable'dan al, yoksa '*' kullan (development/production uyumlulugu)
+const CORS_ORIGIN = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '*';
 
 export const securityHeaders = {
   'Content-Type': 'application/json',
@@ -121,8 +121,7 @@ export const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'",
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
-  // GUVENLIK: CORS_ORIGIN env var'i bos ise istek reddedilmeli
-  'Access-Control-Allow-Origin': CORS_ORIGIN || '',
+  'Access-Control-Allow-Origin': CORS_ORIGIN,
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
 };
