@@ -65,7 +65,7 @@ export function GoogleLoginButton({ onSuccess, className = '' }: GoogleLoginButt
           size: 'large',
           text: 'signin_with',
           shape: 'rectangular',
-          width: '100%',
+          width: undefined,
         });
       }
     };

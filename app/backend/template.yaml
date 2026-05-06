@@ -37,6 +37,7 @@ Globals:
         COGNITO_USER_POOL_ID: !Ref UserPool
         COGNITO_CLIENT_ID: !Ref UserPoolClient
         SUPER_ADMIN_EMAIL: !Ref SuperAdminEmail
+        CORS_ORIGIN: '*'
 
 Parameters:
   StripeSecretKey:
@@ -638,6 +639,25 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+  # API Gateway CloudWatch Logs Role (required for MetricsEnabled)
+  ApiGatewayCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayCloudWatchRole.Arn
+
   # API Gateway - CORS ENABLED
   # NOTE: Cognito Auth is applied per-function, not globally
   ApiGateway:
@@ -665,7 +685,6 @@ Resources:
           HttpMethod: '*'
           ThrottlingBurstLimit: 100
           ThrottlingRateLimit: 50
-          LoggingLevel: INFO
           MetricsEnabled: true
           DataTraceEnabled: false
 

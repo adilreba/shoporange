@@ -11,7 +11,7 @@ const TABLE_NAME = process.env.PAYMENT_METHODS_TABLE || 'AtusHome-PaymentMethods
 
 const headers = {
   'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || 'https://atushome.com',
+  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '*',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key',
 };

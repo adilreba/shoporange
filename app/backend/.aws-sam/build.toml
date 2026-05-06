@@ -88,7 +88,7 @@ architecture = "x86_64"
 handler = "index.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["CheckStockFunction", "ReserveStockFunction", "ReleaseStockFunction", "ConfirmStockFunction", "UpdateStockFunction", "BulkUpdateStockFunction", "GetUserReservationsFunction", "GetLowStockFunction"]
+functions = ["CheckStockFunction", "ReserveStockFunction", "ReleaseStockFunction", "ConfirmStockFunction", "UpdateStockFunction", "GetStockMovementsFunction", "BulkUpdateStockFunction", "GetUserReservationsFunction", "GetLowStockFunction"]
 
 [function_build_definitions.7b983aca-1b70-49de-add3-9587b143d37e]
 codeuri = "/Users/elora/GitHub/app/backend/dist/handlers/invoicing"

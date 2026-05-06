@@ -15,6 +15,7 @@ import {
   ChangePasswordCommand,
   AuthFlowType,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { OAuth2Client } from 'google-auth-library';
 import {
   securityHeaders,
   sanitizeInput,
@@ -231,6 +232,22 @@ async function handleGoogleSignIn(googleUser: any, idToken: string): Promise<any
     await adminCreateUser(googleUser.email, googleUser.name, tempPassword, 'user');
     return await signIn({ email: googleUser.email, password: tempPassword });
   }
+}
+
+// ===== GOOGLE TOKEN VERIFICATION =====
+const GOOGLE_CLIENT_ID = '334193988536-m66kr69futlq4hq9odsplok1uldpd3bk.apps.googleusercontent.com';
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+async function verifyGoogleToken(token: string): Promise<any> {
+  const ticket = await googleClient.verifyIdToken({
+    idToken: token,
+    audience: GOOGLE_CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+  if (!payload) {
+    throw new Error('Invalid Google token');
+  }
+  return payload;
 }
 
 // ===== RATE LIMIT CONFIG =====
@@ -850,19 +867,30 @@ export const googleLogin = async (event: APIGatewayProxyEvent): Promise<APIGatew
       };
     }
 
-    const { token, user: googleUser } = JSON.parse(event.body);
+    const { token } = JSON.parse(event.body);
 
-    if (!token || !googleUser?.email) {
+    if (!token) {
       return {
         statusCode: 400,
         headers: securityHeaders,
-        body: JSON.stringify({ error: 'Google token and user info are required' }),
+        body: JSON.stringify({ error: 'Google token is required' }),
+      };
+    }
+
+    // Verify Google ID token cryptographically
+    const payload = await verifyGoogleToken(token);
+
+    if (!payload.email) {
+      return {
+        statusCode: 400,
+        headers: securityHeaders,
+        body: JSON.stringify({ error: 'Google token does not contain email' }),
       };
     }
 
     // Validate Google email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(googleUser.email)) {
+    if (!emailRegex.test(payload.email)) {
       return {
         statusCode: 400,
         headers: securityHeaders,
@@ -870,12 +898,19 @@ export const googleLogin = async (event: APIGatewayProxyEvent): Promise<APIGatew
       };
     }
 
+    const googleUser = {
+      email: payload.email,
+      name: payload.name || payload.email.split('@')[0],
+      picture: payload.picture,
+      sub: payload.sub,
+    };
+
     const result = await handleGoogleSignIn(
       {
         email: sanitizeInput(googleUser.email),
         name: sanitizeInput(googleUser.name),
         picture: googleUser.picture,
-        sub: googleUser.sub || googleUser.id,
+        sub: googleUser.sub,
       },
       token
     );
@@ -896,9 +931,9 @@ export const googleLogin = async (event: APIGatewayProxyEvent): Promise<APIGatew
   } catch (error: any) {
     console.error('Google login error:', error);
     return {
-      statusCode: 500,
+      statusCode: 401,
       headers: securityHeaders,
-      body: JSON.stringify({ error: 'Google login failed' }),
+      body: JSON.stringify({ error: 'Google login failed: Invalid or expired token' }),
     };
   }
 };
