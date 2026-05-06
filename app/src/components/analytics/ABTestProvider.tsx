@@ -87,38 +87,14 @@ function useGrowthBookSync() {
 // Provider Component
 // ---------------------------------------------------------------------------
 
-const GROWTHBOOK_CLIENT_KEY = import.meta.env.VITE_GROWTHBOOK_CLIENT_KEY || '';
-
 export function ABTestProvider({ children }: { children: React.ReactNode }) {
-  const isEnabled = !!GROWTHBOOK_CLIENT_KEY;
-
-  useEffect(() => {
-    if (!isEnabled) return;
-
-    growthbook.init({ streaming: true }).catch((err: any) => {
-      console.warn('[GrowthBook] Init failed, using defaults:', err);
-    });
-
-    return () => {
-      growthbook.destroy();
-    };
-  }, [isEnabled]);
-
-  if (!isEnabled) {
-    return <>{children}</>;
-  }
+  useGrowthBookSync();
 
   return (
     <GrowthBookProvider growthbook={growthbook}>
-      <GrowthBookSyncWrapper />
       {children}
     </GrowthBookProvider>
   );
-}
-
-function GrowthBookSyncWrapper() {
-  useGrowthBookSync();
-  return null;
 }
 
 export default ABTestProvider;
