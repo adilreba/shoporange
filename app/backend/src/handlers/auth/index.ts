@@ -1011,11 +1011,14 @@ export const getMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
       statusCode: 200,
       headers: securityHeaders,
       body: JSON.stringify({
-        id: payload.sub,
-        email: payload.email,
-        name: payload.name || payload.email?.split('@')[0] || '',
-        phone: payload.phone_number || '',
-        role: payload['custom:role'] || 'user',
+        user: {
+          id: payload.sub,
+          email: payload.email,
+          name: payload.name || payload.email?.split('@')[0] || '',
+          phone: payload.phone_number || '',
+          role: payload['custom:role'] || 'user',
+          createdAt: payload.iat ? new Date(payload.iat * 1000).toISOString() : new Date().toISOString(),
+        }
       }),
     };
   } catch (error: any) {
