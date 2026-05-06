@@ -137,45 +137,62 @@ export const ACTIVE_TESTS: TestDefinition[] = [
 // GROWTHBOOK CLIENT
 // =============================================================================
 
-export const growthbook = new GrowthBook({
-  apiHost: API_HOST,
-  clientKey: CLIENT_KEY,
-  decryptionKey: DECRYPTION_KEY || undefined,
-  enableDevMode: import.meta.env.DEV,
+// Dummy GrowthBook instance when no client key is configured
+const dummyGrowthBook = {
+  init: () => Promise.resolve(),
+  destroy: () => {},
+  refreshFeatures: () => {},
+  setAttributes: () => {},
+  getAttributes: () => ({}),
+  getPayload: () => ({ features: {} }),
+  setPayload: () => {},
+  evalFeature: () => ({ value: null, on: false, off: true, source: 'defaultValue' }),
+  on: () => () => {},
+  ready: true,
+  setEncryptedPayload: () => {},
+} as any;
 
-  // Tracking callback — test sonuçlarını GA4 + Pixel'e gönder
-  trackingCallback: (experiment, result) => {
-    const testDef = ACTIVE_TESTS.find(t => t.id === experiment.key);
+export const growthbook = CLIENT_KEY
+  ? new GrowthBook({
+      apiHost: API_HOST,
+      clientKey: CLIENT_KEY,
+      decryptionKey: DECRYPTION_KEY || undefined,
+      enableDevMode: import.meta.env.DEV,
 
-    console.log(`[A/B Test] ${experiment.key}:`, {
-      variant: result.variationId,
-      value: result.value,
-    });
+      // Tracking callback — test sonuçlarını GA4 + Pixel'e gönder
+      trackingCallback: (experiment, result) => {
+        const testDef = ACTIVE_TESTS.find(t => t.id === experiment.key);
 
-    // GA4'e custom event olarak gönder
-    analytics.customEvent('ab_test_exposure', {
-      test_id: experiment.key,
-      test_name: testDef?.name || experiment.key,
-      variant_id: result.variationId,
-      variant_value: result.value,
-    });
+        console.log(`[A/B Test] ${experiment.key}:`, {
+          variant: result.variationId,
+          value: result.value,
+        });
 
-    // GTM DataLayer'a gönder (GrowthBook entegrasyonu için)
-    window.dataLayer?.push({
-      event: 'ab_test_exposure',
-      ab_test_id: experiment.key,
-      ab_test_name: testDef?.name || experiment.key,
-      ab_variant_id: result.variationId,
-      ab_variant_value: result.value,
-    });
-  },
+        // GA4'e custom event olarak gönder
+        analytics.customEvent('ab_test_exposure', {
+          test_id: experiment.key,
+          test_name: testDef?.name || experiment.key,
+          variant_id: result.variationId,
+          variant_value: result.value,
+        });
 
-  // Kullanıcı atamalarını tutarlı yap (aynı kullanıcı aynı varyasyonu görür)
-  // GrowthBook varsayılan olarak localStorage sticky bucket kullanır
+        // GTM DataLayer'a gönder (GrowthBook entegrasyonu için)
+        window.dataLayer?.push({
+          event: 'ab_test_exposure',
+          ab_test_id: experiment.key,
+          ab_test_name: testDef?.name || experiment.key,
+          ab_variant_id: result.variationId,
+          ab_variant_value: result.value,
+        });
+      },
 
-  // Kullanıcı özellikleri
-  attributes: {},
-});
+      // Kullanıcı atamalarını tutarlı yap (aynı kullanıcı aynı varyasyonu görür)
+      // GrowthBook varsayılan olarak localStorage sticky bucket kullanır
+
+      // Kullanıcı özellikleri
+      attributes: {},
+    })
+  : dummyGrowthBook;
 
 // =============================================================================
 // HELPER FUNCTIONS
