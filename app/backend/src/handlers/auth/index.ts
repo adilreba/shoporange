@@ -970,17 +970,40 @@ export const logout = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
  * GET /auth/me
  * Get current user
  */
+// Decode JWT token without verifying signature (for reading claims)
+function decodeJwtPayload(token: string): any {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      Buffer.from(base64, 'base64').toString('utf8')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
 export const getMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    // API Gateway CognitoAuthorizer already validated the token
-    // User claims are available in requestContext.authorizer.claims
-    const claims = event.requestContext.authorizer?.claims;
-    
-    if (!claims) {
+    const authHeader = event.headers.Authorization || event.headers.authorization;
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token) {
       return {
         statusCode: 401,
         headers: securityHeaders,
-        body: JSON.stringify({ error: 'Unauthorized' }),
+        body: JSON.stringify({ error: 'Authorization header required' }),
+      };
+    }
+
+    // Decode Cognito IdToken to get user claims
+    const payload = decodeJwtPayload(token);
+    if (!payload) {
+      return {
+        statusCode: 401,
+        headers: securityHeaders,
+        body: JSON.stringify({ error: 'Invalid token format' }),
       };
     }
 
@@ -988,11 +1011,11 @@ export const getMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
       statusCode: 200,
       headers: securityHeaders,
       body: JSON.stringify({
-        id: claims.sub,
-        email: claims.email,
-        name: claims.name || claims.email?.split('@')[0] || '',
-        phone: claims.phone_number || '',
-        role: claims['custom:role'] || 'user',
+        id: payload.sub,
+        email: payload.email,
+        name: payload.name || payload.email?.split('@')[0] || '',
+        phone: payload.phone_number || '',
+        role: payload['custom:role'] || 'user',
       }),
     };
   } catch (error: any) {
