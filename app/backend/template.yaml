@@ -2334,6 +2334,8 @@ Resources:
             Path: /auth/me
             Method: get
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
   AuthForgotPasswordFunction:
     Type: AWS::Serverless::Function
