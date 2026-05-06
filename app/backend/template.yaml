@@ -2421,7 +2421,12 @@ Resources:
                 - cognito-idp:GetUser
                 - cognito-idp:AdminCreateUser
                 - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminGetUser
               Resource: !GetAtt UserPool.Arn
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - S3CrudPolicy:
+            BucketName: !Ref ProductImagesBucket
       Events:
         ApiEvent:
           Type: Api
