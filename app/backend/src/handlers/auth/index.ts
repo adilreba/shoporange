@@ -222,15 +222,44 @@ async function adminCreateUser(email: string, name: string, tempPassword: string
 }
 
 async function handleGoogleSignIn(googleUser: any, idToken: string): Promise<any> {
+  // Deterministic password from Google sub - same user always gets same password
+  // Meets Cognito policy: uppercase (G), lowercase, number (sub), special char (!)
+  const basePassword = `Google_${googleUser.sub}_Auth!`;
+  
   try {
+    // Try to sign in first
     return await signIn({
       email: googleUser.email,
-      password: `google_${googleUser.sub}`,
+      password: basePassword,
     });
-  } catch (error) {
-    const tempPassword = `google_${googleUser.sub}_${Date.now()}`;
-    await adminCreateUser(googleUser.email, googleUser.name, tempPassword, 'user');
-    return await signIn({ email: googleUser.email, password: tempPassword });
+  } catch (error: any) {
+    console.log('Google user sign-in failed, attempting to create:', googleUser.email, error.message);
+    
+    try {
+      // Try to create the user
+      await adminCreateUser(googleUser.email, googleUser.name, basePassword, 'user');
+      return await signIn({ email: googleUser.email, password: basePassword });
+    } catch (createError: any) {
+      // User already exists (registered via email/password or previous Google attempt)
+      if (createError.name === 'UsernameExistsException' || 
+          createError.message?.includes('already exists') ||
+          createError.__type === 'UsernameExistsException') {
+        console.log('User already exists, updating password for Google auth:', googleUser.email);
+        
+        // Update the user's password to the Google deterministic password
+        const setPasswordCommand = new AdminSetUserPasswordCommand({
+          UserPoolId: process.env.COGNITO_USER_POOL_ID!,
+          Username: googleUser.email,
+          Password: basePassword,
+          Permanent: true,
+        });
+        await cognitoClient.send(setPasswordCommand);
+        
+        // Now sign in with the updated password
+        return await signIn({ email: googleUser.email, password: basePassword });
+      }
+      throw createError;
+    }
   }
 }
 
@@ -239,15 +268,28 @@ const GOOGLE_CLIENT_ID = '334193988536-m66kr69futlq4hq9odsplok1uldpd3bk.apps.goo
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 async function verifyGoogleToken(token: string): Promise<any> {
-  const ticket = await googleClient.verifyIdToken({
-    idToken: token,
-    audience: GOOGLE_CLIENT_ID,
-  });
-  const payload = ticket.getPayload();
-  if (!payload) {
-    throw new Error('Invalid Google token');
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload) {
+      throw new Error('Invalid Google token - no payload');
+    }
+    return payload;
+  } catch (error: any) {
+    console.error('Google token verification error:', {
+      message: error.message,
+      code: error.code,
+      status: error.status,
+      stack: error.stack,
+      clientId: GOOGLE_CLIENT_ID,
+      tokenLength: token?.length,
+      tokenPrefix: token?.substring(0, 20) + '...',
+    });
+    throw error;
   }
-  return payload;
 }
 
 // ===== RATE LIMIT CONFIG =====
@@ -929,11 +971,20 @@ export const googleLogin = async (event: APIGatewayProxyEvent): Promise<APIGatew
       }),
     };
   } catch (error: any) {
-    console.error('Google login error:', error);
+    console.error('Google login error:', {
+      message: error.message,
+      code: error.code,
+      status: error.status,
+      stack: error.stack,
+    });
     return {
       statusCode: 401,
       headers: securityHeaders,
-      body: JSON.stringify({ error: 'Google login failed: Invalid or expired token' }),
+      body: JSON.stringify({
+        error: 'Google login failed: Invalid or expired token',
+        details: error.message,
+        code: error.code || 'UNKNOWN',
+      }),
     };
   }
 };

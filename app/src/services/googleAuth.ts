@@ -104,7 +104,10 @@ export async function signInWithGoogle(credential: string): Promise<GoogleSignIn
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || 'Google login failed');
+    const details = error.details ? ` (${error.details})` : '';
+    const code = error.code ? ` [${error.code}]` : '';
+    console.error('Google auth backend error:', error);
+    throw new Error((error.error || 'Google login failed') + details + code);
   }
 
   const data = await response.json();

@@ -52,6 +52,8 @@ export function GoogleLoginButton({ onSuccess, className = '' }: GoogleLoginButt
     // Initialize Google Identity Services
     const initializeGoogle = () => {
       if (window.google && buttonRef.current) {
+        const width = buttonRef.current.offsetWidth;
+
         window.google.accounts.id.initialize({
           client_id: getGoogleClientId(),
           callback: handleCredentialResponse,
@@ -61,11 +63,12 @@ export function GoogleLoginButton({ onSuccess, className = '' }: GoogleLoginButt
 
         window.google.accounts.id.renderButton(buttonRef.current, {
           type: 'standard',
-          theme: 'outline',
+          theme: 'filled_blue',
           size: 'large',
           text: 'signin_with',
           shape: 'rectangular',
-          width: undefined,
+          width: width > 0 ? width : 400,
+          logo_alignment: 'center',
         });
       }
     };
@@ -81,6 +84,25 @@ export function GoogleLoginButton({ onSuccess, className = '' }: GoogleLoginButt
     } else {
       initializeGoogle();
     }
+
+    // Re-render button on window resize to keep full width
+    const handleResize = () => {
+      if (window.google && buttonRef.current) {
+        const width = buttonRef.current.offsetWidth;
+        window.google.accounts.id.renderButton(buttonRef.current, {
+          type: 'standard',
+          theme: 'filled_blue',
+          size: 'large',
+          text: 'signin_with',
+          shape: 'rectangular',
+          width: width > 0 ? width : 400,
+          logo_alignment: 'center',
+        });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const handleCredentialResponse = async (response: any) => {
