@@ -68,6 +68,8 @@ export const handler = async (event: PostConfirmationEvent): Promise<PostConfirm
         address: [],
         marketingConsent,
         isActive: true,
+        auth_provider: 'email',
+        avatar_source: 'gravatar',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

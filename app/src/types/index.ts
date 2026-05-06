@@ -83,6 +83,11 @@ export interface User {
   deletedBy?: string | null;
   // Notification preferences
   notificationPreference?: 'email' | 'sms' | 'both';
+  // Auth provider tracking (enterprise-grade)
+  auth_provider?: 'email' | 'google' | 'facebook' | 'both';
+  google_sub?: string;
+  facebook_id?: string;
+  avatar_source?: 'google' | 'facebook' | 'gravatar' | 'upload';
 }
 
 // Yetki kontrolü yardımcı fonksiyonu

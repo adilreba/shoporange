@@ -15,6 +15,9 @@ import {
   ChangePasswordCommand,
   AuthFlowType,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { OAuth2Client } from 'google-auth-library';
 import {
   securityHeaders,
@@ -25,6 +28,7 @@ import {
   logSecurityEvent,
 } from '../../utils/security';
 import { checkAuthRateLimit } from '../../utils/rateLimiter';
+import { encryptField } from '../../utils/encryption';
 
 // ===== COGNITO CLIENT SETUP =====
 const cognitoClient = new CognitoIdentityProviderClient({
@@ -33,6 +37,20 @@ const cognitoClient = new CognitoIdentityProviderClient({
 
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || '';
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID || '';
+
+// ===== DYNAMODB CLIENT SETUP =====
+const dynamoClient = new DynamoDBClient({
+  region: process.env.AWS_REGION || 'eu-west-1',
+});
+const dynamodb = DynamoDBDocumentClient.from(dynamoClient);
+const USERS_TABLE = process.env.USERS_TABLE || '';
+
+// ===== S3 CLIENT SETUP =====
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION || 'eu-west-1',
+});
+const IMAGE_BUCKET = process.env.IMAGE_BUCKET || '';
+const CDN_URL = process.env.CDN_URL || '';
 
 // ===== PHONE VALIDATION =====
 function validateTurkishPhone(phone: string): { valid: boolean; e164?: string; message?: string } {
@@ -221,46 +239,234 @@ async function adminCreateUser(email: string, name: string, tempPassword: string
   await cognitoClient.send(setPasswordCommand);
 }
 
+// ===== GOOGLE AUTH HELPERS =====
+
+/**
+ * Find user by email using DynamoDB GSI
+ */
+async function findUserByEmail(email: string): Promise<any | null> {
+  if (!USERS_TABLE) return null;
+  try {
+    const result = await dynamodb.send(new QueryCommand({
+      TableName: USERS_TABLE,
+      IndexName: 'email-index',
+      KeyConditionExpression: 'email = :email',
+      ExpressionAttributeValues: {
+        ':email': email,
+      },
+      Limit: 1,
+    }));
+    return result.Items?.[0] || null;
+  } catch (error) {
+    console.error('[findUserByEmail] Error:', error);
+    return null;
+  }
+}
+
+/**
+ * Download Google avatar and upload to S3
+ */
+async function downloadAndStoreAvatar(pictureUrl: string, userId: string): Promise<string> {
+  try {
+    if (!pictureUrl || !IMAGE_BUCKET || !CDN_URL) {
+      return '';
+    }
+
+    // Fetch avatar from Google
+    const response = await fetch(pictureUrl, { timeout: 5000 } as any);
+    if (!response.ok) {
+      console.warn('[downloadAndStoreAvatar] Failed to fetch avatar:', response.status);
+      return '';
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Determine content type
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const ext = contentType.includes('png') ? 'png' : 'jpg';
+    const key = `avatars/${userId}.${ext}`;
+
+    // Upload to S3
+    await s3Client.send(new PutObjectCommand({
+      Bucket: IMAGE_BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+      CacheControl: 'public, max-age=31536000',
+    }));
+
+    const avatarUrl = `https://${CDN_URL}/${key}`;
+    console.log('[downloadAndStoreAvatar] Stored avatar:', avatarUrl);
+    return avatarUrl;
+  } catch (error) {
+    console.error('[downloadAndStoreAvatar] Error:', error);
+    return '';
+  }
+}
+
+/**
+ * Create user profile in DynamoDB for Google users
+ */
+async function createUserProfile(userData: {
+  id: string;
+  email: string;
+  name: string;
+  avatar?: string;
+  auth_provider: string;
+  google_sub?: string;
+  avatar_source?: string;
+}): Promise<void> {
+  if (!USERS_TABLE) return;
+
+  const encryptionContext = { userId: userData.id, service: 'auth', purpose: 'google-signup' };
+
+  const userProfile = {
+    id: userData.id,
+    email: await encryptField(userData.email, encryptionContext),
+    name: userData.name,
+    avatar: userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&background=random`,
+    phone: '',
+    address: [],
+    role: 'user',
+    marketingConsent: false,
+    isActive: true,
+    auth_provider: userData.auth_provider,
+    google_sub: userData.google_sub || undefined,
+    avatar_source: userData.avatar_source || 'google',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await dynamodb.send(new PutCommand({
+    TableName: USERS_TABLE,
+    Item: userProfile,
+  }));
+
+  console.log('[createUserProfile] Created profile for:', userData.email);
+}
+
+/**
+ * Update existing user profile with Google auth info (account linking)
+ */
+async function linkGoogleAccount(userId: string, googleSub: string, avatarUrl?: string): Promise<void> {
+  if (!USERS_TABLE) return;
+
+  // We need to fetch current user first to update properly
+  // For simplicity, we'll use UpdateCommand
+  const { UpdateCommand } = await import('@aws-sdk/lib-dynamodb');
+  
+  const updateExpressions: string[] = ['SET google_sub = :googleSub, auth_provider = :authProvider, updatedAt = :updatedAt'];
+  const expressionValues: any = {
+    ':googleSub': googleSub,
+    ':authProvider': 'both',
+    ':updatedAt': new Date().toISOString(),
+  };
+
+  if (avatarUrl) {
+    updateExpressions.push('avatar = :avatar, avatar_source = :avatarSource');
+    expressionValues[':avatar'] = avatarUrl;
+    expressionValues[':avatarSource'] = 'google';
+  }
+
+  await dynamodb.send(new UpdateCommand({
+    TableName: USERS_TABLE,
+    Key: { id: userId },
+    UpdateExpression: updateExpressions.join(', '),
+    ExpressionAttributeValues: expressionValues,
+  }));
+
+  console.log('[linkGoogleAccount] Linked Google account for user:', userId);
+}
+
 async function handleGoogleSignIn(googleUser: any, idToken: string): Promise<any> {
   // Deterministic password from Google sub - same user always gets same password
   // Meets Cognito policy: uppercase (G), lowercase, number (sub), special char (!)
   const basePassword = `Google_${googleUser.sub}_Auth!`;
-  
-  try {
-    // Try to sign in first
-    return await signIn({
-      email: googleUser.email,
-      password: basePassword,
-    });
-  } catch (error: any) {
-    console.log('Google user sign-in failed, attempting to create:', googleUser.email, error.message);
-    
+
+  // 1. Check if user exists in DynamoDB by email (account linking)
+  const existingDbUser = await findUserByEmail(googleUser.email);
+
+  if (existingDbUser) {
+    console.log('[handleGoogleSignIn] Existing user found, linking Google account:', googleUser.email);
+
+    // User exists - link Google account if not already linked
+    if (!existingDbUser.google_sub) {
+      // Download and store avatar
+      const avatarUrl = googleUser.picture
+        ? await downloadAndStoreAvatar(googleUser.picture, existingDbUser.id)
+        : undefined;
+      
+      await linkGoogleAccount(existingDbUser.id, googleUser.sub, avatarUrl);
+    }
+
+    // Ensure user exists in Cognito
     try {
-      // Try to create the user
-      await adminCreateUser(googleUser.email, googleUser.name, basePassword, 'user');
-      return await signIn({ email: googleUser.email, password: basePassword });
-    } catch (createError: any) {
-      // User already exists (registered via email/password or previous Google attempt)
-      if (createError.name === 'UsernameExistsException' || 
-          createError.message?.includes('already exists') ||
-          createError.__type === 'UsernameExistsException') {
-        console.log('User already exists, updating password for Google auth:', googleUser.email);
-        
-        // Update the user's password to the Google deterministic password
-        const setPasswordCommand = new AdminSetUserPasswordCommand({
-          UserPoolId: process.env.COGNITO_USER_POOL_ID!,
-          Username: googleUser.email,
-          Password: basePassword,
-          Permanent: true,
-        });
-        await cognitoClient.send(setPasswordCommand);
-        
-        // Now sign in with the updated password
-        return await signIn({ email: googleUser.email, password: basePassword });
+      await cognitoClient.send(new AdminGetUserCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: googleUser.email,
+      }));
+    } catch (cognitoError: any) {
+      if (cognitoError.name === 'UserNotFoundException') {
+        // User in DB but not in Cognito - create in Cognito
+        console.log('[handleGoogleSignIn] User in DB but not in Cognito, creating:', googleUser.email);
+        await adminCreateUser(googleUser.email, googleUser.name, basePassword, 'user');
+      } else {
+        throw cognitoError;
       }
+    }
+
+    // Update password and sign in
+    const setPasswordCommand = new AdminSetUserPasswordCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: googleUser.email,
+      Password: basePassword,
+      Permanent: true,
+    });
+    await cognitoClient.send(setPasswordCommand);
+
+    return await signIn({ email: googleUser.email, password: basePassword });
+  }
+
+  // 2. New user - create in Cognito and DynamoDB
+  console.log('[handleGoogleSignIn] New user, creating:', googleUser.email);
+
+  try {
+    await adminCreateUser(googleUser.email, googleUser.name, basePassword, 'user');
+  } catch (createError: any) {
+    if (createError.name === 'UsernameExistsException' || 
+        createError.message?.includes('already exists')) {
+      console.log('[handleGoogleSignIn] Cognito user exists but no DB profile, continuing...');
+    } else {
       throw createError;
     }
   }
+
+  // Get the Cognito user to get the sub (user ID)
+  const cognitoUser = await cognitoClient.send(new AdminGetUserCommand({
+    UserPoolId: USER_POOL_ID,
+    Username: googleUser.email,
+  }));
+  const userSub = cognitoUser.UserAttributes?.find((a: any) => a.Name === 'sub')?.Value || '';
+
+  // Download and store avatar
+  const avatarUrl = googleUser.picture
+    ? await downloadAndStoreAvatar(googleUser.picture, userSub)
+    : undefined;
+
+  // Create DynamoDB profile
+  await createUserProfile({
+    id: userSub,
+    email: googleUser.email,
+    name: googleUser.name,
+    avatar: avatarUrl,
+    auth_provider: 'google',
+    google_sub: googleUser.sub,
+    avatar_source: 'google',
+  });
+
+  // Sign in
+  return await signIn({ email: googleUser.email, password: basePassword });
 }
 
 // ===== GOOGLE TOKEN VERIFICATION =====
