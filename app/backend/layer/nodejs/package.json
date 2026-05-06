@@ -8,6 +8,8 @@
     "aws-sdk": "^2.1693.0",
     "bcrypt": "^6.0.0",
     "fast-xml-parser": "^5.5.10",
-    "iyzipay": "^2.0.67"
+    "google-auth-library": "^10.6.2",
+    "iyzipay": "^2.0.67",
+    "pdf-lib": "^1.17.1"
   }
 }

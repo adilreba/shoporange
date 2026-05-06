@@ -38,6 +38,7 @@ Globals:
         COGNITO_CLIENT_ID: !Ref UserPoolClient
         SUPER_ADMIN_EMAIL: !Ref SuperAdminEmail
         CORS_ORIGIN: '*'
+        GOOGLE_CLIENT_ID: '334193988536-m66kr69futlq4hq9odsplok1uldpd3bk.apps.googleusercontent.com'
 
 Parameters:
   StripeSecretKey:
