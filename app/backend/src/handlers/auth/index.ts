@@ -971,45 +971,35 @@ export const logout = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
  * Get current user
  */
 export const getMe = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  console.log('[getMe] Called with headers:', Object.keys(event.headers || {}));
   try {
-    const authHeader = event.headers.Authorization || event.headers.authorization;
-    const accessToken = authHeader?.replace('Bearer ', '');
-
-    const corsHeaders = {
-      ...securityHeaders,
-      'Access-Control-Allow-Origin': '*',
-    };
-
-    if (!accessToken) {
+    // API Gateway CognitoAuthorizer already validated the token
+    // User claims are available in requestContext.authorizer.claims
+    const claims = event.requestContext.authorizer?.claims;
+    
+    if (!claims) {
       return {
         statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: 'Authorization header required' }),
+        headers: securityHeaders,
+        body: JSON.stringify({ error: 'Unauthorized' }),
       };
     }
 
-    const user = await getUser(accessToken);
-
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: securityHeaders,
       body: JSON.stringify({
-        id: user.sub,
-        email: user.email,
-        name: user.name,
-        phone: user.phone,
-        role: user['custom:role'] || 'user',
+        id: claims.sub,
+        email: claims.email,
+        name: claims.name || claims.email?.split('@')[0] || '',
+        phone: claims.phone_number || '',
+        role: claims['custom:role'] || 'user',
       }),
     };
   } catch (error: any) {
     console.error('[getMe] Error:', error);
     return {
       statusCode: 401,
-      headers: {
-        ...securityHeaders,
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: securityHeaders,
       body: JSON.stringify({ error: 'Invalid or expired token' }),
     };
   }

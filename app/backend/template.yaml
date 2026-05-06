@@ -2326,13 +2326,7 @@ Resources:
     Properties:
       CodeUri: dist/handlers/auth
       Handler: index.getMe
-      Description: Get current user
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - cognito-idp:GetUser
-              Resource: !GetAtt UserPool.Arn
+      Description: Get current user from Cognito authorizer claims
       Events:
         ApiEvent:
           Type: Api
@@ -2340,6 +2334,8 @@ Resources:
             Path: /auth/me
             Method: get
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   AuthForgotPasswordFunction:
     Type: AWS::Serverless::Function
