@@ -69,6 +69,8 @@ interface AuthState {
   forgotPassword: (email: string) => Promise<boolean>;
   resetPassword: (email: string, code: string, password: string) => Promise<boolean>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
+  setPassword: (newPassword: string, currentPassword?: string) => Promise<boolean>;
+  unlinkSocial: (provider: 'google' | 'facebook' | 'apple') => Promise<boolean>;
   refreshUserFromMock: () => void;
 }
 
@@ -207,11 +209,12 @@ export const useAuthStore = create<AuthState>()(
           console.error('Login error:', error);
           
           // E-posta doğrulanmamışsa doğrulama sayfasına yönlendir
-          if (error.message === 'Email not verified. Please check your email.' || error.status === 403) {
+          const isUnverified = error.data?.needsVerification || error.message?.includes('doğrulanmamış') || error.message?.includes('not confirmed') || error.status === 403;
+          if (isUnverified) {
             set({ 
               needsVerification: true, 
               pendingVerificationEmail: credentials.email,
-              error: 'E-posta adresiniz doğrulanmamış. Lütfen e-postanıza gönderilen kodu girin.',
+              error: 'E-posta adresiniz doğrulanmamış. Lütfen doğrulama sayfasından kodu girin veya yeni kod talep edin.',
               isLoading: false 
             });
             return false;
@@ -275,8 +278,17 @@ export const useAuthStore = create<AuthState>()(
         } catch (error: any) {
           console.error('Register error:', error);
           const errorMessage = error.message || 'Kayıt olurken bir hata oluştu';
-          if (errorMessage.includes('already exists') || errorMessage.includes('zaten kayıtlı')) {
+          
+          if (error.status === 409 || errorMessage.includes('already exists') || errorMessage.includes('zaten kayıtlı')) {
             set({ error: 'Bu e-posta adresi zaten kayıtlı. Lütfen giriş yapın veya şifrenizi sıfırlayın.', isLoading: false });
+          } else if (error.status === 429) {
+            set({ 
+              needsVerification: true, 
+              pendingVerificationEmail: data.email,
+              error: 'Çok fazla deneme yaptınız. Lütfen 1 dakika sonra tekrar deneyin.',
+              isLoading: false 
+            });
+            return true;
           } else {
             set({ error: errorMessage, isLoading: false });
           }
@@ -634,6 +646,57 @@ export const useAuthStore = create<AuthState>()(
           return true;
         } catch (error: any) {
           set({ error: error.message || 'Şifre değiştirilemedi', isLoading: false });
+          return false;
+        }
+      },
+
+      setPassword: async (newPassword: string) => {
+        set({ isLoading: true, error: null });
+        
+        if (isMockMode()) {
+          set({ isLoading: false });
+          return true;
+        }
+        
+        try {
+          await authApi.setPassword(newPassword);
+          // Update local user auth_provider to 'both'
+          const { user } = get();
+          if (user) {
+            set({ user: { ...user, auth_provider: 'both' }, isLoading: false });
+          } else {
+            set({ isLoading: false });
+          }
+          return true;
+        } catch (error: any) {
+          set({ error: error.message || 'Şifre belirlenemedi', isLoading: false });
+          return false;
+        }
+      },
+
+      unlinkSocial: async (provider: 'google' | 'facebook' | 'apple') => {
+        set({ isLoading: true, error: null });
+        
+        if (isMockMode()) {
+          set({ isLoading: false });
+          return true;
+        }
+        
+        try {
+          await authApi.unlinkSocial(provider);
+          // Update local user
+          const { user } = get();
+          if (user) {
+            const updates: any = { auth_provider: 'email' };
+            if (provider === 'google') updates.google_sub = undefined;
+            if (provider === 'facebook') updates.facebook_id = undefined;
+            set({ user: { ...user, ...updates }, isLoading: false });
+          } else {
+            set({ isLoading: false });
+          }
+          return true;
+        } catch (error: any) {
+          set({ error: error.message || 'Hesap bağlantısı kaldırılamadı', isLoading: false });
           return false;
         }
       },

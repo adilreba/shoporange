@@ -12,11 +12,12 @@ import {
   AdminCreateUserCommand,
   AdminSetUserPasswordCommand,
   AdminGetUserCommand,
+  AdminConfirmSignUpCommand,
   ChangePasswordCommand,
   AuthFlowType,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { OAuth2Client } from 'google-auth-library';
 import {
@@ -315,6 +316,8 @@ async function createUserProfile(userData: {
   avatar?: string;
   auth_provider: string;
   google_sub?: string;
+  facebook_id?: string;
+  apple_sub?: string;
   avatar_source?: string;
 }): Promise<void> {
   if (!USERS_TABLE) return;
@@ -341,6 +344,8 @@ async function createUserProfile(userData: {
     isActive: true,
     auth_provider: userData.auth_provider,
     google_sub: userData.google_sub || undefined,
+    facebook_id: userData.facebook_id || undefined,
+    apple_sub: userData.apple_sub || undefined,
     avatar_source: userData.avatar_source || 'google',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -628,26 +633,11 @@ export const register = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
     console.error('Register error:', error);
 
     if (error.name === 'UsernameExistsException') {
-      try {
-        // Kullanıcı zaten kayıtlıysa, doğrulama kodunu tekrar göndermeyi dene
-        // (Eğer kullanıcı zaten confirmed ise bu da hata verir, o zaman 'already exists' döneriz)
-        await resendConfirmationCode(JSON.parse(event.body || '{}').email || '');
-        return {
-          statusCode: 200,
-          headers: securityHeaders,
-          body: JSON.stringify({
-            message: 'Verification code resent. Please check your SMS.',
-            needsVerification: true,
-          }),
-        };
-      } catch (resendError: any) {
-        // Kod tekrar gönderilemezse (örn. zaten confirmed), kayıtlı olduğunu söyle
-        return {
-          statusCode: 409,
-          headers: securityHeaders,
-          body: JSON.stringify({ error: 'Bu e-posta adresi zaten kayıtlı. Lütfen giriş yapın veya şifrenizi sıfırlayın.' }),
-        };
-      }
+      return {
+        statusCode: 409,
+        headers: securityHeaders,
+        body: JSON.stringify({ error: 'Bu e-posta adresi zaten kayıtlı. Lütfen giriş yapın veya şifrenizi sıfırlayın.' }),
+      };
     }
 
     if (error.name === 'InvalidPasswordException') {
@@ -752,7 +742,10 @@ export const login = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
       return {
         statusCode: 403,
         headers: securityHeaders,
-        body: JSON.stringify({ error: 'Email not verified. Please check your email.' }),
+        body: JSON.stringify({ 
+          error: 'E-posta adresiniz doğrulanmamış. Lütfen doğrulama kodunu girin veya yeni kod talep edin.',
+          needsVerification: true,
+        }),
       };
     }
 
@@ -1301,5 +1294,274 @@ export const changePassword = async (event: APIGatewayProxyEvent): Promise<APIGa
       headers: securityHeaders,
       body: JSON.stringify({ error: 'Password change failed' }),
     };
+  }
+};
+
+
+/**
+ * POST /auth/set-password
+ * Allow social-login users to set a password for email/password login
+ */
+export const setPassword = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const authHeader = event.headers.Authorization || event.headers.authorization;
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token) {
+      return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Unauthorized' }) };
+    }
+
+    const payload = decodeJwtPayload(token);
+    if (!payload) {
+      return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Invalid token' }) };
+    }
+
+    if (!event.body) {
+      return { statusCode: 400, headers: securityHeaders, body: JSON.stringify({ error: 'Request body required' }) };
+    }
+
+    const { newPassword } = JSON.parse(event.body);
+
+    if (!newPassword || !validatePasswordStrength(newPassword)) {
+      return { statusCode: 400, headers: securityHeaders, body: JSON.stringify({ error: 'Password does not meet security requirements' }) };
+    }
+
+    // Set password in Cognito (admin operation, user is already authenticated via JWT)
+    await cognitoClient.send(new AdminSetUserPasswordCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: payload.email,
+      Password: newPassword,
+      Permanent: true,
+    }));
+
+    // Update auth_provider to 'both' in DynamoDB
+    if (USERS_TABLE) {
+      await dynamodb.send(new UpdateCommand({
+        TableName: USERS_TABLE,
+        Key: { id: payload.sub },
+        UpdateExpression: 'SET auth_provider = :provider, updatedAt = :updatedAt',
+        ExpressionAttributeValues: {
+          ':provider': 'both',
+          ':updatedAt': new Date().toISOString(),
+        },
+      }));
+    }
+
+    logSecurityEvent('PASSWORD_SET', { email: payload.email }, 'medium');
+
+    return { statusCode: 200, headers: securityHeaders, body: JSON.stringify({ message: 'Password set successfully' }) };
+  } catch (error: any) {
+    console.error('[setPassword] Error:', error);
+    return { statusCode: 500, headers: securityHeaders, body: JSON.stringify({ error: 'Failed to set password' }) };
+  }
+};
+
+/**
+ * POST /auth/unlink-social
+ * Unlink a social account (Google/Facebook/Apple)
+ */
+export const unlinkSocial = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const authHeader = event.headers.Authorization || event.headers.authorization;
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token) {
+      return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Unauthorized' }) };
+    }
+
+    const payload = decodeJwtPayload(token);
+    if (!payload) {
+      return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Invalid token' }) };
+    }
+
+    if (!event.body) {
+      return { statusCode: 400, headers: securityHeaders, body: JSON.stringify({ error: 'Request body required' }) };
+    }
+
+    const { provider } = JSON.parse(event.body);
+
+    if (!provider || !['google', 'facebook', 'apple'].includes(provider)) {
+      return { statusCode: 400, headers: securityHeaders, body: JSON.stringify({ error: 'Invalid provider' }) };
+    }
+
+    if (!USERS_TABLE) {
+      return { statusCode: 500, headers: securityHeaders, body: JSON.stringify({ error: 'Users table not configured' }) };
+    }
+
+    // Get current user
+    const userResult = await dynamodb.send(new GetCommand({
+      TableName: USERS_TABLE,
+      Key: { id: payload.sub },
+    }));
+
+    const user = userResult.Item;
+    if (!user) {
+      return { statusCode: 404, headers: securityHeaders, body: JSON.stringify({ error: 'User not found' }) };
+    }
+
+    // Check if user has a password set (auth_provider must be 'both')
+    if (user.auth_provider === provider) {
+      return {
+        statusCode: 400,
+        headers: securityHeaders,
+        body: JSON.stringify({ error: 'Cannot unlink your only login method. Please set a password first.' }),
+      };
+    }
+
+    // Remove social link and update auth_provider
+    const providerField = provider === 'google' ? 'google_sub' : provider === 'facebook' ? 'facebook_id' : 'apple_sub';
+
+    await dynamodb.send(new UpdateCommand({
+      TableName: USERS_TABLE,
+      Key: { id: payload.sub },
+      UpdateExpression: `REMOVE ${providerField} SET auth_provider = :provider, updatedAt = :updatedAt`,
+      ExpressionAttributeValues: {
+        ':provider': 'email',
+        ':updatedAt': new Date().toISOString(),
+      },
+    }));
+
+    logSecurityEvent('SOCIAL_UNLINKED', { email: payload.email, provider }, 'low');
+
+    return { statusCode: 200, headers: securityHeaders, body: JSON.stringify({ message: 'Social account unlinked successfully' }) };
+  } catch (error: any) {
+    console.error('[unlinkSocial] Error:', error);
+    return { statusCode: 500, headers: securityHeaders, body: JSON.stringify({ error: 'Failed to unlink social account' }) };
+  }
+};
+
+// ===== FACEBOOK AUTH =====
+
+async function verifyFacebookToken(accessToken: string): Promise<any> {
+  const url = `https://graph.facebook.com/me?access_token=${encodeURIComponent(accessToken)}&fields=id,name,email,picture`;
+  const response = await fetch(url, { timeout: 10000 } as any);
+  if (!response.ok) {
+    const errorData = await response.text();
+    throw new Error(`Facebook token verification failed: ${errorData}`);
+  }
+  return await response.json();
+}
+
+async function handleFacebookSignIn(fbUser: any): Promise<any> {
+  const basePassword = `Facebook_${fbUser.id}_Auth!`;
+
+  // 1. Check if user exists in DynamoDB by email
+  const existingDbUser = await findUserByEmail(fbUser.email);
+
+  if (existingDbUser) {
+    console.log('[handleFacebookSignIn] Existing user found, linking:', fbUser.email);
+
+    if (!existingDbUser.facebook_id) {
+      const avatarUrl = fbUser.picture?.data?.url
+        ? await downloadAndStoreAvatar(fbUser.picture.data.url, existingDbUser.id)
+        : undefined;
+
+      await dynamodb.send(new UpdateCommand({
+        TableName: USERS_TABLE,
+        Key: { id: existingDbUser.id },
+        UpdateExpression: 'SET facebook_id = :fbId, auth_provider = :provider, updatedAt = :updatedAt' + (avatarUrl ? ', avatar = :avatar, avatar_source = :avatarSource' : ''),
+        ExpressionAttributeValues: {
+          ':fbId': fbUser.id,
+          ':provider': existingDbUser.auth_provider === 'google' || existingDbUser.auth_provider === 'apple' ? 'both' : 'facebook',
+          ':updatedAt': new Date().toISOString(),
+          ...(avatarUrl ? { ':avatar': avatarUrl, ':avatarSource': 'facebook' } : {}),
+        },
+      }));
+    }
+
+    try {
+      await cognitoClient.send(new AdminGetUserCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: fbUser.email,
+      }));
+    } catch (cognitoError: any) {
+      if (cognitoError.name === 'UserNotFoundException') {
+        await adminCreateUser(fbUser.email, fbUser.name, basePassword, 'user');
+      } else {
+        throw cognitoError;
+      }
+    }
+
+    const setPasswordCommand = new AdminSetUserPasswordCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: fbUser.email,
+      Password: basePassword,
+      Permanent: true,
+    });
+    await cognitoClient.send(setPasswordCommand);
+
+    return await signIn({ email: fbUser.email, password: basePassword });
+  }
+
+  // New user
+  console.log('[handleFacebookSignIn] New user, creating:', fbUser.email);
+
+  try {
+    await adminCreateUser(fbUser.email, fbUser.name, basePassword, 'user');
+  } catch (createError: any) {
+    if (createError.name === 'UsernameExistsException') {
+      console.log('[handleFacebookSignIn] Cognito user exists, continuing...');
+    } else {
+      throw createError;
+    }
+  }
+
+  const cognitoUser = await cognitoClient.send(new AdminGetUserCommand({
+    UserPoolId: USER_POOL_ID,
+    Username: fbUser.email,
+  }));
+  const userSub = cognitoUser.UserAttributes?.find((a: any) => a.Name === 'sub')?.Value || '';
+
+  const avatarUrl = fbUser.picture?.data?.url
+    ? await downloadAndStoreAvatar(fbUser.picture.data.url, userSub)
+    : undefined;
+
+  await createUserProfile({
+    id: userSub,
+    email: fbUser.email,
+    name: fbUser.name,
+    avatar: avatarUrl,
+    auth_provider: 'facebook',
+    facebook_id: fbUser.id,
+    avatar_source: 'facebook',
+  });
+
+  return await signIn({ email: fbUser.email, password: basePassword });
+}
+
+export const facebookLogin = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    if (!event.body) {
+      return { statusCode: 400, headers: securityHeaders, body: JSON.stringify({ error: 'Request body required' }) };
+    }
+
+    const { token } = JSON.parse(event.body);
+    if (!token) {
+      return { statusCode: 400, headers: securityHeaders, body: JSON.stringify({ error: 'Facebook access token required' }) };
+    }
+
+    const fbUser = await verifyFacebookToken(token);
+
+    if (!fbUser.email) {
+      return { statusCode: 400, headers: securityHeaders, body: JSON.stringify({ error: 'Facebook account must have an email address' }) };
+    }
+
+    const result = await handleFacebookSignIn(fbUser);
+
+    return {
+      statusCode: 200,
+      headers: securityHeaders,
+      body: JSON.stringify({
+        user: result.user,
+        token: result.tokens.idToken,
+        accessToken: result.tokens.accessToken,
+        refreshToken: result.tokens.refreshToken,
+        expiresIn: result.tokens.expiresIn,
+      }),
+    };
+  } catch (error: any) {
+    console.error('[facebookLogin] Error:', error);
+    const details = error.message || 'Facebook login failed';
+    return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Facebook login failed', details }) };
   }
 };

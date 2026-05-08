@@ -163,8 +163,11 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
           throw error;
         }
         
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(error.error || `HTTP ${response.status}`);
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        const error = new Error(errorData.error || `HTTP ${response.status}`);
+        (error as any).status = response.status;
+        (error as any).data = errorData;
+        throw error;
       }
 
       return response.json();
@@ -403,7 +406,7 @@ export const authApi = {
     }
   },
 
-  socialLogin: async (provider: 'google' | 'facebook', token: string) => {
+  socialLogin: async (provider: 'google' | 'facebook' | 'apple', token: string) => {
     if (isMockMode()) {
       await new Promise(resolve => setTimeout(resolve, 500));
       const mockSocialUser = {
@@ -418,11 +421,23 @@ export const authApi = {
       };
       return { token: `mock_token_${mockSocialUser.id}_${Date.now()}`, user: mockSocialUser };
     }
-    // GUVENLIK: Backend hatasi olursa mock fallback KALDIRILDI.
-    // Gercek hatalar kullaniciya gosterilmeli, sahte kullanici olusturulmamali.
     return await fetchApi(`/auth/${provider}`, {
       method: 'POST',
       body: JSON.stringify({ token }),
+    });
+  },
+
+  setPassword: async (newPassword: string) => {
+    return await fetchApi('/auth/set-password', {
+      method: 'POST',
+      body: JSON.stringify({ newPassword }),
+    });
+  },
+
+  unlinkSocial: async (provider: 'google' | 'facebook' | 'apple') => {
+    return await fetchApi('/auth/unlink-social', {
+      method: 'POST',
+      body: JSON.stringify({ provider }),
     });
   },
 };

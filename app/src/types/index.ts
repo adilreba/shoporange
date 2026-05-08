@@ -84,9 +84,10 @@ export interface User {
   // Notification preferences
   notificationPreference?: 'email' | 'sms' | 'both';
   // Auth provider tracking (enterprise-grade)
-  auth_provider?: 'email' | 'google' | 'facebook' | 'both';
+  auth_provider?: 'email' | 'google' | 'facebook' | 'apple' | 'both';
   google_sub?: string;
   facebook_id?: string;
+  apple_id?: string;
   avatar_source?: 'google' | 'facebook' | 'gravatar' | 'upload';
 }
 

@@ -694,7 +694,7 @@ export function Products() {
       />
       <Header />
 
-      <main className="container-custom pt-[42px] pb-6 sm:pt-[42px] sm:pb-8 px-4 sm:px-6 lg:px-8">
+      <main className="container-custom pt-4 pb-6 sm:pt-3 sm:pb-8 px-4 sm:px-6 lg:px-8">
         {/* Title & Did You Mean */}
         <div className="mb-4 sm:mb-6">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">

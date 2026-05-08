@@ -1,16 +1,19 @@
-import { Client } from '@opensearch-project/opensearch';
-
 const OPENSEARCH_URL = process.env.OPENSEARCH_URL;
 const OPENSEARCH_INDEX = process.env.OPENSEARCH_INDEX || 'atushome-products';
 
-let client: Client | null = null;
+let client: any = null;
 
-function getClient(): Client | null {
+function getClient(): any {
   if (!OPENSEARCH_URL) {
     return null;
   }
   if (!client) {
-    client = new Client({ node: OPENSEARCH_URL });
+    try {
+      const { Client } = require('@opensearch-project/opensearch');
+      client = new Client({ node: OPENSEARCH_URL });
+    } catch {
+      return null;
+    }
   }
   return client;
 }

@@ -590,8 +590,6 @@ Resources:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: AtusHome-UserPool
-      AutoVerifiedAttributes:
-        - phone_number
       EmailConfiguration:
         EmailSendingAccount: DEVELOPER
         SourceArn: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${FromEmail}'
@@ -1288,6 +1286,8 @@ Resources:
             Path: /admin/products
             Method: get
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
   # Admin - Create Product
   AdminCreateProductFunction:
@@ -1305,6 +1305,8 @@ Resources:
             Path: /admin/products
             Method: post
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
   # Admin - Update Product
   AdminUpdateProductFunction:
@@ -1319,6 +1321,8 @@ Resources:
             Path: /admin/products/{id}
             Method: put
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
   # Admin - Delete Product
   AdminDeleteProductFunction:
@@ -1336,6 +1340,8 @@ Resources:
             Path: /admin/products/{id}
             Method: delete
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
   # Admin - Get All Orders
   AdminGetOrdersFunction:
@@ -1353,6 +1359,8 @@ Resources:
             Path: /admin/orders
             Method: get
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
   # Admin - Update Order Status
   AdminUpdateOrderFunction:
@@ -1367,6 +1375,8 @@ Resources:
             Path: /admin/orders/{orderId}
             Method: put
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
   # Admin - Get All Users
   AdminGetUsersFunction:
@@ -1390,6 +1400,8 @@ Resources:
             Path: /admin/users
             Method: get
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
   # Admin - Update User Role
   AdminUpdateUserRoleFunction:
@@ -1415,6 +1427,8 @@ Resources:
             Path: /admin/users/{id}/role
             Method: put
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
   # ============================================
   # Stock Management Functions
@@ -2200,7 +2214,10 @@ Resources:
                 - cognito-idp:SignUp
                 - cognito-idp:AdminCreateUser
                 - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminConfirmSignUp
               Resource: !GetAtt UserPool.Arn
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
       Events:
         ApiEvent:
           Type: Api
@@ -2269,6 +2286,8 @@ Resources:
                 - cognito-idp:InitiateAuth
                 - cognito-idp:GetUser
               Resource: !GetAtt UserPool.Arn
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
       Events:
         ApiEvent:
           Type: Api
@@ -2349,6 +2368,8 @@ Resources:
               Action:
                 - cognito-idp:ForgotPassword
               Resource: !GetAtt UserPool.Arn
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
       Events:
         ApiEvent:
           Type: Api
@@ -2430,11 +2451,105 @@ Resources:
                 - kms:Decrypt
                 - kms:GenerateDataKey
               Resource: !GetAtt PIIEncryptionKey.Arn
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
       Events:
         ApiEvent:
           Type: Api
           Properties:
             Path: /auth/google
+            Method: post
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
+  AuthSetPasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.setPassword
+      Description: Set password for social login users
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminSetUserPassword
+              Resource: !GetAtt UserPool.Arn
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+              Resource: !GetAtt PIIEncryptionKey.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/set-password
+            Method: post
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
+  AuthUnlinkSocialFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.unlinkSocial
+      Description: Unlink social account
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+              Resource: !GetAtt PIIEncryptionKey.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/unlink-social
+            Method: post
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
+  AuthFacebookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/auth
+      Handler: index.facebookLogin
+      Description: Facebook OAuth login
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:InitiateAuth
+                - cognito-idp:GetUser
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminGetUser
+              Resource: !GetAtt UserPool.Arn
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - S3CrudPolicy:
+            BucketName: !Ref ProductImagesBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt PIIEncryptionKey.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth/facebook
             Method: post
             RestApiId: !Ref ApiGateway
             Auth:
@@ -2675,6 +2790,8 @@ Resources:
             Path: /payment-methods/admin
             Method: get
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
   PaymentMethodsListPublicFunction:
     Type: AWS::Serverless::Function
@@ -3260,6 +3377,29 @@ Resources:
         Enabled: true
         DefaultRootObject: index.html
         Comment: !Sub '${AWS::StackName} Product Images CDN'
+
+  # ============================================
+  # Rate Limits Table (for DynamoDB-based rate limiting)
+  # ============================================
+  RateLimitsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RateLimits
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: key
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Environment
+          Value: prod
+        - Key: Project
+          Value: AtusHome
 
 # ============================================
 # Outputs

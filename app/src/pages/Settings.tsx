@@ -11,7 +11,11 @@ import {
   Lock,
   Smartphone,
   Mail,
-  Save
+  Save,
+  Chrome,
+  Apple,
+  Link2,
+  Unlink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +32,7 @@ import { toast } from 'sonner';
 
 export function Settings() {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, changePassword, setPassword, unlinkSocial } = useAuthStore();
   const { isDark, toggleTheme } = useThemeStore();
   const [activeTab, setActiveTab] = useState('general');
 
@@ -47,8 +51,46 @@ export function Settings() {
     toast.success('Ayarlarınız kaydedildi!');
   };
 
-  const handlePasswordChange = () => {
-    toast.info('Şifre değiştirme özelliği yakında!');
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  const handlePasswordChange = async () => {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('Yeni şifreler eşleşmiyor!');
+      return;
+    }
+    
+    if (passwordForm.newPassword.length < 8) {
+      toast.error('Şifre en az 8 karakter olmalıdır!');
+      return;
+    }
+    
+    // Social login users without password
+    if (user?.auth_provider === 'google' || user?.auth_provider === 'facebook' || user?.auth_provider === 'apple') {
+      const success = await setPassword(passwordForm.newPassword);
+      if (success) {
+        toast.success('Şifreniz belirlendi! Artık email ve şifre ile de giriş yapabilirsiniz.');
+        setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+      }
+      return;
+    }
+    
+    // Normal users with existing password
+    const success = await changePassword(passwordForm.oldPassword, passwordForm.newPassword);
+    if (success) {
+      toast.success('Şifreniz başarıyla güncellendi!');
+      setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+    }
+  };
+
+  const handleUnlinkSocial = async (provider: 'google' | 'facebook' | 'apple') => {
+    const success = await unlinkSocial(provider);
+    if (success) {
+      toast.success(`${provider.charAt(0).toUpperCase() + provider.slice(1)} hesabınızın bağlantısı kaldırıldı.`);
+    }
   };
 
   if (!isAuthenticated) {
@@ -126,10 +168,11 @@ export function Settings() {
               </CardHeader>
               <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="w-full grid grid-cols-4 mb-6">
+                  <TabsList className="w-full grid grid-cols-5 mb-6">
                     <TabsTrigger value="general">Genel</TabsTrigger>
                     <TabsTrigger value="notifications">Bildirimler</TabsTrigger>
                     <TabsTrigger value="security">Güvenlik</TabsTrigger>
+                    <TabsTrigger value="connected">Hesaplar</TabsTrigger>
                     <TabsTrigger value="payment">Ödeme</TabsTrigger>
                   </TabsList>
 
@@ -291,12 +334,36 @@ export function Settings() {
                         </div>
                       </div>
                       <div className="space-y-3">
-                        <Input type="password" placeholder="Mevcut Şifre" />
-                        <Input type="password" placeholder="Yeni Şifre" />
-                        <Input type="password" placeholder="Yeni Şifre (Tekrar)" />
+                        {(user?.auth_provider !== 'google' && user?.auth_provider !== 'facebook' && user?.auth_provider !== 'apple') && (
+                          <Input 
+                            type="password" 
+                            placeholder="Mevcut Şifre" 
+                            value={passwordForm.oldPassword}
+                            onChange={(e) => setPasswordForm({...passwordForm, oldPassword: e.target.value})}
+                          />
+                        )}
+                        <Input 
+                          type="password" 
+                          placeholder="Yeni Şifre" 
+                          value={passwordForm.newPassword}
+                          onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                        />
+                        <Input 
+                          type="password" 
+                          placeholder="Yeni Şifre (Tekrar)" 
+                          value={passwordForm.confirmPassword}
+                          onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                        />
                         <Button onClick={handlePasswordChange} className="w-full gradient-orange">
-                          Şifreyi Güncelle
+                          {user?.auth_provider === 'google' || user?.auth_provider === 'facebook' || user?.auth_provider === 'apple' 
+                            ? 'Şifre Belirle' 
+                            : 'Şifreyi Güncelle'}
                         </Button>
+                        {(user?.auth_provider === 'google' || user?.auth_provider === 'facebook' || user?.auth_provider === 'apple') && (
+                          <p className="text-xs text-muted-foreground">
+                            Sosyal giriş kullanıcısı olarak şifre belirleyebilirsiniz. Böylece email/şifre ile de giriş yapabilirsiniz.
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -319,6 +386,118 @@ export function Settings() {
                       >
                         Hesabımı Sil
                       </Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Connected Accounts */}
+                  <TabsContent value="connected" className="space-y-6">
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                          <Link2 className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Bağlı Sosyal Hesaplar</p>
+                          <p className="text-sm text-muted-foreground">Hesabınıza bağlı sosyal medya girişlerini yönetin</p>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        {/* Google */}
+                        <div className="flex items-center justify-between p-3 bg-card rounded-lg border">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                              <Chrome className="w-5 h-5 text-red-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium">Google</p>
+                              <p className="text-sm text-muted-foreground">
+                                {user?.google_sub ? 'Bağlı' : 'Bağlı değil'}
+                              </p>
+                            </div>
+                          </div>
+                          {user?.google_sub ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleUnlinkSocial('google')}
+                            >
+                              <Unlink className="w-4 h-4 mr-1" />
+                              Bağlantıyı Kaldır
+                            </Button>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground">Yakında</Badge>
+                          )}
+                        </div>
+
+                        {/* Facebook */}
+                        <div className="flex items-center justify-between p-3 bg-card rounded-lg border">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="font-medium">Facebook</p>
+                              <p className="text-sm text-muted-foreground">
+                                {user?.facebook_id ? 'Bağlı' : 'Bağlı değil'}
+                              </p>
+                            </div>
+                          </div>
+                          {user?.facebook_id ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleUnlinkSocial('facebook')}
+                            >
+                              <Unlink className="w-4 h-4 mr-1" />
+                              Bağlantıyı Kaldır
+                            </Button>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground">Yakında</Badge>
+                          )}
+                        </div>
+
+                        {/* Apple */}
+                        <div className="flex items-center justify-between p-3 bg-card rounded-lg border">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                              <Apple className="w-5 h-5 text-gray-700" />
+                            </div>
+                            <div>
+                              <p className="font-medium">Apple</p>
+                              <p className="text-sm text-muted-foreground">
+                                {user?.apple_id ? 'Bağlı' : 'Bağlı değil'}
+                              </p>
+                            </div>
+                          </div>
+                          {user?.apple_id ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleUnlinkSocial('apple')}
+                            >
+                              <Unlink className="w-4 h-4 mr-1" />
+                              Bağlantıyı Kaldır
+                            </Button>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground">Yakında</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-start gap-3">
+                        <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                        <div>
+                          <p className="font-medium text-blue-700">Hesap Bağlama Bilgisi</p>
+                          <p className="text-sm text-blue-500 mt-1">
+                            Birden fazla sosyal hesabı bağlayarak giriş seçeneklerinizi artırabilirsiniz. 
+                            Aynı email adresiyle kayıtlı hesaplar otomatik olarak birleştirilir.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </TabsContent>
 

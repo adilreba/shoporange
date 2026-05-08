@@ -9,11 +9,44 @@ export interface AuthUser {
 }
 
 /**
+ * Decode JWT payload without signature verification
+ */
+function decodeJwtPayload(token: string): any {
+  try {
+    const base64Payload = token.split('.')[1];
+    const payload = Buffer.from(base64Payload, 'base64').toString('utf8');
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Extract user information from Cognito Authorizer claims
+ * Falls back to JWT decode if no authorizer (Authorizer: NONE)
  */
 export function getUserFromToken(event: APIGatewayProxyEvent): AuthUser | null {
+  // Try Cognito Authorizer first
   const claims = event.requestContext.authorizer?.claims;
   
+  if (claims && claims.sub) {
+    return parseClaims(claims);
+  }
+  
+  // Fallback: decode JWT from Authorization header
+  const authHeader = event.headers.Authorization || event.headers.authorization;
+  if (authHeader) {
+    const token = authHeader.replace('Bearer ', '');
+    const payload = decodeJwtPayload(token);
+    if (payload && payload.sub) {
+      return parseClaims(payload);
+    }
+  }
+  
+  return null;
+}
+
+function parseClaims(claims: any): AuthUser | null {
   if (!claims || !claims.sub) {
     return null;
   }

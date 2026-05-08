@@ -26,9 +26,11 @@ declare global {
           initialize: (config: any) => void;
           renderButton: (element: HTMLElement, config: any) => void;
           prompt: () => void;
+          cancel: () => void;
         };
       };
     };
+    __googleInitialized?: boolean;
   }
 }
 
@@ -49,17 +51,20 @@ export function GoogleLoginButton({ onSuccess, className = '' }: GoogleLoginButt
       return;
     }
 
-    // Initialize Google Identity Services
+    // Initialize Google Identity Services (only once globally)
     const initializeGoogle = () => {
       if (window.google && buttonRef.current) {
         const width = buttonRef.current.offsetWidth;
 
-        window.google.accounts.id.initialize({
-          client_id: getGoogleClientId(),
-          callback: handleCredentialResponse,
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
+        if (!window.__googleInitialized) {
+          window.google.accounts.id.initialize({
+            client_id: getGoogleClientId(),
+            callback: handleCredentialResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          });
+          window.__googleInitialized = true;
+        }
 
         window.google.accounts.id.renderButton(buttonRef.current, {
           type: 'standard',
@@ -211,24 +216,27 @@ export function GoogleOneTapPrompt() {
 
     const initializeOneTap = () => {
       if (window.google) {
-        window.google.accounts.id.initialize({
-          client_id: getGoogleClientId(),
-          callback: async (response: any) => {
-            if (response.credential) {
-              try {
-                const success = await googleSignIn(response.credential);
-                if (success) {
-                  toast.success('Google ile giriş başarılı!');
-                  navigate('/');
+        if (!window.__googleInitialized) {
+          window.google.accounts.id.initialize({
+            client_id: getGoogleClientId(),
+            callback: async (response: any) => {
+              if (response.credential) {
+                try {
+                  const success = await googleSignIn(response.credential);
+                  if (success) {
+                    toast.success('Google ile giriş başarılı!');
+                    navigate('/');
+                  }
+                } catch (error) {
+                  console.error('One-tap sign in error:', error);
                 }
-              } catch (error) {
-                console.error('One-tap sign in error:', error);
               }
-            }
-          },
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
+            },
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          });
+          window.__googleInitialized = true;
+        }
 
         // Show the one-tap prompt
         window.google.accounts.id.prompt();

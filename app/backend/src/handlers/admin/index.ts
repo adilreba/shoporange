@@ -6,7 +6,7 @@ import { CognitoIdentityProviderClient, AdminAddUserToGroupCommand, AdminRemoveU
 import * as parasut from '../../services/parasut';
 import { checkAdminAccess, isSuperAdmin } from '../../utils/authorization';
 import { createErrorResponse, createSuccessResponse } from '../../utils/response';
-import { indexProduct, deleteProductIndex, bulkIndexProducts } from '../../utils/search';
+// import { indexProduct, deleteProductIndex, bulkIndexProducts } from '../../utils/search';
 import { cacheDelPattern } from '../../utils/redis';
 
 // DynamoDB client - SDK v3
@@ -140,7 +140,7 @@ export const createProduct = async (event: APIGatewayProxyEvent): Promise<APIGat
     }));
 
     // OpenSearch index sync (async, non-blocking)
-    indexProduct(product).catch(err => console.error('[Admin] OpenSearch index error:', err));
+    // indexProduct(product).catch(err => console.error('[Admin] OpenSearch index error:', err));
 
     // Cache invalidation (async, non-blocking)
     cacheDelPattern('products:*').catch(err => console.error('[Admin] Cache clear error:', err));
@@ -188,7 +188,7 @@ export const updateProduct = async (event: APIGatewayProxyEvent): Promise<APIGat
 
     // OpenSearch index sync (async, non-blocking)
     if (result.Attributes) {
-      indexProduct(result.Attributes).catch(err => console.error('[Admin] OpenSearch index error:', err));
+      // indexProduct(result.Attributes).catch(err => console.error('[Admin] OpenSearch index error:', err));
     }
 
     // Cache invalidation (async, non-blocking)
@@ -214,7 +214,7 @@ export const deleteProduct = async (event: APIGatewayProxyEvent): Promise<APIGat
     }));
 
     // OpenSearch index delete (async, non-blocking)
-    deleteProductIndex(productId).catch(err => console.error('[Admin] OpenSearch delete error:', err));
+    // deleteProductIndex(productId).catch(err => console.error('[Admin] OpenSearch delete error:', err));
 
     // Cache invalidation (async, non-blocking)
     cacheDelPattern('products:*').catch(err => console.error('[Admin] Cache clear error:', err));
@@ -239,7 +239,7 @@ export const reindexProducts = async (): Promise<APIGatewayProxyResult> => {
     }
 
     // OpenSearch'e bulk indexle
-    await bulkIndexProducts(products);
+    // await bulkIndexProducts(products);
 
     return createSuccessResponse({
       message: 'Products reindexed successfully',
