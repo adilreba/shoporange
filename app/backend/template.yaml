@@ -1402,6 +1402,14 @@ Resources:
             RestApiId: !Ref ApiGateway
             Auth:
               Authorizer: NONE
+        DeletedUsersEvent:
+          Type: Api
+          Properties:
+            Path: /admin/users/deleted
+            Method: get
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
   # Admin - Update User Role
   AdminUpdateUserRoleFunction:
@@ -1878,6 +1886,20 @@ Resources:
               Action:
                 - execute-api:ManageConnections
               Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+
+  ChatWebSocketFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ChatWebSocketFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*
 
   # HTTP API for Chat Management
   GetWaitingChatsFunction:

@@ -5,7 +5,7 @@ import { SecretsManagerClient, GetSecretValueCommand, PutSecretValueCommand, Cre
 import { CognitoIdentityProviderClient, AdminAddUserToGroupCommand, AdminRemoveUserFromGroupCommand, AdminUpdateUserAttributesCommand, AdminListGroupsForUserCommand } from '@aws-sdk/client-cognito-identity-provider';
 import * as parasut from '../../services/parasut';
 import { checkAdminAccess, isSuperAdmin } from '../../utils/authorization';
-import { createErrorResponse, createSuccessResponse } from '../../utils/response';
+import { createErrorResponse, createSuccessResponse, securityHeaders } from '../../utils/response';
 // import { indexProduct, deleteProductIndex, bulkIndexProducts } from '../../utils/search';
 import { cacheDelPattern } from '../../utils/redis';
 
@@ -18,11 +18,7 @@ const ORDERS_TABLE = process.env.ORDERS_TABLE || '';
 const USERS_TABLE = process.env.USERS_TABLE || '';
 const PARASUT_SECRET_NAME = process.env.PARASUT_SECRET_NAME || 'atushome/parasut';
 
-const headers = {
-  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '',
-  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-};
+const headers = securityHeaders;
 
 // Helper functions
 // ========== PRODUCT MANAGEMENT ==========
@@ -570,7 +566,7 @@ export const getDashboardStats = async (event: APIGatewayProxyEvent): Promise<AP
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+    return { statusCode: 200, headers: securityHeaders, body: '' };
   }
 
   // Authorization check for all admin routes
