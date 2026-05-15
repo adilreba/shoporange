@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Plus, 
-  Pencil, 
-  Trash2, 
+import {
+  Plus,
+  Pencil,
+  Trash2,
   Search,
   MoreHorizontal,
   Image as ImageIcon,
@@ -16,11 +16,12 @@ import {
   XCircle,
   Copy,
   Eye,
-  Star
+  Star,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
 import { toast } from 'sonner';
 import {
   Table,
@@ -55,6 +56,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { adminProductsApi, type AdminProduct } from '@/services/adminProductsApi';
 
 interface ProductVariant {
   id: string;
@@ -90,6 +92,8 @@ interface Product {
   discount?: ProductDiscount;
   featured: boolean;
   tags: string[];
+  brand?: string;
+  sku?: string;
 }
 
 const categories = [
@@ -105,130 +109,44 @@ const categories = [
   { id: 'electronics', name: 'Elektronik' },
 ];
 
-const mockProducts: Product[] = [
-  {
-    id: 'PROD-001',
-    name: 'Modern Koltuk Takımı',
-    description: 'Lüks koltuk',
-    price: 12000,
-    originalPrice: 15000,
-    category: 'living-room',
-    stock: 10,
-    images: ['https://via.placeholder.com/150'],
-    rating: 4.5,
-    reviews: 128,
-    salesCount: 245,
-    status: 'active',
-    createdAt: new Date().toISOString(),
-    featured: true,
-    tags: ['koltuk', 'modern', 'oturma odası'],
-    discount: {
-      type: 'percentage',
-      value: 20,
-      startDate: '2024-03-01',
-      endDate: '2024-03-31',
-      campaignName: 'Mart İndirimi'
-    }
-  },
-  {
-    id: 'PROD-001-VAR',
-    name: 'Koltuk Örtüsü',
-    description: 'Yıkanabilir koltuk örtüsü - Çeşitli renklerde',
-    price: 199,
-    category: 'ev-tekstili',
-    stock: 30,
-    images: ['https://via.placeholder.com/150'],
-    rating: 4.3,
-    reviews: 56,
-    salesCount: 120,
-    status: 'active',
-    createdAt: new Date().toISOString(),
-    featured: false,
-    tags: ['koltuk örtüsü', 'tekstil', 'ev'],
-    variants: [
-      { id: 'VAR-001', name: 'Beyaz - Standart', sku: 'KORT-BEYAZ-STD', price: 199, stock: 10 },
-      { id: 'VAR-002', name: 'Siyah - Standart', sku: 'KORT-SIYAH-STD', price: 199, stock: 20 },
-      { id: 'VAR-003', name: 'Krem - Standart', sku: 'KORT-KREM-STD', price: 219, stock: 15 },
-      { id: 'VAR-004', name: 'Gri - Standart', sku: 'KORT-GRI-STD', price: 199, stock: 8 },
-    ]
-  },
-  {
-    id: 'PROD-002',
-    name: 'Yemek Masası',
-    description: 'Ahşap masa',
-    price: 8500,
-    category: 'dining-room',
-    stock: 5,
-    images: ['https://via.placeholder.com/150'],
-    rating: 4.2,
-    reviews: 85,
-    salesCount: 156,
-    status: 'active',
-    createdAt: new Date().toISOString(),
-    featured: false,
-    tags: ['masa', 'ahşap'],
-  },
-  {
-    id: 'PROD-003',
-    name: 'Çalışma Sandalyesi',
-    description: 'Ergonomik',
-    price: 3500,
-    category: 'office',
-    stock: 0,
-    images: [],
-    rating: 4.7,
-    reviews: 210,
-    salesCount: 489,
-    status: 'out_of_stock',
-    createdAt: new Date().toISOString(),
-    featured: true,
-    tags: ['sandalye', 'ofis'],
-  },
-  {
-    id: 'PROD-004',
-    name: 'Avize',
-    description: 'Modern LED avize',
-    price: 2800,
-    originalPrice: 3500,
-    category: 'lighting',
-    stock: 8,
-    images: ['https://via.placeholder.com/150'],
-    rating: 4.0,
-    reviews: 45,
-    salesCount: 89,
-    status: 'active',
-    createdAt: new Date().toISOString(),
-    featured: false,
-    tags: ['avize', 'aydınlatma'],
-    discount: {
-      type: 'fixed',
-      value: 700,
-      startDate: '2024-03-15',
-      endDate: '2024-04-15',
-      campaignName: 'Aydınlatma Kampanyası'
-    }
-  },
-  {
-    id: 'PROD-005',
-    name: 'Kitaplık',
-    description: '5 raflı kitaplık',
-    price: 4500,
-    category: 'office',
-    stock: 2,
-    images: [],
-    rating: 4.3,
-    reviews: 67,
-    salesCount: 134,
-    status: 'active',
-    createdAt: new Date().toISOString(),
-    featured: false,
-    tags: ['kitaplık', 'depolama'],
-  },
-];
+function mapAdminProductToProduct(p: AdminProduct): Product {
+  return {
+    id: p.id || '',
+    name: p.name || '',
+    description: p.description || '',
+    price: p.price || 0,
+    originalPrice: p.originalPrice,
+    category: p.category || '',
+    stock: typeof p.stock === 'number' ? p.stock : 0,
+    images: p.images || [],
+    rating: p.rating || 0,
+    reviews: p.reviewCount || 0,
+    salesCount: 0,
+    status: p.status || (p.active === false ? 'inactive' : p.stock === 0 ? 'out_of_stock' : 'active'),
+    createdAt: p.createdAt || new Date().toISOString(),
+    variants: (p as any).variants || (p as any).variations?.map((v: any) => ({
+      id: v.variationId || v.id,
+      name: Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', '),
+      sku: v.sku,
+      price: v.price,
+      stock: v.stock,
+    })),
+    discount: p.discount
+      ? {
+          type: 'percentage',
+          value: p.discount,
+          startDate: new Date().toISOString().split('T')[0],
+          endDate: '',
+        }
+      : undefined,
+    featured: p.isFeatured || false,
+    tags: p.tags || [],
+  };
+}
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
-  const [loading] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'stock' | 'sales' | 'date'>('date');
@@ -241,22 +159,42 @@ export default function AdminProducts() {
     value: '',
     startDate: '',
     endDate: '',
-    campaignName: ''
+    campaignName: '',
   });
   const [activeTab, setActiveTab] = useState('all');
 
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await adminProductsApi.getAll();
+      const items = Array.isArray(res) ? res : res.data || [];
+      setProducts(items.map(mapAdminProductToProduct));
+    } catch (error: any) {
+      toast.error('Ürünler yüklenirken hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
   const filteredProducts = products
-    .filter(product => {
-      const matchesSearch = product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          product.id.toLowerCase().includes(searchTerm.toLowerCase());
+    .filter((product) => {
+      const matchesSearch =
+        product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.id.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-      const matchesTab = activeTab === 'all' || 
-                        (activeTab === 'active' && product.status === 'active') ||
-                        (activeTab === 'inactive' && product.status === 'inactive') ||
-                        (activeTab === 'out_of_stock' && product.status === 'out_of_stock') ||
-                        (activeTab === 'on_sale' && product.discount) ||
-                        (activeTab === 'featured' && product.featured);
+      const matchesTab =
+        activeTab === 'all' ||
+        (activeTab === 'active' && product.status === 'active') ||
+        (activeTab === 'inactive' && product.status === 'inactive') ||
+        (activeTab === 'out_of_stock' && product.status === 'out_of_stock') ||
+        (activeTab === 'on_sale' && product.discount) ||
+        (activeTab === 'featured' && product.featured);
       return matchesSearch && matchesCategory && matchesTab;
     })
     .sort((a, b) => {
@@ -283,31 +221,50 @@ export default function AdminProducts() {
 
   const handleDelete = async (productId: string) => {
     if (!confirm('Bu ürünü silmek istediğinize emin misiniz?')) return;
-    
-    setProducts(products.filter(p => p.id !== productId));
-    toast.success('Ürün silindi');
+    try {
+      await adminProductsApi.delete(productId);
+      setProducts(products.filter((p) => p.id !== productId));
+      toast.success('Ürün silindi');
+    } catch (error: any) {
+      toast.error(error.message || 'Ürün silinirken hata oluştu');
+    }
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (!confirm(`${selectedProducts.length} ürünü silmek istediğinize emin misiniz?`)) return;
-    setProducts(products.filter(p => !selectedProducts.includes(p.id)));
-    setSelectedProducts([]);
-    toast.success('Seçili ürünler silindi');
+    try {
+      await Promise.all(selectedProducts.map((id) => adminProductsApi.delete(id)));
+      setProducts(products.filter((p) => !selectedProducts.includes(p.id)));
+      setSelectedProducts([]);
+      toast.success('Seçili ürünler silindi');
+    } catch (error: any) {
+      toast.error(error.message || 'Toplu silme işleminde hata oluştu');
+    }
   };
 
-  const handleDuplicate = (product: Product) => {
-    const newProduct: Product = {
-      ...product,
-      id: `PROD-${String(products.length + 1).padStart(3, '0')}`,
-      name: `${product.name} (Kopya)`,
-      salesCount: 0,
-      reviews: 0,
-      rating: 0,
-      createdAt: new Date().toISOString(),
-      status: 'inactive'
-    };
-    setProducts([newProduct, ...products]);
-    toast.success('Ürün kopyalandı');
+  const handleDuplicate = async (product: Product) => {
+    try {
+      const newProductData: AdminProduct = {
+        name: `${product.name} (Kopya)`,
+        description: product.description,
+        price: product.price,
+        category: product.category,
+        stock: 0,
+        images: product.images,
+        brand: product.brand,
+        originalPrice: product.originalPrice,
+        discount: product.discount?.value,
+        tags: product.tags,
+        isFeatured: false,
+        active: false,
+      };
+      const result = await adminProductsApi.create(newProductData);
+      const created = mapAdminProductToProduct(result.product || result);
+      setProducts([created, ...products]);
+      toast.success('Ürün kopyalandı');
+    } catch (error: any) {
+      toast.error(error.message || 'Ürün kopyalanırken hata oluştu');
+    }
   };
 
   const openDiscountModal = (product: Product) => {
@@ -318,7 +275,7 @@ export default function AdminProducts() {
         value: product.discount.value.toString(),
         startDate: product.discount.startDate,
         endDate: product.discount.endDate,
-        campaignName: product.discount.campaignName || ''
+        campaignName: product.discount.campaignName || '',
       });
     } else {
       setDiscountForm({
@@ -326,82 +283,145 @@ export default function AdminProducts() {
         value: '',
         startDate: new Date().toISOString().split('T')[0],
         endDate: '',
-        campaignName: ''
+        campaignName: '',
       });
     }
     setIsDiscountModalOpen(true);
   };
 
-  const handleApplyDiscount = () => {
+  const handleApplyDiscount = async () => {
     if (!selectedProductForDiscount || !discountForm.value) {
       toast.error('Lütfen tüm alanları doldurun');
       return;
     }
-
     const value = parseFloat(discountForm.value);
-    const newPrice = discountForm.type === 'percentage' 
-      ? selectedProductForDiscount.price * (1 - value / 100)
-      : selectedProductForDiscount.price - value;
+    const newPrice =
+      discountForm.type === 'percentage'
+        ? selectedProductForDiscount.price * (1 - value / 100)
+        : selectedProductForDiscount.price - value;
 
-    setProducts(products.map(p => {
-      if (p.id === selectedProductForDiscount.id) {
-        return {
-          ...p,
-          originalPrice: p.discount ? p.originalPrice : p.price,
-          price: Math.max(0, newPrice),
-          discount: {
-            type: discountForm.type,
-            value,
-            startDate: discountForm.startDate,
-            endDate: discountForm.endDate,
-            campaignName: discountForm.campaignName
+    try {
+      await adminProductsApi.update(selectedProductForDiscount.id, {
+        originalPrice: selectedProductForDiscount.discount
+          ? selectedProductForDiscount.originalPrice
+          : selectedProductForDiscount.price,
+        price: Math.max(0, newPrice),
+        discount: value,
+      });
+
+      setProducts(
+        products.map((p) => {
+          if (p.id === selectedProductForDiscount.id) {
+            return {
+              ...p,
+              originalPrice: p.discount ? p.originalPrice : p.price,
+              price: Math.max(0, newPrice),
+              discount: {
+                type: discountForm.type,
+                value,
+                startDate: discountForm.startDate,
+                endDate: discountForm.endDate,
+                campaignName: discountForm.campaignName,
+              },
+            };
           }
-        };
-      }
-      return p;
+          return p;
+        })
+      );
+      setIsDiscountModalOpen(false);
+      toast.success('İndirim uygulandı');
+    } catch (error: any) {
+      toast.error(error.message || 'İndirim uygulanırken hata oluştu');
+    }
+  };
+
+  const handleRemoveDiscount = async (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+    try {
+      await adminProductsApi.update(productId, {
+        price: product.originalPrice || product.price,
+        originalPrice: undefined,
+        discount: undefined,
+      });
+      setProducts(
+        products.map((p) => {
+          if (p.id === productId) {
+            const newProduct = { ...p };
+            if (newProduct.originalPrice) {
+              newProduct.price = newProduct.originalPrice;
+            }
+            delete (newProduct as any).discount;
+            delete (newProduct as any).originalPrice;
+            return newProduct;
+          }
+          return p;
+        })
+      );
+      toast.success('İndirim kaldırıldı');
+    } catch (error: any) {
+      toast.error(error.message || 'İndirim kaldırılırken hata oluştu');
+    }
+  };
+
+  const handlePriceChange = async (productId: string, newPrice: number) => {
+    try {
+      await adminProductsApi.update(productId, { price: newPrice });
+      setProducts(products.map((p) => (p.id === productId ? { ...p, price: newPrice } : p)));
+      toast.success('Fiyat güncellendi');
+    } catch (error: any) {
+      toast.error(error.message || 'Fiyat güncellenirken hata oluştu');
+    }
+  };
+
+  const handleStockChange = async (productId: string, newStock: number) => {
+    try {
+      const newStatus = newStock === 0 ? 'out_of_stock' : 'active';
+      await adminProductsApi.update(productId, { stock: newStock, status: newStatus as any });
+      setProducts(
+        products.map((p) =>
+          p.id === productId ? { ...p, stock: newStock, status: newStatus as Product['status'] } : p
+        )
+      );
+      toast.success('Stok güncellendi');
+    } catch (error: any) {
+      toast.error(error.message || 'Stok güncellenirken hata oluştu');
+    }
+  };
+
+  const handleToggleFeatured = async (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+    const newFeatured = !product.featured;
+    try {
+      await adminProductsApi.update(productId, { isFeatured: newFeatured });
+      setProducts(products.map((p) => (p.id === productId ? { ...p, featured: newFeatured } : p)));
+      toast.success(newFeatured ? 'Ürün öne çıkarıldı' : 'Ürün öne çıkarma kaldırıldı');
+    } catch (error: any) {
+      toast.error(error.message || 'İşlem sırasında hata oluştu');
+    }
+  };
+
+  const handleExport = () => {
+    const data = filteredProducts.map((p) => ({
+      ID: p.id,
+      Ad: p.name,
+      Kategori: p.category,
+      Fiyat: p.price,
+      Stok: p.stock,
+      Durum: p.status,
+      SKU: p.sku || '',
     }));
-
-    setIsDiscountModalOpen(false);
-    toast.success('İndirim uygulandı');
-  };
-
-  const handleRemoveDiscount = (productId: string) => {
-    setProducts(products.map(p => {
-      if (p.id === productId) {
-        const newProduct = { ...p };
-        if (newProduct.originalPrice) {
-          newProduct.price = newProduct.originalPrice;
-        }
-        delete newProduct.discount;
-        delete newProduct.originalPrice;
-        return newProduct;
-      }
-      return p;
-    }));
-    toast.success('İndirim kaldırıldı');
-  };
-
-  const handlePriceChange = (productId: string, newPrice: number) => {
-    setProducts(products.map(p => 
-      p.id === productId ? { ...p, price: newPrice } : p
-    ));
-    toast.success('Fiyat güncellendi');
-  };
-
-  const handleStockChange = (productId: string, newStock: number) => {
-    setProducts(products.map(p => 
-      p.id === productId 
-        ? { ...p, stock: newStock, status: newStock === 0 ? 'out_of_stock' : 'active' } 
-        : p
-    ));
-    toast.success('Stok güncellendi');
-  };
-
-  const handleToggleFeatured = (productId: string) => {
-    setProducts(products.map(p => 
-      p.id === productId ? { ...p, featured: !p.featured } : p
-    ));
-    toast.success('Öne çıkar durumu değiştirildi');
+    const headers = Object.keys(data[0] || {});
+    const csv = [headers.join(','), ...data.map((row) => headers.map((h) => `"${(row as any)[h]}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `urunler-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV dışa aktarıldı');
   };
 
   const getStockBadge = (stock: number, status: string) => {
@@ -415,23 +435,19 @@ export default function AdminProducts() {
     const styles = {
       active: 'bg-green-100 text-green-700',
       inactive: 'bg-gray-100 text-gray-700',
-      out_of_stock: 'bg-red-100 text-red-700'
+      out_of_stock: 'bg-red-100 text-red-700',
     };
-    const labels = {
-      active: 'Aktif',
-      inactive: 'Pasif',
-      out_of_stock: 'Stok Yok'
-    };
+    const labels = { active: 'Aktif', inactive: 'Pasif', out_of_stock: 'Stok Yok' };
     return <Badge variant="secondary" className={styles[status as keyof typeof styles]}>{labels[status as keyof typeof labels]}</Badge>;
   };
 
   const stats = {
     total: products.length,
-    active: products.filter(p => p.status === 'active').length,
-    outOfStock: products.filter(p => p.status === 'out_of_stock').length,
-    onSale: products.filter(p => p.discount).length,
+    active: products.filter((p) => p.status === 'active').length,
+    outOfStock: products.filter((p) => p.status === 'out_of_stock').length,
+    onSale: products.filter((p) => p.discount).length,
     totalStock: products.reduce((acc, p) => acc + p.stock, 0),
-    totalValue: products.reduce((acc, p) => acc + (p.price * p.stock), 0)
+    totalValue: products.reduce((acc, p) => acc + p.price * p.stock, 0),
   };
 
   return (
@@ -440,10 +456,16 @@ export default function AdminProducts() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ürün Yönetimi</h1>
-          <p className="text-sm text-gray-500">{filteredProducts.length} ürün • Toplam stok değeri: ₺{stats.totalValue.toLocaleString()}</p>
+          <p className="text-sm text-gray-500">
+            {loading ? 'Yükleniyor...' : `${filteredProducts.length} ürün • Toplam stok değeri: ₺${stats.totalValue.toLocaleString()}`}
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => toast.info('Dışa aktarma başlatıldı')}>
+          <Button variant="outline" onClick={fetchProducts}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Yenile
+          </Button>
+          <Button variant="outline" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
             Dışa Aktar
           </Button>
@@ -490,7 +512,6 @@ export default function AdminProducts() {
         </Card>
       </div>
 
-      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="all">Tümü ({stats.total})</TabsTrigger>
@@ -519,8 +540,10 @@ export default function AdminProducts() {
                   <SelectValue placeholder="Kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -537,10 +560,7 @@ export default function AdminProducts() {
                   <SelectItem value="sales">Satış</SelectItem>
                 </SelectContent>
               </Select>
-              <Button
-                variant="outline"
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              >
+              <Button variant="outline" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
                 {sortOrder === 'asc' ? '↑ Artan' : '↓ Azalan'}
               </Button>
             </div>
@@ -572,12 +592,12 @@ export default function AdminProducts() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedProducts(filteredProducts.map(p => p.id));
+                          setSelectedProducts(filteredProducts.map((p) => p.id));
                         } else {
                           setSelectedProducts([]);
                         }
@@ -598,29 +618,37 @@ export default function AdminProducts() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+                    <TableCell colSpan={9} className="text-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
+                      <p className="text-gray-500 mt-2">Ürünler yükleniyor...</p>
                     </TableCell>
                   </TableRow>
                 ) : filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={9} className="text-center py-12 text-gray-500">
                       <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                       <p>Ürün bulunamadı</p>
+                      {products.length === 0 && (
+                        <p className="text-sm mt-1">
+                          <Link to="/admin/products/new" className="text-orange-600 hover:underline">
+                            Yeni ürün ekleyin
+                          </Link>
+                        </p>
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredProducts.map((product) => (
                     <TableRow key={product.id} className={selectedProducts.includes(product.id) ? 'bg-blue-50' : ''}>
                       <TableCell>
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={selectedProducts.includes(product.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
                               setSelectedProducts([...selectedProducts, product.id]);
                             } else {
-                              setSelectedProducts(selectedProducts.filter(id => id !== product.id));
+                              setSelectedProducts(selectedProducts.filter((id) => id !== product.id));
                             }
                           }}
                           className="rounded border-gray-300"
@@ -629,11 +657,7 @@ export default function AdminProducts() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           {product.images?.[0] ? (
-                            <img
-                              src={product.images[0]}
-                              alt={product.name}
-                              className="w-12 h-12 rounded-lg object-cover"
-                            />
+                            <img src={product.images[0]} alt={product.name} className="w-12 h-12 rounded-lg object-cover" />
                           ) : (
                             <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center">
                               <ImageIcon className="w-6 h-6 text-gray-400" />
@@ -646,8 +670,10 @@ export default function AdminProducts() {
                             </div>
                             <p className="text-xs text-gray-500">{product.id}</p>
                             <div className="flex gap-1 mt-1">
-                              {product.tags.slice(0, 2).map(tag => (
-                                <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                              {product.tags.slice(0, 2).map((tag) => (
+                                <Badge key={tag} variant="secondary" className="text-xs">
+                                  {tag}
+                                </Badge>
                               ))}
                             </div>
                           </div>
@@ -666,9 +692,7 @@ export default function AdminProducts() {
                               className="w-24 h-8 text-sm"
                             />
                             {product.discount && (
-                              <Badge className="bg-red-500 text-white">
-                                %{product.discount.value}
-                              </Badge>
+                              <Badge className="bg-red-500 text-white">%{product.discount.value}</Badge>
                             )}
                           </div>
                         </div>
@@ -701,7 +725,9 @@ export default function AdminProducts() {
                       <TableCell>
                         <div className="text-sm">
                           <p className="font-medium">{product.salesCount}</p>
-                          <p className="text-gray-500 text-xs">⭐ {product.rating} ({product.reviews})</p>
+                          <p className="text-gray-500 text-xs">
+                            ⭐ {product.rating} ({product.reviews})
+                          </p>
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(product.status)}</TableCell>
@@ -711,7 +737,9 @@ export default function AdminProducts() {
                             <Badge className="bg-orange-100 text-orange-700 mb-1">
                               {product.discount.campaignName || 'İndirim'}
                             </Badge>
-                            <p className="text-gray-500">{product.discount.startDate} - {product.discount.endDate}</p>
+                            <p className="text-gray-500">
+                              {product.discount.startDate} - {product.discount.endDate}
+                            </p>
                           </div>
                         ) : (
                           <span className="text-gray-400 text-sm">-</span>
@@ -754,10 +782,7 @@ export default function AdminProducts() {
                               <Eye className="w-4 h-4 mr-2" />
                               Önizle
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDelete(product.id)}
-                              className="text-red-600"
-                            >
+                            <DropdownMenuItem onClick={() => handleDelete(product.id)} className="text-red-600">
                               <Trash2 className="w-4 h-4 mr-2" />
                               Sil
                             </DropdownMenuItem>
@@ -778,16 +803,14 @@ export default function AdminProducts() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>İndirim Uygula</DialogTitle>
-            <DialogDescription>
-              {selectedProductForDiscount?.name}
-            </DialogDescription>
+            <DialogDescription>{selectedProductForDiscount?.name}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex gap-4">
               <Button
                 type="button"
                 variant={discountForm.type === 'percentage' ? 'default' : 'outline'}
-                onClick={() => setDiscountForm({...discountForm, type: 'percentage'})}
+                onClick={() => setDiscountForm({ ...discountForm, type: 'percentage' })}
                 className="flex-1"
               >
                 <Percent className="w-4 h-4 mr-2" />
@@ -796,7 +819,7 @@ export default function AdminProducts() {
               <Button
                 type="button"
                 variant={discountForm.type === 'fixed' ? 'default' : 'outline'}
-                onClick={() => setDiscountForm({...discountForm, type: 'fixed'})}
+                onClick={() => setDiscountForm({ ...discountForm, type: 'fixed' })}
                 className="flex-1"
               >
                 <Tag className="w-4 h-4 mr-2" />
@@ -810,14 +833,17 @@ export default function AdminProducts() {
               <Input
                 type="number"
                 value={discountForm.value}
-                onChange={(e) => setDiscountForm({...discountForm, value: e.target.value})}
+                onChange={(e) => setDiscountForm({ ...discountForm, value: e.target.value })}
                 placeholder={discountForm.type === 'percentage' ? 'Örn: 20' : 'Örn: 500'}
               />
               {discountForm.value && selectedProductForDiscount && (
                 <p className="text-sm text-gray-500 mt-1">
-                  Yeni fiyat: ₺{Math.max(0, discountForm.type === 'percentage' 
-                    ? selectedProductForDiscount.price * (1 - parseFloat(discountForm.value) / 100)
-                    : selectedProductForDiscount.price - parseFloat(discountForm.value)
+                  Yeni fiyat: ₺
+                  {Math.max(
+                    0,
+                    discountForm.type === 'percentage'
+                      ? selectedProductForDiscount.price * (1 - parseFloat(discountForm.value) / 100)
+                      : selectedProductForDiscount.price - parseFloat(discountForm.value)
                   ).toLocaleString()}
                 </p>
               )}
@@ -826,7 +852,7 @@ export default function AdminProducts() {
               <label className="text-sm font-medium mb-2 block">Kampanya Adı (Opsiyonel)</label>
               <Input
                 value={discountForm.campaignName}
-                onChange={(e) => setDiscountForm({...discountForm, campaignName: e.target.value})}
+                onChange={(e) => setDiscountForm({ ...discountForm, campaignName: e.target.value })}
                 placeholder="Örn: Mart İndirimi"
               />
             </div>
@@ -836,7 +862,7 @@ export default function AdminProducts() {
                 <Input
                   type="date"
                   value={discountForm.startDate}
-                  onChange={(e) => setDiscountForm({...discountForm, startDate: e.target.value})}
+                  onChange={(e) => setDiscountForm({ ...discountForm, startDate: e.target.value })}
                 />
               </div>
               <div>
@@ -844,7 +870,7 @@ export default function AdminProducts() {
                 <Input
                   type="date"
                   value={discountForm.endDate}
-                  onChange={(e) => setDiscountForm({...discountForm, endDate: e.target.value})}
+                  onChange={(e) => setDiscountForm({ ...discountForm, endDate: e.target.value })}
                 />
               </div>
             </div>

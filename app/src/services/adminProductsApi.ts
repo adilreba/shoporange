@@ -11,18 +11,12 @@ export interface AdminProduct {
   brand?: string;
   sku?: string;
   barcode?: string;
-  dimensions?: {
-    width?: number;
-    height?: number;
-    depth?: number;
-  };
-  materials?: string[];
-  colors?: string[];
+  stockCode?: string;
+  supplierCode?: string;
   tags?: string[];
-  isNew?: boolean;
-  isBestseller?: boolean;
-  rating?: number;
-  reviewCount?: number;
+  isFeatured?: boolean;
+  active?: boolean;
+  status?: 'active' | 'inactive' | 'out_of_stock';
   // SEO fields
   seoTitle?: string;
   seoDescription?: string;
@@ -31,6 +25,18 @@ export interface AdminProduct {
   // Pricing fields
   originalPrice?: number;
   discount?: number;
+  // Shipping & specs
+  weight?: number;
+  dimensions?: {
+    width?: number;
+    height?: number;
+    depth?: number;
+  };
+  materials?: string[];
+  specifications?: Record<string, string>;
+  warranty?: number;
+  countryOfOrigin?: string;
+  taxRate?: number;
   [key: string]: any;
 }
 

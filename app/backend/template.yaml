@@ -1343,6 +1343,29 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  # Admin - Dashboard Stats
+  AdminDashboardStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/handlers/admin
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrdersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /admin/dashboard/stats
+            Method: get
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+
   # Admin - Get All Orders
   AdminGetOrdersFunction:
     Type: AWS::Serverless::Function
@@ -2172,6 +2195,8 @@ Resources:
             Path: /categories
             Method: post
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
         ApiEventTree:
           Type: Api
           Properties:
@@ -2194,6 +2219,8 @@ Resources:
             Path: /categories/{categoryId}
             Method: put
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
         ApiEventDelete:
           Type: Api
           Properties:
@@ -2206,6 +2233,8 @@ Resources:
             Path: /categories/{categoryId}/attributes
             Method: post
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
         ApiEventUpdateAttribute:
           Type: Api
           Properties:
@@ -2218,6 +2247,8 @@ Resources:
             Path: /categories/{categoryId}/attributes/{attributeId}
             Method: delete
             RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
 
 # ============================================
 # Auth Functions
@@ -2240,6 +2271,8 @@ Resources:
               Resource: !GetAtt UserPool.Arn
         - DynamoDBCrudPolicy:
             TableName: !Ref RateLimitsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
       Events:
         ApiEvent:
           Type: Api

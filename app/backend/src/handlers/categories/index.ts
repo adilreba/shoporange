@@ -6,6 +6,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand, DeleteCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { checkAdminAccess } from '../../utils/authorization';
 
 const dynamodb = new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-west-1' });
 const docClient = DynamoDBDocumentClient.from(dynamodb);
@@ -470,6 +471,17 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   // CORS preflight
   if (method === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
+  }
+
+  // Admin auth check for write operations
+  const isAdminRoute = method !== 'GET' || (path !== '/categories' && path !== '/categories/tree' && !path?.match(/\/categories\/[^/]+$/));
+  const isPublicGet = method === 'GET' && (path === '/categories' || path === '/categories/tree' || path?.match(/\/categories\/[^/]+$/));
+  
+  if (!isPublicGet) {
+    const authCheck = checkAdminAccess(event);
+    if (!authCheck.allowed) {
+      return { statusCode: 403, headers, body: JSON.stringify({ error: authCheck.reason || 'Forbidden' }) };
+    }
   }
 
   // Routes

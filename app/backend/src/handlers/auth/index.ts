@@ -619,6 +619,20 @@ export const register = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
       marketingConsent: typeof marketingConsent === 'boolean' ? marketingConsent : false,
     });
 
+    // Auto-confirm user (skip email verification)
+    await cognitoClient.send(new AdminConfirmSignUpCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: sanitizedEmail,
+    }));
+
+    // Create user profile in DynamoDB
+    await createUserProfile({
+      id: result.userSub,
+      email: sanitizedEmail,
+      name: sanitizedName,
+      auth_provider: 'cognito',
+    });
+
     logSecurityEvent('USER_REGISTERED', { email: sanitizedEmail }, 'low');
 
     return {
